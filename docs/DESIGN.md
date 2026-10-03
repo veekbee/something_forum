@@ -15,7 +15,7 @@ Non-negotiable requirements, in priority order:
 5. Full admin visibility: every post and DM is retained and searchable by Admins, and members are told so up front.
 6. GDPR as the standard to aim for, not a legal obligation: handle personal data in the humane, member-respecting way GDPR describes, reconciled with point 5 through transparency and retention rules.
 7. Paid membership with billing integrated into the trust ladder.
-8. Reachable from a browser and a mobile app; desktop app optional.
+8. Reachable from any modern browser, designed mobile-first and installable to the home screen; no native or store-listed apps (decided 3 Oct 2026).
 
 The implementation is open. The sections below pin down what each requirement means in practice, then compare adopting an existing forum platform against building on a web framework.
 
@@ -159,7 +159,6 @@ Against members scraping or sharing credentials:
 - Per-member request rate limits well above human reading speed but below bulk download. Trip the limit and the account is read-only until a Moderator clears it.
 - Pagination with no "show all" view; thread and search results capped per page.
 - Optional light watermarking: each member's rendered pages carry an invisible per-session marker (zero-width characters or spacing) so a leaked copy identifies its source. Cheap and effective at small scale.
-- Mobile app traffic authenticated with the same session tokens, plus certificate pinning so the API cannot be trivially replayed.
 
 What this cannot do: stop a paying member from photographing a screen or retyping a post. The sponsorship model and the member agreement are the real defence there; the technical measures raise the cost and make leaks traceable.
 
@@ -178,17 +177,26 @@ Positions:
 - Hosting: US region. Keep a short list of every processor that touches member data (host, Stripe, email sender) with what each holds, and prefer ones that publish a Data Processing Agreement, so the list is ready if EU members ever join.
 - Breach handling: a written one-page procedure. Aim for GDPR's 72-hour notification standard, which also satisfies the US state breach-notification deadlines.
 
-## Platforms: browser, mobile, desktop
+## Platforms: browser only, installable
 
-Build one responsive web application behind one API, and ship the mobile presence as a wrapper around that web app first. A native app is only worth its ongoing cost if members ask for something the wrapper cannot do (rich push, offline reading).
+The forum is a responsive web application and nothing else (decided 3 Oct 2026). There is no native app, no store-listed wrapper and no desktop app. Pages are designed mobile-first, so a phone is a first-class way to use the forum rather than a reduced one.
 
-| Platform | First release | Later option | Why |
-| --- | --- | --- | --- |
-| Browser | Responsive web app, installable as a PWA | — | Covers every device; one codebase to moderate and secure |
-| Mobile | PWA from the home screen, or a thin store-listed wrapper (Capacitor) around the same web app | Native iOS/Android client against the API | Store listing gives credibility and push notifications; the wrapper shares all forum logic |
-| Desktop | Browser | Electron/Tauri wrapper if asked for | Rarely justified for a forum |
+The site is installable to the home screen (decided 3 Oct 2026). It ships a web app manifest and icons, so an installed copy opens full-screen like an app, and a service worker, which browsers require for installability and which is what lets an installed site receive push notifications on iPhones. The service worker caches only the static shell (CSS, JavaScript, icons, an offline notice). It never caches forum pages, posts, DMs or attachments, so no member content is stored on the device beyond what the browser itself keeps, and it clears its caches on logout.
 
-Two constraints shape this choice. Anti-scraping measures (session binding, signed attachment URLs, watermarking) are easier to keep consistent with one rendering path. And App Store review requires that paid membership sold through the app use Apple's billing; a wrapper that only logs in existing members and sends them to the website to pay avoids that, so keep purchasing on the web.
+| Platform | How members use it | Why |
+| --- | --- | --- |
+| Phone and tablet | The website in the browser, or installed to the home screen | Covers iOS and Android with one codebase; installed, it looks and launches like an app |
+| Desktop | The website in the browser | A forum gains nothing from a desktop wrapper |
+
+Why no apps:
+
+- Invitation is the only way in, so an app store listing's discoverability is worth nothing here.
+- Payment stays entirely on the web, which keeps App Store billing rules out of the picture.
+- No app review of a forum full of user-written content, and no store content policies to satisfy.
+- One rendering path keeps the anti-scraping measures (session binding, signed attachment URLs, watermarking) consistent, and there is no separate app API to protect.
+- Offline reading, the main thing a native app could add, is unwanted: copies of posts on members' devices work against the login-only design.
+
+Push notifications are possible through the installed site but are not yet designed; see Still open.
 
 ## Payments and billing
 
@@ -236,7 +244,7 @@ Why this path fits: the pedigree, sponsorship transfer and sponsor penalties are
 3. Sub-forums, threads, posts, editor, soft-delete, edit history, search.
 4. Moderation queue, audit log, per-member view, DM threads with Admin search.
 5. Billing webhooks, read-only on lapse, ban-reversal payment.
-6. Anti-scraping layer, responsive UI, PWA packaging.
+6. Anti-scraping layer, mobile-first responsive UI, home-screen installability (manifest, icons, shell-only service worker).
 
 Stack (confirmed 3 Oct 2026): Django with PostgreSQL, HTMX for the server-rendered UI (keeps one rendering path for the anti-scraping measures), django-allauth, a strict Markdown renderer, object storage with signed URLs, and PostgreSQL full-text search to start.
 
@@ -329,11 +337,12 @@ Every number below is a registry entry with a default; Owners change site-wide v
 6. Rate limits are computed from Post timestamps over a rolling window; thread starts count as posts, held posts count, rejected posts do not. A per-role limit in the sub-forum replaces the general limit for that role.
 7. A Provisional's first N posts site-wide (per provisional.held\_posts, excluding rejected posts) are created with is\_held true and, until released, are visible only to their author and to staff who can release them. Guest posts in the Guest Lobby follow the same path.
 8. Admin and Owner can read any thread including DMs; Moderators read a DM only under an unexpired DMAccessGrant covering a participant, and each read is audited.
-9. Every request from an unauthenticated session is refused except login, password reset, invitation acceptance, Stripe webhooks and legal pages. No TOTP, no session. Password reset mail goes only to verified addresses.
+9. Every request from an unauthenticated session is refused except login, password reset, invitation acceptance, Stripe webhooks, legal pages, and the web app manifest, its icons and the service worker script, which carry no member content. No TOTP, no session. Password reset mail goes only to verified addresses.
 10. AuditEntry rows are written inside the same database transaction as the action they record, and the table rejects updates and deletes.
 11. Posts are soft-deleted only. Erasure anonymises per the Privacy section and is the one path that clears personal fields.
 12. A ban on a Guest or Provisional opens a SponsorReview in the same transaction, unless the sponsor is Admin or Owner. Nothing happens to the sponsor until an Admin or Owner decides the review.
 13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum; archived threads accept no changes from anyone. A rejected post is shown to its author only in their post history, never in the thread. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
+14. The service worker caches only static shell assets. It never caches HTML responses, API or HTMX fragments, or attachments, and it clears its caches on logout.
 
 ### First Claude Code session: milestone 1
 
@@ -358,7 +367,7 @@ Change workflow (decided 3 Oct 2026): this file is the single authority for the 
 
 ## Open questions for later sessions
 
-Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT).
+Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen).
 
 Still open:
 
@@ -370,7 +379,7 @@ Still open:
 - [ ] What the Mod feedback feed shows, and who reads it.
 - [ ] How a locked-out member sends an appeal to Admins: a public form adds an unauthenticated page; an email address does not.
 - [ ] Deleting audit entries at the end of the retention period, given the append-only trigger (deferred 3 Oct 2026).
-- [ ] Mobile: PWA only at launch, or a store-listed wrapper?
+- [ ] Web push notifications: whether to offer them, for which events, and what a notification may contain (a push message passes through Apple's or Google's servers, so no post content).
 - [ ] Legal review of the member agreement and privacy notice before any member joins.
 
 ## Sources
