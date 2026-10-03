@@ -14,6 +14,16 @@ A paid, invite-only discussion forum. Every member is sponsored by another membe
 - Values marked "Proposed" or "Assumed" in the settings registry are defaults. Implement them as registry entries, never as constants.
 - Items under "Still open" in the doc are not decided. Do not build features that depend on them.
 
+## Design changes
+
+Design chats in Claude.ai propose changes as unified diffs against `docs/DESIGN.md` (and sometimes this file). When the user hands you one:
+
+1. Check it applies cleanly with `git apply --check`. If it doesn't, or if it contradicts code already built or another part of the design, report the conflict instead of merging by hand.
+2. Apply it, then make any code, migration, registry or test changes it implies in the same piece of work.
+3. Commit the design change and the code that implements it together, with a message that says the design was revised and why.
+
+Never edit the design decisions in `docs/DESIGN.md` on your own initiative. Propose the change to the user first. Updating status lines (for example, marking a milestone done) is fine.
+
 ## Stack
 
 Python 3.12+, Django 5.x, PostgreSQL 16+, HTMX with server-rendered templates, django-allauth (email/password, mandatory TOTP), Stripe, django-storages (S3-compatible, signed URLs only), pytest-django, Docker Compose.
