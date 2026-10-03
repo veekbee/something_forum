@@ -181,7 +181,7 @@ Positions:
 
 The forum is a responsive web application and nothing else (decided 3 Oct 2026). There is no native app, no store-listed wrapper and no desktop app. Pages are designed mobile-first, so a phone is a first-class way to use the forum rather than a reduced one.
 
-The site is installable to the home screen (decided 3 Oct 2026). It ships a web app manifest and icons, so an installed copy opens full-screen like an app, and a service worker, which browsers require for installability and which is what lets an installed site receive push notifications on iPhones. The service worker caches only the static shell (CSS, JavaScript, icons, an offline notice). It never caches forum pages, posts, DMs or attachments, so no member content is stored on the device beyond what the browser itself keeps, and it clears its caches on logout.
+The site is installable to the home screen (decided 3 Oct 2026). It ships a web app manifest and icons, so an installed copy opens full-screen like an app, and a service worker, which browsers require for installability and which is what lets an installed site receive push notifications on iPhones. The service worker caches only the static shell (CSS, JavaScript, icons, and a static offline page with no member content). It never caches forum pages, posts, DMs or attachments, so no member content is stored on the device beyond what the browser itself keeps. A service worker cannot see a logout, so the logout response carries a `Clear-Site-Data: "cache", "storage"` header, which empties the shell cache and unregisters the service worker; it registers again on the next visit (clarified 3 Oct 2026).
 
 | Platform | How members use it | Why |
 | --- | --- | --- |
@@ -342,7 +342,7 @@ Every number below is a registry entry with a default; Owners change site-wide v
 11. Posts are soft-deleted only. Erasure anonymises per the Privacy section and is the one path that clears personal fields.
 12. A ban on a Guest or Provisional opens a SponsorReview in the same transaction, unless the sponsor is Admin or Owner. Nothing happens to the sponsor until an Admin or Owner decides the review.
 13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum; archived threads accept no changes from anyone. A rejected post is shown to its author only in their post history, never in the thread. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
-14. The service worker caches only static shell assets. It never caches HTML responses, API or HTMX fragments, or attachments, and it clears its caches on logout.
+14. The service worker caches only static shell assets, including one static offline page that contains no member content. It never caches server-rendered pages, HTMX fragments or attachments. The logout response sends `Clear-Site-Data: "cache", "storage"`.
 
 ### First Claude Code session: milestone 1
 

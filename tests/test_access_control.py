@@ -77,6 +77,25 @@ def test_signed_in_with_totp_reaches_the_forum(client, make_user):
     assert client.get("/").status_code == 200
 
 
+def test_logout_clears_site_data(client, make_user):
+    member = make_user("full")
+    enrol_totp(member)
+    client.force_login(member)
+    response = client.post("/accounts/logout/")
+    assert response.status_code == 302
+    assert response["Clear-Site-Data"] == '"cache", "storage"'
+    assert client.get("/")["Location"].startswith("/accounts/login/")
+
+
+def test_logout_confirmation_page_does_not_clear(client, make_user):
+    member = make_user("full")
+    enrol_totp(member)
+    client.force_login(member)
+    response = client.get("/accounts/logout/")
+    assert response.status_code == 200
+    assert "Clear-Site-Data" not in response
+
+
 def test_staff_admin_is_for_admins_and_owners(client, make_user, owner):
     full = make_user("full")
     enrol_totp(full)
