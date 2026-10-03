@@ -6,25 +6,52 @@ from django.utils import timezone
 from core.immutability import HistoryRowMixin
 
 
+class InvitationQuerySet(models.QuerySet):
+    def live(self):
+        """Invitations still in play: they hold or wait for a sponsorship slot."""
+        return self.filter(status__in=Invitation.LIVE)
+
+
 class Invitation(models.Model):
+    """See the onboarding table in docs/DESIGN.md. Accepting creates the invitee's account (status
+    invited); approval makes them a Guest and records the first Sponsorship."""
+
     class Status(models.TextChoices):
         PENDING = "pending"
+        ACCEPTED = "accepted"
         WAITLISTED = "waitlisted"
         APPROVED = "approved"
         DECLINED = "declined"
+        INVITEE_DECLINED = "invitee_declined"
+        RESCINDED = "rescinded"
         EXPIRED = "expired"
+
+    LIVE = (Status.PENDING, Status.ACCEPTED, Status.WAITLISTED)
+    # Endings without approval; the invited account, if any, can no longer sign in.
+    ENDED = (Status.DECLINED, Status.INVITEE_DECLINED, Status.RESCINDED, Status.EXPIRED)
 
     sponsor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="invitations_sent")
     invitee_email = models.EmailField()
     # Only a hash is stored; the token itself goes to the invitee by email.
     token_hash = models.CharField(max_length=64, unique=True)
     vouching_notes = models.TextField()
+    # SET_NULL because an invited account whose invitation ends unapproved is deleted later
+    # (design rule 19); the Invitation row stays as history.
+    invitee = models.OneToOneField(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="invitation"
+    )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(default=timezone.now)
+    accepted_at = models.DateTimeField(null=True, blank=True)
     decided_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )
     decided_at = models.DateTimeField(null=True, blank=True)
+
+    objects = InvitationQuerySet.as_manager()
+
+    class Meta:
+        indexes = [models.Index(fields=["sponsor", "created_at"])]
 
 
 class Sponsorship(HistoryRowMixin, models.Model):

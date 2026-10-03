@@ -10,9 +10,10 @@ code must enforce. Guidance for Claude Code sessions is in [CLAUDE.md](CLAUDE.md
 
 ## Status
 
-Milestone 1: data model, permission service, settings registry, seed data, sign-in with mandatory
-TOTP, and tests. There are no member-facing pages yet beyond sign-in and TOTP enrolment. Admins and
-Owners can inspect data, read-only, at `/staff/admin/`.
+Milestone 2 (onboarding): invitations with sponsorship slots and a waitlist, acceptance, TOTP
+enrolment and identity details, the Admin review queue at `/staff/onboarding/`, complimentary
+membership, and the promotion workflow. Forum pages arrive with build step 3. Admins and Owners can
+inspect data, read-only, at `/staff/admin/`.
 
 ## Running it
 
@@ -46,6 +47,15 @@ cp .env.example .env              # and fill it in; point DATABASE_URL at your d
 missing and never overwrites settings or passwords. Sign in as the Owner and you are sent straight
 to TOTP enrolment; nothing else is reachable until it is done. In development, sign-in emails are
 printed to the console.
+
+## Scheduled jobs
+
+Run these once a day (cron, or the host's scheduler):
+
+```sh
+.venv/bin/python manage.py expire_invitations     # pending invitations past invitation.expiry_days
+.venv/bin/python manage.py delete_ended_accounts  # invited accounts whose invitation ended unapproved
+```
 
 ## Tests
 

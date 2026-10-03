@@ -102,6 +102,8 @@ PUBLIC_PATH_PREFIXES = [
     "/invitations/accept/",
     "/billing/stripe/webhook/",
 ]
+# The only pages an account with status invited may reach, besides TOTP enrolment (design rule 15).
+ONBOARDING_PATH_PREFIXES = ["/onboarding/"]
 # Paths a signed-in member without TOTP may reach, so they can enrol.
 TOTP_ENROLMENT_PATH_PREFIXES = [
     "/accounts/2fa/",
@@ -123,6 +125,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Object storage: private bucket, every URL signed and short-lived. Without a bucket
 # (local development) files go to local disk, which no URL route serves.

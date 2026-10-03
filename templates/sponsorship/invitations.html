@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Invitations{% endblock %}
+{% block content %}
+<h1>Invitations</h1>
+{% if just_sent == "slot" %}<p class="notice">Invitation sent. It holds one of your sponsorship places.</p>
+{% elif just_sent == "wait" %}<p class="notice warn">Invitation sent. You have no free sponsorship place, so if they accept they will wait until one frees up or an Admin approves them.</p>{% endif %}
+
+{% if may_sponsor %}
+<section class="panel">
+  <h2>Invite someone</h2>
+  {% if at_capacity %}
+  <p class="notice warn">You are using all {{ cap }} of your sponsorship place{{ cap|pluralize }}. You can still invite, but your invitee will wait for a free place or an Admin's approval.</p>
+  {% elif cap is not None %}
+  <p class="muted">This invitation will hold one of your {{ cap }} sponsorship place{{ cap|pluralize }}.</p>
+  {% endif %}
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  <form method="post">{% csrf_token %}{{ form.as_p }}<button>Send invitation</button></form>
+</section>
+{% else %}
+<p class="notice">You cannot send invitations right now: {{ may_sponsor.reason }}.</p>
+{% endif %}
+
+<h2>Sent</h2>
+{% if sent %}
+<ul class="list panel">
+  {% for inv in sent %}
+  <li>
+    <strong>{{ inv.invitee_email }}</strong> <span class="status {{ inv.status }}">{{ inv.get_status_display }}</span><br>
+    <span class="muted">Sent {{ inv.created_at|date:"j M Y" }}{% if inv.invitee %} · accepted as {{ inv.invitee.display_name }}{% endif %}</span>
+    {% if inv.status in live %}
+    <div class="actions"><form method="post" action="{% url 'invitation_rescind' inv.pk %}">{% csrf_token %}<button class="secondary">Rescind</button></form></div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">No invitations yet.</p>{% endif %}
+{% endblock %}

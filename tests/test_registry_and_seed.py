@@ -27,6 +27,8 @@ def test_registry_defaults_match_design():
         "promotion.tenured.min_days": 90,
         "provisional.held_posts": 5,
         "billing.lapse_grace_days": 14,
+        "invitation.expiry_days": 14,
+        "invitation.ended_account_deletion_days": 30,
         "billing.ban_reversal_fee_cents": 1000,
         "auth.require_totp": True,
         "retention.audit_years_after_departure": 2,

@@ -15,6 +15,7 @@ from audit import log
 from boards.models import Post, Thread
 from core.services import require
 from moderation.models import ModerationAction
+from sponsorship import capacity
 from sponsorship.eligibility import current_assignment, full_promotion_eligible
 from sponsorship.models import Promotion, Sponsorship
 
@@ -137,5 +138,6 @@ def promote_to_tenured(actor, member, notes=""):
         sponsorship.ended_at, sponsorship.end_reason = now, Sponsorship.EndReason.TENURED
         sponsorship.save()
         ended = sponsorship.pk
+        capacity.reassign_slots(sponsorship.sponsor)
     log.record(actor, "promotion.tenured", promotion, {"member": member.pk, "sponsorship_ended": ended})
     return promotion

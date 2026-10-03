@@ -49,3 +49,37 @@ def make_dm(*participants):
 
 def enrol_totp(user):
     return TOTP.activate(user, generate_totp_secret())
+
+
+PASSWORD = "correct-horse-battery-staple"
+_emails = iter(range(1, 10**6))
+
+
+def invite(sponsor_user, email=None, notes="Known them for years"):
+    """Send an invitation through the service; returns (invitation, token)."""
+    from sponsorship import onboarding
+
+    captured = {}
+
+    def url(token):
+        captured["token"] = token
+        return f"https://forum.example.test/invitations/accept/{token}/"
+
+    invitation, _ = onboarding.send_invitation(
+        sponsor_user, email or f"invitee{next(_emails)}@example.test", notes, accept_url=url
+    )
+    return invitation, captured["token"]
+
+
+def accepted(sponsor_user, totp=True, submit=True, **kwargs):
+    """An invitation taken through acceptance (and by default TOTP and identity submission)."""
+    from sponsorship import onboarding
+
+    invitation, token = invite(sponsor_user, **kwargs)
+    invitation = onboarding.accept(token, "New Person", PASSWORD)
+    if totp:
+        enrol_totp(invitation.invitee)
+    if totp and submit:
+        onboarding.submit_identity(invitation.invitee, "Real Name")
+    invitation.refresh_from_db()
+    return invitation

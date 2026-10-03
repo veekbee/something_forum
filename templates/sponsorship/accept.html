@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Your invitation{% endblock %}
+{% block content %}
+<h1>{{ invitation.sponsor.display_name }} has invited you</h1>
+<section class="panel">
+  <p>Accepting creates your account for <strong>{{ invitation.invitee_email }}</strong>. Next you will set up two-factor authentication and give your real name, which only Admins see. An Admin then reviews your invitation.</p>
+  <p class="muted">Admins can read every post and direct message on the forum. There is no end-to-end encryption.</p>
+  <p class="muted">This link works until {{ expires_at|date:"j M Y" }}.</p>
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  {% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors }}</div>{% endif %}
+  <form method="post">{% csrf_token %}
+    {% for field in form %}<p>{{ field.label_tag }}{{ field }}{% for e in field.errors %}<span class="errors">{{ e }}</span>{% endfor %}</p>{% endfor %}
+    <button>Accept and create my account</button>
+  </form>
+</section>
+<form method="post" action="{% url 'invitation_decline_link' token %}">{% csrf_token %}<button class="secondary">No thanks, decline</button></form>
+{% endblock %}

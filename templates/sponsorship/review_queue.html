@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Review queue{% endblock %}
+{% block content %}
+<h1>Invitations to review</h1>
+{% if queue %}
+<ul class="list panel">
+  {% for inv in queue %}
+  <li>
+    <strong>{{ inv.invitee.identity.real_name }}</strong> ({{ inv.invitee.display_name }}, {{ inv.invitee_email }})
+    {% if inv.status == "waitlisted" %}<span class="status waitlisted">Over sponsor's cap</span>{% endif %}<br>
+    <span class="muted">Invited by {{ inv.sponsor.display_name }} · waiting {{ inv.invitee.identity.submitted_at|timesince }}</span>
+    <p>{{ inv.vouching_notes|linebreaksbr }}</p>
+    <div class="actions">
+      <form method="post" action="{% url 'review_approve' inv.pk %}">{% csrf_token %}<button>{% if inv.status == "waitlisted" %}Approve over cap{% else %}Approve{% endif %}</button></form>
+      <form method="post" action="{% url 'review_decline' inv.pk %}">{% csrf_token %}<input type="text" name="reason" placeholder="Reason (private)" aria-label="Reason for declining"> <button class="secondary">Decline</button></form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">Nothing waiting.</p>{% endif %}
+
+<h2>Accepted, details not yet submitted</h2>
+{% if waiting_on_invitee %}
+<ul class="list panel">{% for inv in waiting_on_invitee %}<li>{{ inv.invitee_email }} <span class="muted">· invited by {{ inv.sponsor.display_name }} · accepted {{ inv.accepted_at|timesince }} ago</span></li>{% endfor %}</ul>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h2>Guests</h2>
+{% if guests %}
+<ul class="list panel">
+  {% for guest in guests %}
+  <li>{{ guest.display_name }} <span class="muted">· Guest since {{ guest.joined_at|date:"j M Y" }}</span>
+    <div class="actions"><form method="post" action="{% url 'comp_guest' guest.pk %}">{% csrf_token %}<button class="secondary">Comp: move to Provisional</button></form></div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">No Guests.</p>{% endif %}
+{% endblock %}

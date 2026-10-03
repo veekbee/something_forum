@@ -1,0 +1,1 @@
+{{ sponsor.display_name }} has invited you to join the forum

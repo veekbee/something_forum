@@ -11,4 +11,5 @@ urlpatterns = [
     path("accounts/logout/", LogoutView.as_view()),
     path("accounts/", include("allauth.urls")),
     path("staff/admin/", admin.site.urls),
+    path("", include("sponsorship.urls")),
 ]

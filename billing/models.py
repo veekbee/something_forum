@@ -20,6 +20,11 @@ class Subscription(models.Model):
     current_period_end = models.DateTimeField(null=True, blank=True)
     # Period end plus billing.lapse_grace_days; a job makes the account read-only when it passes.
     read_only_at = models.DateTimeField(null=True, blank=True)
+    # A comped subscription has no Stripe ids and never lapses.
+    comped_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    comped_at = models.DateTimeField(null=True, blank=True)
 
 
 class Charge(models.Model):

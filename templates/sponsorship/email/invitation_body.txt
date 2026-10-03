@@ -1,0 +1,9 @@
+{{ sponsor.display_name }} has invited you to join the forum, a private discussion community. Every member is sponsored by someone who knows them.
+
+To accept, follow this link and choose a password:
+
+{{ url }}
+
+The link works for {{ expiry_days }} days. After you accept, you will set up two-factor authentication and give your real name, which only the forum's Admins can see. An Admin then reviews your invitation.
+
+If you were not expecting this, you can ignore it, or follow the link and decline.

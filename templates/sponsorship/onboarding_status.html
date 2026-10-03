@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Your invitation{% endblock %}
+{% block content %}
+<h1>Welcome, {{ user.display_name }}</h1>
+<section class="panel">
+  <h2>Your steps</h2>
+  <ul class="list">
+    <li>✓ Account created for {{ user.email }}</li>
+    <li>✓ Two-factor authentication set up</li>
+    <li>{% if submitted %}✓ Details submitted{% else %}Give your real name{% endif %}</li>
+    <li>An Admin reviews your invitation</li>
+  </ul>
+</section>
+{% if not submitted %}
+<section class="panel">
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  <form method="post">{% csrf_token %}{{ form.as_p }}<button>Submit for review</button></form>
+</section>
+{% else %}
+<p class="notice{% if invitation.status == 'waitlisted' %} warn{% endif %}">
+  {% if invitation.status == "waitlisted" %}Your sponsor has no free sponsorship place right now, so your invitation is on the waiting list. An Admin can still approve it.{% else %}Your invitation is with the Admins for review.{% endif %}
+</p>
+{% endif %}
+<form method="post" action="{% url 'onboarding_decline' %}">{% csrf_token %}<button class="secondary">Decline the invitation</button></form>
+{% endblock %}

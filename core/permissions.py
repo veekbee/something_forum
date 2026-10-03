@@ -385,14 +385,83 @@ def _member_sponsor(actor, _target):
     return allow()
 
 
+def _ready_for_review(invitation):
+    from sponsorship.models import Invitation
+
+    if invitation.status not in (Invitation.Status.ACCEPTED, Invitation.Status.WAITLISTED):
+        return deny(f"invitation is {invitation.status}")
+    from accounts.models import IdentityRecord
+
+    if not IdentityRecord.objects.filter(user_id=invitation.invitee_id, submitted_at__isnull=False).exists():
+        return deny("the invitee has not submitted their details")
+    return allow()
+
+
 @rule("invitation.approve")
 def _invitation_approve(actor, invitation):
-    """Admin manual review. Approving a waitlisted invitation is how leadership goes over a
-    sponsor's cap."""
-    if not roles.is_admin_or_owner(actor):
-        return deny("only Admins and Owners approve invitations")
-    if invitation.status not in (invitation.Status.PENDING, invitation.Status.WAITLISTED):
+    """Admin manual review (design rule 17). Approving a waitlisted invitation is how leadership
+    goes over a sponsor's cap."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners review invitations")
+    return _ready_for_review(invitation)
+
+
+@rule("invitation.decline")
+def _invitation_decline(actor, invitation):
+    return _invitation_approve(actor, invitation)
+
+
+@rule("invitation.review_queue")
+def _invitation_review_queue(actor, _target):
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners review invitations")
+    return allow()
+
+
+@rule("invitation.rescind")
+def _invitation_rescind(actor, invitation):
+    if invitation.sponsor_id != actor.pk:
+        return deny("only the sponsor may rescind")
+    if invitation.status not in invitation.LIVE:
         return deny(f"invitation is {invitation.status}")
+    return allow()
+
+
+@rule("invitation.invitee_decline")
+def _invitation_invitee_decline(actor, invitation):
+    """A signed-in invitee declining. Before acceptance the invitee declines on the token page."""
+    if invitation.invitee_id != actor.pk:
+        return deny("not your invitation")
+    if invitation.status not in invitation.LIVE:
+        return deny(f"invitation is {invitation.status}")
+    return allow()
+
+
+@rule("onboarding.submit_identity")
+def _onboarding_submit_identity(actor, invitation):
+    from allauth.mfa.models import Authenticator
+
+    if actor.status != User.Status.INVITED or invitation.invitee_id != actor.pk:
+        return deny("not an invitee awaiting review")
+    if invitation.status not in (invitation.Status.ACCEPTED, invitation.Status.WAITLISTED):
+        return deny(f"invitation is {invitation.status}")
+    if not Authenticator.objects.filter(user=actor, type=Authenticator.Type.TOTP).exists():
+        return deny("set up two-factor authentication first")
+    from accounts.models import IdentityRecord
+
+    if IdentityRecord.objects.filter(user=actor, submitted_at__isnull=False).exists():
+        return deny("details already submitted")
+    return allow()
+
+
+@rule("subscription.comp")
+def _subscription_comp(actor, member):
+    """Complimentary membership moves a Guest to Provisional as payment would (design rule 20)."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners grant complimentary membership")
+    role = roles.trust_role(member)
+    if member.status != User.Status.GUEST or role is None or role.name != roles.GUEST:
+        return deny("only a Guest can be moved to Provisional")
     return allow()
 
 

@@ -30,7 +30,7 @@ Seven roles, ordered by trust. Promotion is a human decision (or a time-plus-con
 | Moderator | Appointed by Admin from Tenured | All member sub-forums, mod queue | Anywhere | Yes, cap 7 active sponsorships | Yes | Edit, hide, lock, warn, suspend within assigned sub-forums; actions need a second approver |
 | Tenured | Full for 3 months in good standing, promoted by Admin or Mod | All member sub-forums | Anywhere, rate-limited only where the sub-forum says so | Yes, cap 3 active sponsorships | Yes | None |
 | Full | Provisional promoted after 3 months and 25 posts, on a Full+ recommendation, Moderator review and Admin approval | All member sub-forums | Anywhere, rate-limited only where the sub-forum says so | Yes, cap 1 active sponsorship (assumed; not yet confirmed) | Yes | None |
-| Provisional | Sponsored, identity check passed, paid; in probation | All member sub-forums except those marked Full+ | Limited sub-forums, stricter rate limits, first 5 posts held for review | No | Only with sponsor and staff | None |
+| Provisional | Sponsored, identity check passed, paid or comped; in probation | All member sub-forums except those marked Full+ | Limited sub-forums, stricter rate limits, first 5 posts held for review | No | Only with sponsor and staff | None |
 | Guest | Sponsored and identity-checked; has not paid | Guest Lobby and Introductions only | Guest Lobby and Introductions only, posts held for review | No | Only with sponsor and staff | None |
 
 Design notes:
@@ -44,11 +44,31 @@ Design notes:
 
 ## Sponsorship, pedigree and onboarding
 
-Nobody creates their own account. A sponsor (Full or above, or the Admin) issues an invitation; the invitee passes an identity check; payment then moves them from Guest into probation. Every step is logged against both the sponsor and the new member.
+Nobody creates their own account. A sponsor (Full or above, or the Admin) issues an invitation; the invitee passes an identity check; payment, or a complimentary membership granted by an Admin or Owner, then moves them from Guest into probation. Every step is logged against both the sponsor and the new member.
 
-&#91;embedded content: onboarding flow · 6 states, 1 check\]
+Onboarding flow (confirmed 3 Oct 2026). The path is invitation, identity check, Guest, Provisional, Full, Tenured. The one check is the Admin's manual review. The account is created when the invitee accepts, not when they are approved (decided 3 Oct 2026), so every onboarding page after acceptance sits behind a signed-in, TOTP-verified session.
 
-A failed identity check ends the invitation and notifies the sponsor; a Provisional who fails probation is removed and the sponsor's record carries the outcome.
+| From | Event | Who | To |
+| --- | --- | --- | --- |
+| (nothing) | Sends an invitation and fills in the vouching form | Sponsor (Full or above, Admin or Owner) | Invitation pending |
+| Pending | Follows the emailed link and sets a password | Invitee | Account created with status invited. Invitation accepted if it has a slot in the sponsor's send order, otherwise waitlisted |
+| Pending | 14 days pass without acceptance | System | Invitation expired; its slot frees |
+| Accepted or waitlisted | Enrols TOTP, gives their real name, submits | Invitee | Same status, now ready for review |
+| Waitlisted | A slot frees and this invitation is next in send order | System | Accepted |
+| Accepted, ready for review | Approves | Admin or Owner | Invitation approved; account becomes Guest; first Sponsorship recorded |
+| Waitlisted, ready for review | Approves over the cap | Admin or Owner | As above |
+| Accepted or waitlisted, ready for review | Declines (the identity check fails) | Admin or Owner | Invitation declined; sponsor told |
+| Any status before approval | Declines the invitation | Invitee | Invitation invitee-declined; sponsor told |
+| Any status before approval | Rescinds the invitation | Sponsor | Invitation rescinded |
+| Guest | Pays (build step 5), or is given a complimentary membership | Stripe webhook; Admin or Owner | Provisional |
+| Provisional | Passes the promotion workflow below | Recommender, Moderator, Admin | Full |
+| Full | 3 months in good standing, then promoted | Admin or Moderator | Tenured |
+
+Every ending before approval (declined, invitee-declined, rescinded, expired) frees the invitation's slot. Once the invitee has accepted, their invitation does not expire (decided 3 Oct 2026); it waits for the review, the sponsor or the invitee, and the review queue shows how long each has waited. An account whose invitation ends without approval can no longer sign in and is deleted, with its identity details, after 30 days (proposed), which leaves room to reverse a mistaken decline. The invitation record is kept, so the history shows who invited whom and how it ended.
+
+The complimentary path (decided 3 Oct 2026) lets an Admin or Owner move a Guest to Provisional without payment, recorded as a comped subscription. It exists before billing is built and stays afterwards for founding members, Moderators and anyone else leadership chooses to comp.
+
+A Provisional who fails probation is removed and the sponsor's record carries the outcome.
 
 Promotion from Provisional to Full (decided 2 Oct 2026):
 
@@ -73,7 +93,7 @@ Pedigree model:
 Identity check ("know your customer"), lightest workable version first:
 
 1. Sponsor fills in a short vouching form: how they know the person and for how long.
-2. Invitee supplies a real name (held privately), a verified email, and a verified phone or payment method.
+2. Invitee supplies a real name (held privately). Following the emailed invitation link verifies the email address, and the account's email stays fixed to that address until approval. No phone number is collected at launch (decided 3 Oct 2026): a verified email and the Admin's review are the whole check, because members have strong reasons to be careful about whom they invite.
 3. Admin reviews and approves manually. At small scale this is the strongest check available.
 4. No video call or third-party ID service at launch (decided 3 Oct 2026). Membership starts from a network the Admin knows personally, so manual Admin review is the check. Revisit once members are sponsoring people the Admin does not know, at which point a short video call with the sponsor or a Moderator is the next step up.
 
@@ -270,11 +290,11 @@ Design choices, each made for extensibility: roles are rows and assignments, not
 
 | Entity | Key fields | Notes |
 | --- | --- | --- |
-| User | email (unique), password, display\_name, slug, status (invited, guest, active, read\_only, suspended, banned, removed, tombstone), joined\_at, last\_seen\_at | Login identity and public profile only. Password and TOTP live in allauth's tables. Tombstone keeps the row with personal fields cleared |
+| User | email (unique), password, display\_name, slug, status (invited, guest, active, read\_only, suspended, banned, removed, tombstone), joined\_at, last\_seen\_at | Login identity and public profile only. Password and TOTP live in allauth's tables. Tombstone keeps the row with personal fields cleared. Status invited covers the time between accepting an invitation and approval; such an account reaches only its onboarding pages |
 | Role | name, rank (int), is\_staff | Seeded: owner 70, admin 60, moderator 50, tenured 40, full 30, provisional 20, guest 10. Rank comparisons drive "minimum role" checks |
 | RoleAssignment | user, role, scope\_subforum (nullable), granted\_by, granted\_at, revoked\_at, revoked\_by, reason | Trust level = highest unrevoked global assignment. Moderator scopes set scope\_subforum. Never update a row to change a role; revoke and add |
-| IdentityRecord | user (1:1), real\_name (encrypted), phone (encrypted), email\_verified\_at, phone\_verified\_at, vouching\_notes, reviewed\_by, reviewed\_at, reduced\_at | Separate table with its own permission check so identity data never rides along with profile queries. reduced\_at marks the GDPR-style minimisation after promotion to Full |
-| Invitation | sponsor, invitee\_email, token\_hash (the token itself is only emailed), vouching\_notes, status (pending, waitlisted, approved, declined, expired), created\_at, decided\_by, decided\_at | Admin manual review happens here. Approval creates the User (status guest), IdentityRecord and first Sponsorship. Pending invitations count toward the sponsor's cap; a waitlisted one waits for a free slot or an Admin or Owner approval over the cap |
+| IdentityRecord | user (1:1), real\_name (encrypted), phone (encrypted), email\_verified\_at, phone\_verified\_at, vouching\_notes, submitted\_at, reviewed\_by, reviewed\_at, reduced\_at | Separate table with its own permission check so identity data never rides along with profile queries. Created at acceptance; email\_verified\_at is set then, since the invitation link proves the address. submitted\_at marks the record ready for review. The phone fields stay empty at launch and exist so phone checks can be added without a migration. reduced\_at marks the GDPR-style minimisation after promotion to Full |
+| Invitation | sponsor, invitee\_email, token\_hash (the token itself is only emailed), vouching\_notes, invitee (User, nullable), status (pending, accepted, waitlisted, approved, declined, invitee\_declined, rescinded, expired), created\_at, accepted\_at, decided\_by, decided\_at | Admin manual review happens here. Acceptance creates the User (status invited) and IdentityRecord and sets invitee. Approval moves the User to guest, assigns the guest role and creates the first Sponsorship. decided\_by and decided\_at record whoever ended or approved the invitation: an Admin or Owner, the sponsor (rescinded), the invitee (invitee\_declined), or nobody (expired). Expiry is computed from created\_at and the setting, not stored. Slot rules are in Rules the code must enforce |
 | Sponsorship | sponsor, member, sponsor\_role (at the time), started\_at, ended\_at, end\_reason (tenured, transferred, sponsor\_left, sponsor\_banned, member\_removed), previous (self FK), is\_original | Active sponsorship = ended\_at null. Pedigree = the is\_original rows. A transfer closes one row and opens another pointing back at it. Cap checks count a sponsor's active rows |
 | Promotion | member, from\_role, to\_role, recommended\_by, reviewed\_by, review\_notes, decided\_by, status (recommended, reviewed, approved, declined), timestamps | Eligibility is computed, not stored. The row is the workflow record |
 | SubForum | parent (self FK, nullable), name, slug, description, position, is\_archived, settings (JSONB) | settings validated against the registry below; missing keys fall back to site defaults |
@@ -287,7 +307,7 @@ Design choices, each made for extensibility: roles are rows and assignments, not
 | ModerationAction | target\_user, kind (note, warning, hold, suspension, read\_only, ban, ban\_reversal, sponsorship\_transfer, sponsoring\_suspension), initiated\_by, approved\_by (nullable), status (pending, active, expired, reversed), starts\_at, ends\_at, internal\_reason, public\_summary, is\_public, related\_post, related\_action | sponsoring\_suspension removes the right to sponsor until ends\_at. is\_public false only for kind note. A note is active on creation with no approver. Public record = query over is\_public rows |
 | SponsorReview | banned\_member, sponsor, triggering\_action, status (pending, decided), outcome (no\_action, warning, sponsoring\_suspension, ban), suspension\_months, invitees\_transfer (bool), resulting\_action, decided\_by, decided\_at, notes, created\_at | Opened in the same transaction as an approved ban on a Guest or Provisional whose active sponsor is not Admin or Owner. Decided only by Admin or Owner |
 | DMAccessGrant | moderator, granted\_by, subject\_users (M2M), case\_note, expires\_at, revoked\_at | Every DM read under a grant writes an AuditEntry |
-| Subscription | user (1:1), stripe\_customer\_id, stripe\_subscription\_id, status (none, active, past\_due, lapsed, comped), current\_period\_end, read\_only\_at | read\_only\_at = period end + lapse grace. A job flips status to read\_only when it passes |
+| Subscription | user (1:1), stripe\_customer\_id, stripe\_subscription\_id, status (none, active, past\_due, lapsed, comped), current\_period\_end, read\_only\_at, comped\_by, comped\_at | read\_only\_at = period end + lapse grace. A job flips status to read\_only when it passes. A comped subscription has no Stripe ids and never lapses; comped\_by and comped\_at record the Admin or Owner who granted it |
 | Charge | user, kind (subscription, ban\_reversal), stripe\_payment\_intent\_id, amount\_cents, currency, status, related\_action, created\_at | A successful ban\_reversal charge sets the related ModerationAction to reversed |
 | UserSession | user, session\_key, device\_fingerprint, ip\_prefix, approx\_location, user\_agent, created\_at, last\_seen\_at, revoked\_at, watermark\_seed | Session binding and the per-session watermark both key off this row |
 | Notification | recipient, kind, payload (JSONB), created\_at, read\_at | In-app first; email only as a pointer back to the forum |
@@ -312,6 +332,8 @@ Every number below is a registry entry with a default; Owners change site-wide v
 | promotion.tenured.min\_days | 90 | site | Confirmed (3 months as Full) |
 | provisional.held\_posts | 5 | site, overridable per sub-forum | Confirmed |
 | billing.lapse\_grace\_days | 14 | site | Confirmed |
+| invitation.expiry\_days | 14 | site | Confirmed 3 Oct 2026; applies only to invitations not yet accepted |
+| invitation.ended\_account\_deletion\_days | 30 | site | Proposed; days before an invited account whose invitation ended without approval is deleted |
 | billing.ban\_reversal\_fee\_cents | 1000 ($10) | site | Confirmed; flat for all roles |
 | auth.require\_totp | true | site | Confirmed |
 | retention.audit\_years\_after\_departure | 2 | site | Proposed |
@@ -343,6 +365,12 @@ Every number below is a registry entry with a default; Owners change site-wide v
 12. A ban on a Guest or Provisional opens a SponsorReview in the same transaction, unless the sponsor is Admin or Owner. Nothing happens to the sponsor until an Admin or Owner decides the review.
 13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum; archived threads accept no changes from anyone. A rejected post is shown to its author only in their post history, never in the thread. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
 14. The service worker caches only static shell assets, including one static offline page that contains no member content. It never caches server-rendered pages, HTMX fragments or attachments. The logout response sends `Clear-Site-Data: "cache", "storage"`.
+15. An account with status invited reaches only its onboarding pages (TOTP enrolment, identity details, onboarding status, declining the invitation, logout). It never appears in member lists, search, mentions or the pedigree. The invitation acceptance page is the only onboarding page served without a session.
+16. Sponsorship slots go first to the sponsor's active sponsorships, then to live invitations (pending, accepted, waitlisted) in the order they were sent. When a slot frees, the earliest-sent live invitation without one takes it, and a waitlisted invitation becomes accepted at that moment. Approval turns the invitation's slot into the new Sponsorship; every other ending frees it.
+17. Only an Admin or Owner approves or declines an invitation, and only once its IdentityRecord is submitted. Approving a waitlisted invitation is an explicit over-cap approval and is audited as one. The sponsor may rescind, and the invitee may decline, at any point before approval.
+18. A pending invitation expires invitation.expiry\_days after it was sent. Accepted and waitlisted invitations never expire.
+19. When an invitation ends without approval, its invited account can no longer sign in, and after invitation.ended\_account\_deletion\_days the account and its IdentityRecord are deleted. This is the one routine hard delete outside erasure. The Invitation row and the audit entries survive it.
+20. Only an Admin or Owner can grant a complimentary subscription, which moves a Guest to Provisional as payment would.
 
 ### First Claude Code session: milestone 1
 
@@ -357,6 +385,20 @@ Definition of done:
 - allauth configured for email/password with mandatory TOTP; an account without TOTP cannot reach any forum view.
 - A short README describing how to run it and pointing back to this document.
 
+### Milestone 2: onboarding
+
+Scope: build step 2 as decided above. Sponsors send invitations and can rescind them; invitees accept, create their account, enrol TOTP, give their real name and wait; Admins and Owners review, approve (including over the cap) or decline; invitees can decline at any point before approval. Includes the expiry and ended-account deletion jobs, the complimentary Guest-to-Provisional path, the Provisional-to-Full and Full-to-Tenured promotion workflow, and in-app notifications to sponsors when their invitee accepts, declines, is approved or is declined. Payment-driven promotion waits for billing in step 5.
+
+Definition of done:
+
+- Migration adding the accepted, invitee\_declined and rescinded invitation statuses and the new fields on Invitation, IdentityRecord and Subscription.
+- Every transition in the onboarding table is a service function that writes its AuditEntry in the same transaction, and each has tests, including refusal when the actor lacks the right (a Moderator approving, a sponsor rescinding after approval, an invitee declining after approval).
+- Slot tests: send order holds across pending and waitlisted invitations; a freed slot goes to the earliest-sent invitation; a later invitee who accepts first is still waitlisted; approval over the cap is audited.
+- Tests that an invited account reaches only its onboarding pages, and appears nowhere else.
+- The expiry job expires only pending invitations, and the deletion job removes only accounts whose invitation ended without approval, after the set number of days, leaving the Invitation row and audit entries in place.
+- The comp path moves a Guest to Provisional with a comped Subscription and a provisional RoleAssignment, and only an Admin or Owner can use it.
+- Pages, mobile-first: send invitation (showing whether it will hold a slot or wait), acceptance, onboarding status, review queue showing waiting time, invitation list for sponsors.
+
 Later milestones follow the build order in Recommended direction.
 
 ### Repository
@@ -367,7 +409,7 @@ Change workflow (decided 3 Oct 2026): this file is the single authority for the 
 
 ## Open questions for later sessions
 
-Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen).
+Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen), onboarding flow and invitation states, account created at acceptance, invitee decline and sponsor rescind, email-only identity check at launch, complimentary Guest-to-Provisional path, invitation expiry.
 
 Still open:
 
@@ -375,7 +417,8 @@ Still open:
 - [ ] Sponsorship cap for Full members (default 1 is assumed).
 - [ ] Whether a member may voluntarily change sponsor, outside the forced transfer when a sponsor leaves.
 - [ ] What fails probation, beyond a ban: for example a warning count or a Moderator recommendation.
-- [ ] Proposed defaults awaiting confirmation: transfer grace period 30 days, edit window 30 minutes, audit retention 2 years, scraping threshold 600 requests per 10 minutes.
+- [ ] Proposed defaults awaiting confirmation: transfer grace period 30 days, edit window 30 minutes, audit retention 2 years, scraping threshold 600 requests per 10 minutes, deletion of ended invited accounts after 30 days.
+- [ ] Whether someone whose invitation was declined by an Admin can be invited again, and by whom.
 - [ ] What the Mod feedback feed shows, and who reads it.
 - [ ] How a locked-out member sends an appeal to Admins: a public form adds an unauthenticated page; an email address does not.
 - [ ] Deleting audit entries at the end of the retention period, given the append-only trigger (deferred 3 Oct 2026).

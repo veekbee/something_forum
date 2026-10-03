@@ -4,6 +4,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponse
 from django.shortcuts import redirect
 
+from accounts.models import User
 from core import registry
 
 
@@ -25,7 +26,8 @@ def _matches(path, prefixes):
 
 class AccessControlMiddleware:
     """Deny by default (design rule 9). Without a session, only the public paths respond. With a
-    session but no TOTP authenticator, only the enrolment pages respond."""
+    session but no TOTP authenticator, only the enrolment pages respond. An invited account that
+    is not yet approved reaches only its onboarding pages (design rule 15)."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -48,5 +50,12 @@ class AccessControlMiddleware:
             if request.method == "GET" and "HX-Request" not in request.headers:
                 return redirect("mfa_activate_totp")
             return HttpResponse("Two-factor authentication required.", status=403, content_type="text/plain")
+
+        if request.user.status == User.Status.INVITED and not _matches(
+            path, settings.ONBOARDING_PATH_PREFIXES + settings.TOTP_ENROLMENT_PATH_PREFIXES
+        ):
+            if request.method == "GET" and "HX-Request" not in request.headers:
+                return redirect("onboarding_status")
+            return HttpResponse("Your invitation is awaiting review.", status=403, content_type="text/plain")
 
         return self.get_response(request)

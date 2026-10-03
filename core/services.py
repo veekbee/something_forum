@@ -24,4 +24,8 @@ def set_site_setting(actor, key, value):
     row.value, row.updated_by, row.updated_at = value, actor, timezone.now()
     row.save()
     log.record(actor, "site_setting.write", row, {"key": key, "old": old, "new": value})
+    if key.startswith("sponsorship.cap."):
+        from sponsorship.capacity import reassign_all
+
+        reassign_all()
     return row

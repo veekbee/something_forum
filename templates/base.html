@@ -1,0 +1,22 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Forum{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+</head>
+<body>
+  <header class="site"><div class="inner">
+    <a class="brand" href="{% url 'home' %}">Forum</a>
+    {% if user.is_authenticated %}
+    <nav>
+      {% block nav %}{% endblock %}
+      <form class="inline-form" method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button class="secondary">Sign out</button></form>
+    </nav>
+    {% endif %}
+  </div></header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
