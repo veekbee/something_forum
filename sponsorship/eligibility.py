@@ -10,7 +10,7 @@ from boards.models import Post, Thread
 from core import registry
 
 
-def _current_assignment(member, role_name):
+def current_assignment(member, role_name):
     return (
         RoleAssignment.objects.filter(
             user=member, role__name=role_name, revoked_at__isnull=True, scope_subforum__isnull=True
@@ -27,7 +27,7 @@ def full_promotion_eligible(member, now=None):
     role = roles.trust_role(member)
     if role is None or role.name != roles.PROVISIONAL:
         return False
-    since = _current_assignment(member, roles.PROVISIONAL).granted_at
+    since = current_assignment(member, roles.PROVISIONAL).granted_at
     if now - since < timedelta(days=registry.site_value("promotion.full.min_days")):
         return False
     posts = Post.objects.counted().filter(
@@ -42,5 +42,5 @@ def tenured_promotion_eligible(member, now=None):
     role = roles.trust_role(member)
     if role is None or role.name != roles.FULL:
         return False
-    since = _current_assignment(member, roles.FULL).granted_at
+    since = current_assignment(member, roles.FULL).granted_at
     return now - since >= timedelta(days=registry.site_value("promotion.tenured.min_days"))

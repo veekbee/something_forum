@@ -402,14 +402,31 @@ def _role_revoke(actor, change):
     return _role_grant(actor, change)
 
 
+def _promotable(member, role_name):
+    """The member still holds the role being promoted from and is not banned or removed."""
+    role = roles.trust_role(member)
+    if role is None or role.name != role_name:
+        return deny(f"member is no longer {role_name}")
+    standing = _can_read_anything(member)
+    if not standing:
+        return deny(f"member's {standing.reason}")
+    return allow()
+
+
 @rule("promotion.recommend")
 def _promotion_recommend(actor, member):
     from sponsorship.eligibility import full_promotion_eligible
+    from sponsorship.models import Promotion
 
     if member.pk == actor.pk:
         return deny("cannot recommend yourself")
     if actor.status != User.Status.ACTIVE or roles.trust_rank(actor) < roles.rank_of(roles.FULL):
         return deny("only Full members and above recommend")
+    promotable = _promotable(member, roles.PROVISIONAL)
+    if not promotable:
+        return promotable
+    if Promotion.objects.open().filter(member=member).exists():
+        return deny("member already has a promotion in progress")
     if not full_promotion_eligible(member):
         return deny("member is not yet eligible")
     return allow()
@@ -419,17 +436,40 @@ def _promotion_recommend(actor, member):
 def _promotion_review(actor, promotion):
     if promotion.status != promotion.Status.RECOMMENDED:
         return deny("promotion is not awaiting review")
+    if actor.status != User.Status.ACTIVE:
+        return deny(f"account is {actor.status}")
     if not (roles.is_moderator(actor) or roles.is_admin_or_owner(actor)):
         return deny("only Moderators review promotions")
-    return allow()
+    return _promotable(promotion.member, promotion.from_role.name)
 
 
 @rule("promotion.decide")
 def _promotion_decide(actor, promotion):
     if promotion.status != promotion.Status.REVIEWED:
         return deny("promotion has not been reviewed")
+    if actor.status != User.Status.ACTIVE:
+        return deny(f"account is {actor.status}")
     if not roles.is_admin_or_owner(actor):
         return deny("only Admins and Owners decide promotions")
+    return _promotable(promotion.member, promotion.from_role.name)
+
+
+@rule("promotion.tenured")
+def _promotion_tenured(actor, member):
+    """Full to Tenured: no recommendation step; an Admin or Moderator promotes."""
+    from sponsorship.eligibility import tenured_promotion_eligible
+
+    if member.pk == actor.pk:
+        return deny("cannot promote yourself")
+    if actor.status != User.Status.ACTIVE:
+        return deny(f"account is {actor.status}")
+    if not (roles.is_moderator(actor) or roles.is_admin_or_owner(actor)):
+        return deny("only Admins and Moderators promote to Tenured")
+    promotable = _promotable(member, roles.FULL)
+    if not promotable:
+        return promotable
+    if not tenured_promotion_eligible(member):
+        return deny("member is not yet eligible")
     return allow()
 
 

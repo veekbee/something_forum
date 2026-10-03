@@ -66,6 +66,11 @@ class Sponsorship(HistoryRowMixin, models.Model):
         ]
 
 
+class PromotionQuerySet(models.QuerySet):
+    def open(self):
+        return self.filter(status__in=[Promotion.Status.RECOMMENDED, Promotion.Status.REVIEWED])
+
+
 class Promotion(models.Model):
     """The Provisional to Full (and Full to Tenured) workflow record. Eligibility is computed."""
 
@@ -93,3 +98,14 @@ class Promotion(models.Model):
     decided_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.RECOMMENDED)
     created_at = models.DateTimeField(default=timezone.now)
+
+    objects = PromotionQuerySet.as_manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member"],
+                condition=Q(status__in=["recommended", "reviewed"]),
+                name="one_open_promotion_per_member",
+            )
+        ]
