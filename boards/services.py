@@ -7,6 +7,7 @@ from django.utils.html import escape, linebreaks
 from audit import log
 from boards.limits import should_hold
 from boards.models import Post, Thread
+from core.models import Notification
 from core.services import require
 
 
@@ -67,11 +68,15 @@ def release_post(actor, post):
 
 @transaction.atomic
 def reject_post(actor, post, reason):
-    """A rejected post stays hidden and stops counting toward rate limits and held-post counts."""
+    """A rejected post leaves the thread, stops counting toward rate limits and held-post counts,
+    and stays in its author's post history. The author is notified."""
     require(actor, "post.moderate", post)
     if not post.is_held:
         raise ValidationError("post is not held")
     post.is_held, post.rejected_by, post.rejected_at = False, actor, timezone.now()
     post.save(update_fields=["is_held", "rejected_by", "rejected_at"])
     log.record(actor, "post.reject", post, {"reason": reason})
+    Notification.objects.create(
+        recipient_id=post.author_id, kind="post.rejected", payload={"post": post.pk, "thread": post.thread_id}
+    )
     return post

@@ -107,12 +107,27 @@ def test_held_post_is_visible_to_author_and_approvers_only(make_user, general, s
     assert not can(scoped, "post.read", post)
 
 
-def test_rejected_post_is_hidden_from_author(make_user, general):
-    member = make_user("provisional")
-    post = services.reply(member, make_thread(general, make_user("full")), "pending")
+def test_rejected_post_leaves_the_thread_but_stays_in_author_history(make_user, general):
+    from core.models import Notification
+
+    member, other = make_user("provisional"), make_user("full")
+    post = services.reply(member, make_thread(general, other), "pending")
     services.reject_post(make_user("moderator"), post, "off topic")
     assert not can(member, "post.read", post)
+    assert can(member, "post.read_in_history", post)
+    assert not can(other, "post.read_in_history", post)
     assert can(make_user("moderator"), "post.read", post)
+    note = Notification.objects.get(recipient=member)
+    assert note.kind == "post.rejected" and note.payload == {"post": post.pk, "thread": post.thread_id}
+
+
+def test_author_history_shows_held_posts_but_not_deleted_ones(make_user, general):
+    member = make_user("provisional")
+    post = services.reply(member, make_thread(general, make_user("full")), "pending")
+    assert can(member, "post.read_in_history", post)
+    post.deleted_at = timezone.now()
+    post.save()
+    assert not can(member, "post.read_in_history", post)
 
 
 def test_released_post_is_visible(make_user, general):

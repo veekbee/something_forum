@@ -244,6 +244,18 @@ def _post_read(actor, post):
     return readable
 
 
+@rule("post.read_in_history")
+def _post_read_in_history(actor, post):
+    """A member's own post history on their profile, which also shows their held and rejected
+    posts. Anyone else sees what post.read allows."""
+    base = _can_read_anything(actor)
+    if not base:
+        return base
+    if post.author_id == actor.pk and post.deleted_at is None:
+        return allow()
+    return _post_read(actor, post)
+
+
 @rule("post.moderate")
 def _post_moderate(actor, post):
     """Release or reject a held post."""

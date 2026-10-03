@@ -65,7 +65,7 @@ Pedigree model:
 - Pedigree is permanent. Removing a member leaves a tombstone so the tree does not break; see GDPR for what the tombstone may contain.
 - Sponsorship is active until Tenured. A Tenured member no longer needs a sponsor; the original link stays in the pedigree as history only.
 - Active sponsorship caps: Full 1 (assumed), Tenured 3, Moderator 7, Admin and Owner unlimited. The cap follows the member's highest unrevoked global role assignment (decided 3 Oct 2026), so a Tenured member who moderates one sub-forum keeps the Tenured cap.
-- Pending invitations count toward the cap (decided 3 Oct 2026). A sponsor at cap may still invite, but each invitation holds a slot in the order it was sent, and an invitee who accepts when no slot is free is waitlisted until one frees up. An Admin or Owner may approve a waitlisted invitation anyway, which in effect raises that sponsor's cap. Leadership is meant to have wide discretion here.
+- Pending invitations count toward the cap (decided 3 Oct 2026). A sponsor at cap may still invite, but each invitation holds a slot in the order it was sent, and an invitee who accepts when no slot is free is waitlisted until one frees up. Order is by sending, not by acceptance: a later invitee who accepts first is still waitlisted behind an earlier invitation that is pending (confirmed 3 Oct 2026). An Admin or Owner may approve a waitlisted invitation anyway, which in effect raises that sponsor's cap. Leadership is meant to have wide discretion here.
 - If a sponsor leaves, is banned or loses sponsoring rights, each of their pre-Tenure invitees must be vouched for by another actively sponsoring member (a sponsorship transfer). Until that happens the invitee is read-only. Grace period to be set.
 - Sponsors are accountable, but through human review rather than an automatic penalty (decided 3 Oct 2026). When a Guest or Provisional is banned, the system opens a sponsor review for an Admin or Owner, showing the sponsor's record and the outcomes of their other invitees. The reviewer chooses the response: no action, a warning, suspension of sponsoring privileges for a chosen number of months, or a ban. For a suspension, the reviewer also decides whether the sponsor's current pre-Tenure invitees stay with them or must be transferred. A ban can be reversed through payment of a flat $10 fee (set 3 Oct 2026; a setting, so it can change or scale by role later). Sponsors who are Admins or Owners get no review.
 - Admins can view the full tree and search by sponsor; members see their own line up and down.
@@ -109,7 +109,7 @@ Initial sub-forums (decided 3 Oct 2026). A deliberately minimal set; the escalat
 
 Rate-limit semantics (confirmed 3 Oct 2026): the limit counts every post, whether it starts a thread or replies to one, and runs on a rolling window measured from the member's earlier posts, not a calendar day or week. Other settings use the defaults in the Implementation brief until set per sub-forum. In the Guest Lobby, everyone from Guest up may read, start threads and reply, with no rate limit (decided 3 Oct 2026); Guests post under the same holds as a Provisional member (first posts reviewed, links off), so a newcomer's first words are seen by staff before the community.
 
-Held posts (decided 3 Oct 2026): the first N count is site-wide, not per sub-forum. A held post counts as a post, both toward N and toward rate limits, until staff reject it; a rejected post is struck from both counts. A post the member deletes still counts, so deleting cannot be used to get around a rate limit. A held post is visible only to its author and to the staff who can release it (Moderators of that sub-forum, Admins and Owners). The author sees it in the thread, marked as held, and in the list of all their posts on their profile page.
+Held posts (decided 3 Oct 2026): the first N count is site-wide, not per sub-forum. A held post counts as a post, both toward N and toward rate limits, until staff reject it; a rejected post is struck from both counts. A post the member deletes still counts, so deleting cannot be used to get around a rate limit. A held post is visible only to its author and to the staff who can release it (Moderators of that sub-forum, Admins and Owners). The author sees it in the thread, marked as held, and in the list of all their posts on their profile page. A rejected post disappears from the thread for everyone except staff, but stays in its author's post history on their profile, marked as rejected, and the author gets an in-app notification when it is rejected (decided 3 Oct 2026).
 
 Per-role rate limits (decided 3 Oct 2026): a sub-forum can set a different post rate limit for particular roles, overriding its general limit. None are set at launch, so Provisional members have the same limits as Full members.
 
@@ -118,7 +118,7 @@ Thread and post behaviours:
 - Threads are flat and chronological, with quote-reply. Nested threading is deliberately out of scope; it changes the character of discussion.
 - Posts support rich text (Markdown or a limited HTML subset), quoting, and mentions. No reaction counters or vote scores by default; they shift incentives toward performance over conversation. Revisit later if members want them.
 - Soft-delete only. Deleted posts stay visible to Admins with who deleted them and why.
-- Thread states: open, locked, pinned, archived (read-only, excluded from "new posts"). A locked thread takes no new replies except from Admins and Owners, anywhere, and Moderators in sub-forums they moderate (decided 3 Oct 2026). An archived thread is read-only for everyone.
+- Thread states: open, locked, pinned, archived (read-only, excluded from "new posts"). A locked thread takes no new replies except from Admins and Owners, anywhere, and Moderators in sub-forums they moderate (decided 3 Oct 2026). An archived thread cannot be modified by anyone, Admins and Owners included: no replies, edits or deletions (confirmed 3 Oct 2026).
 - Full-text search across threads and posts, scoped by what the searcher may read.
 
 Direct messages are modelled as a private thread type between two or more members, so they reuse the same storage, search and retention machinery. Admin visibility of DMs is covered in the next section.
@@ -333,7 +333,7 @@ Every number below is a registry entry with a default; Owners change site-wide v
 10. AuditEntry rows are written inside the same database transaction as the action they record, and the table rejects updates and deletes.
 11. Posts are soft-deleted only. Erasure anonymises per the Privacy section and is the one path that clears personal fields.
 12. A ban on a Guest or Provisional opens a SponsorReview in the same transaction, unless the sponsor is Admin or Owner. Nothing happens to the sponsor until an Admin or Owner decides the review.
-13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
+13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum; archived threads accept no changes from anyone. A rejected post is shown to its author only in their post history, never in the thread. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
 
 ### First Claude Code session: milestone 1
 
@@ -358,7 +358,7 @@ Change workflow (decided 3 Oct 2026): this file is the single authority for the 
 
 ## Open questions for later sessions
 
-Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, password reset, code licence (MIT).
+Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT).
 
 Still open:
 
