@@ -6,7 +6,7 @@ from django.utils.html import escape, linebreaks
 
 from audit import log
 from boards.limits import should_hold
-from boards.models import Post, Thread
+from boards.models import Post, PostRevision, Thread
 from core.models import Notification
 from core.services import require
 
@@ -80,3 +80,64 @@ def reject_post(actor, post, reason):
         recipient_id=post.author_id, kind="post.rejected", payload={"post": post.pk, "thread": post.thread_id}
     )
     return post
+
+
+@transaction.atomic
+def edit_post(actor, post, body_source):
+    """Every edit is kept as a PostRevision, visible to staff. The first edit also records the
+    original text, so the revisions hold every version. Staff edits of others' posts are audited."""
+    post = Post.objects.select_for_update().get(pk=post.pk)
+    decision = require(actor, "post.edit", post)
+    now = timezone.now()
+    if not post.revisions.exists():
+        PostRevision.objects.create(
+            post=post, body_source=post.body_source, edited_by_id=post.author_id, edited_at=post.created_at
+        )
+    PostRevision.objects.create(post=post, body_source=body_source, edited_by=actor, edited_at=now)
+    post.body_source, post.body_html, post.edited_at = body_source, render_body(body_source), now
+    post.save(update_fields=["body_source", "body_html", "edited_at"])
+    if decision.via == "staff" and post.author_id != actor.pk:
+        log.record(actor, "post.edit", post, {"author": post.author_id})
+    return post
+
+
+@transaction.atomic
+def delete_post(actor, post, reason=""):
+    """Soft delete: the post stays, visible to Admins and Owners with who deleted it and why.
+    Staff must give a reason for deleting someone else's post, and are audited."""
+    post = Post.objects.select_for_update().get(pk=post.pk)
+    decision = require(actor, "post.delete", post)
+    by_staff = decision.via == "staff" and post.author_id != actor.pk
+    if by_staff and not reason.strip():
+        raise ValidationError("staff must give a reason for deleting a member's post")
+    post.deleted_at, post.deleted_by, post.delete_reason = timezone.now(), actor, reason
+    post.save(update_fields=["deleted_at", "deleted_by", "delete_reason"])
+    if by_staff:
+        log.record(actor, "post.delete", post, {"author": post.author_id, "reason": reason})
+    return post
+
+
+def _set_thread(actor, thread, action, **fields):
+    thread = Thread.objects.select_for_update().get(pk=thread.pk)
+    require(actor, action, thread)
+    for name, value in fields.items():
+        setattr(thread, name, value)
+    thread.save(update_fields=list(fields))
+    log.record(actor, action, thread, {k: str(v) for k, v in fields.items()})
+    return thread
+
+
+@transaction.atomic
+def set_locked(actor, thread, locked):
+    state = Thread.State.LOCKED if locked else Thread.State.OPEN
+    return _set_thread(actor, thread, "thread.lock", state=state)
+
+
+@transaction.atomic
+def set_pinned(actor, thread, pinned):
+    return _set_thread(actor, thread, "thread.pin", is_pinned=pinned)
+
+
+@transaction.atomic
+def archive_thread(actor, thread):
+    return _set_thread(actor, thread, "thread.archive", state=Thread.State.ARCHIVED)

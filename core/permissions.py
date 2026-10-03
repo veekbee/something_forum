@@ -7,6 +7,7 @@ grant, is recorded by the service that acts on the Decision (see Decision.via).
 """
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
 
 from django.utils import timezone
@@ -254,6 +255,102 @@ def _post_read_in_history(actor, post):
     if post.author_id == actor.pk and post.deleted_at is None:
         return allow()
     return _post_read(actor, post)
+
+
+def _discussion_post_open(post):
+    """Common refusals for changing a forum post. DM posts are not editable until DMs are
+    designed in build step 4."""
+    thread = post.thread
+    if thread.kind == thread.Kind.DM:
+        return deny("direct messages cannot be changed")
+    if thread.subforum.is_archived or thread.state == thread.State.ARCHIVED:
+        return deny("thread is archived")
+    if post.deleted_at is not None:
+        return deny("post was deleted")
+    if post.rejected_at is not None:
+        return deny("post was rejected")
+    return allow()
+
+
+def _within_edit_window(post):
+    window = post.thread.subforum.setting("subforum.edit_window_minutes")
+    return window is None or timezone.now() - post.created_at <= timedelta(minutes=window)
+
+
+@rule("post.edit")
+def _post_edit(actor, post):
+    """Staff edit any post in sub-forums they moderate; authors edit their own within the
+    sub-forum's edit window, and not once the thread is locked."""
+    is_open = _discussion_post_open(post)
+    if not is_open:
+        return is_open
+    readable = _post_read(actor, post)
+    if not readable:
+        return readable
+    writable = _can_write_anything(actor)
+    if not writable:
+        return writable
+    if roles.moderates(actor, post.thread.subforum):
+        return allow(via="staff")
+    if post.author_id != actor.pk:
+        return deny("not your post")
+    if post.thread.state == post.thread.State.LOCKED:
+        return deny("thread is locked")
+    if not _within_edit_window(post):
+        return deny("edit window has closed")
+    return allow(via="author")
+
+
+@rule("post.delete")
+def _post_delete(actor, post):
+    """Soft delete. Staff in sub-forums they moderate; authors their own posts, on the same
+    terms as editing."""
+    return _post_edit(actor, post)
+
+
+@rule("post.read_revisions")
+def _post_read_revisions(actor, post):
+    readable = _post_read(actor, post)
+    if not readable:
+        return readable
+    if not roles.moderates(actor, post.thread.subforum):
+        return deny("edit history is visible to staff")
+    return allow()
+
+
+def _thread_state_change(actor, thread, staff_check, who):
+    if thread.kind == thread.Kind.DM:
+        return deny("direct messages have no thread state")
+    if thread.subforum.is_archived or thread.state == thread.State.ARCHIVED:
+        return deny("thread is archived")
+    if actor.status != User.Status.ACTIVE:
+        return deny(f"account is {actor.status}")
+    if not staff_check(actor, thread.subforum):
+        return deny(f"only {who} may do this")
+    return allow()
+
+
+@rule("thread.lock")
+def _thread_lock(actor, thread):
+    """Lock or unlock. Moderators may lock within their sub-forums."""
+    return _thread_state_change(actor, thread, roles.moderates, "staff of this sub-forum")
+
+
+@rule("thread.pin")
+def _thread_pin(actor, thread):
+    """Pin or unpin. The design gives Moderators lock but not pin, so Admins and Owners only."""
+    return _thread_state_change(actor, thread, lambda a, _sf: roles.is_admin_or_owner(a), "Admins and Owners")
+
+
+@rule("thread.archive")
+def _thread_archive(actor, thread):
+    """Archiving is final: nothing can change an archived thread, so there is no unarchive rule."""
+    return _thread_state_change(actor, thread, lambda a, _sf: roles.is_admin_or_owner(a), "Admins and Owners")
+
+
+@rule("search.use")
+def _search_use(actor, _target):
+    return _can_read_anything(actor)
 
 
 @rule("post.moderate")
