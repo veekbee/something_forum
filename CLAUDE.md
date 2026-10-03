@@ -16,7 +16,7 @@ A paid, invite-only discussion forum. Every member is sponsored by another membe
 
 ## Design changes
 
-Design chats in Claude.ai propose changes as unified diffs against `docs/DESIGN.md` (and sometimes this file). When the user hands you one:
+Design chats in Claude.ai propose changes as unified diffs against `docs/DESIGN.md` (and sometimes this file), following the instructions in `docs/DESIGN_SESSIONS.md`. Each patch comes with a handoff note on the code, migrations and tests it implies. When the user hands you one:
 
 1. Check it applies cleanly with `git apply --check`. If it doesn't, or if it contradicts code already built or another part of the design, report the conflict instead of merging by hand.
 2. Apply it, then make any code, migration, registry or test changes it implies in the same piece of work.
