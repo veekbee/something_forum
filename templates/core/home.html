@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Forum</title>
+</head>
+<body>
+  <main>
+    <h1>Signed in</h1>
+    <p>You are signed in as {{ request.user.display_name }} with two-factor authentication.
+       Forum pages arrive in a later milestone.</p>
+    <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button>Sign out</button></form>
+  </main>
+</body>
+</html>

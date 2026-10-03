@@ -1,0 +1,12 @@
+Django>=5.2,<6
+django-allauth[mfa]>=65.19,<66
+django-environ>=0.14,<1
+django-storages>=1.14,<2
+boto3>=1.40,<2
+psycopg[binary]>=3.2,<4
+cryptography>=46
+stripe>=16,<17
+
+# Development and tests
+pytest>=9,<10
+pytest-django>=4.14,<5
