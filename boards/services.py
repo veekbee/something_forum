@@ -1,48 +1,106 @@
+"""Forum writes. Each service checks permission through core.permissions, does the work in one
+transaction, and audits staff actions there (design rules 1 and 10)."""
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
-from django.utils.html import escape, linebreaks
 
+from accounts import roles
 from audit import log
+from boards import images
 from boards.limits import should_hold
-from boards.models import Post, PostRevision, Thread
+from boards.models import Post, PostQuote, PostRevision, SubForum, Thread, ThreadTitleRevision
+from boards.rendering import render_post
+from core import registry
 from core.models import Notification
+from core.permissions import MoveRequest, can
 from core.services import require
 
-
-def render_body(source):
-    # Placeholder until the strict Markdown renderer lands with the editor (build step 3):
-    # escape everything, keep paragraphs.
-    return linebreaks(escape(source))
+# --- rendering, quotes, mentions -------------------------------------------------------------
 
 
-def _add_post(thread, author, body_source):
-    now = timezone.now()
-    post = Post.objects.create(
-        thread=thread,
-        author=author,
-        body_source=body_source,
-        body_html=render_body(body_source),
-        created_at=now,
-        is_held=should_hold(author, thread.subforum),
+def _render(post, validate_quotes=True, collect_mentions=True):
+    rendered = render_post(
+        post, attachments=post.attachments.order_by("pk"), validate_quotes=validate_quotes,
+        collect_mentions=collect_mentions,
     )
-    Thread.objects.filter(pk=thread.pk).update(post_count=F("post_count") + 1, last_post_at=now)
+    post.body_html = rendered.html
+    post.save(update_fields=["body_html"])
+    if validate_quotes:
+        PostQuote.objects.filter(quoting_post=post).exclude(quoted_post_id__in=rendered.quoted_ids).delete()
+        for quoted_id in rendered.quoted_ids:
+            PostQuote.objects.get_or_create(quoting_post=post, quoted_post_id=quoted_id)
+    return rendered
+
+
+def rerender_quoting(post):
+    """Rule 24: when a quoted post is edited, deleted or anonymised, the posts quoting it change too."""
+    for quote in PostQuote.objects.filter(quoted_post=post).select_related("quoting_post__thread__subforum"):
+        _render(quote.quoting_post, validate_quotes=False, collect_mentions=False)
+
+
+def notify_mentions(post, users):
+    """Rule 23: only members who can read the thread, only once the post is visible, and at most
+    mentions.max_notified_per_post of them."""
+    if post.is_held or post.rejected_at is not None or post.deleted_at is not None:
+        return []
+    limit = registry.site_value("mentions.max_notified_per_post")
+    notified = []
+    for user in users:
+        if len(notified) >= limit:
+            break
+        if user.pk == post.author_id or not can(user, "thread.read", post.thread):
+            continue
+        Notification.objects.create(
+            recipient=user, kind="mention", payload={"post": post.pk, "thread": post.thread_id}
+        )
+        notified.append(user)
+    return notified
+
+
+def _attach(post, author, files):
+    for upload in files:
+        images.store(post, author, upload)
+
+
+# --- posting ---------------------------------------------------------------------------------
+
+
+def _add_post(thread, author, body_source, files):
+    if thread.subforum is not None:
+        images.check_caps(thread.subforum, files)
+    now = timezone.now()
+    held = should_hold(author, thread.subforum)
+    post = Post.objects.create(
+        thread=thread, author=author, body_source=body_source, body_html="", created_at=now, is_held=held
+    )
+    _attach(post, author, files)
+    rendered = _render(post)
+    # A held post is not thread activity until it is released.
+    if not held:
+        Thread.objects.filter(pk=thread.pk).update(post_count=F("post_count") + 1, last_post_at=now)
+    notify_mentions(post, rendered.mentions)
     return post
 
 
 @transaction.atomic
-def start_thread(author, subforum, title, body_source):
+def start_thread(author, subforum, title, body_source, files=()):
     require(author, "subforum.start_thread", subforum)
-    thread = Thread.objects.create(subforum=subforum, kind=Thread.Kind.DISCUSSION, title=title, author=author)
-    post = _add_post(thread, author, body_source)
+    title = title.strip()
+    if not title:
+        raise ValidationError("A thread needs a title.")
+    thread = Thread.objects.create(
+        subforum=subforum, kind=Thread.Kind.DISCUSSION, title=title, author=author, last_post_at=timezone.now()
+    )
+    post = _add_post(thread, author, body_source, files)
     return thread, post
 
 
 @transaction.atomic
-def reply(author, thread, body_source):
+def reply(author, thread, body_source, files=()):
     require(author, "thread.reply", thread)
-    return _add_post(thread, author, body_source)
+    return _add_post(thread, author, body_source, files)
 
 
 @transaction.atomic
@@ -60,16 +118,20 @@ def release_post(actor, post):
     require(actor, "post.moderate", post)
     if not post.is_held:
         raise ValidationError("post is not held")
-    post.is_held, post.released_by, post.released_at = False, actor, timezone.now()
+    now = timezone.now()
+    post.is_held, post.released_by, post.released_at = False, actor, now
     post.save(update_fields=["is_held", "released_by", "released_at"])
+    Thread.objects.filter(pk=post.thread_id).update(post_count=F("post_count") + 1, last_post_at=now)
     log.record(actor, "post.release", post)
+    rendered = render_post(post, attachments=post.attachments.order_by("pk"), validate_quotes=False)
+    notify_mentions(post, rendered.mentions)
     return post
 
 
 @transaction.atomic
 def reject_post(actor, post, reason):
     """A rejected post leaves the thread, stops counting toward rate limits and held-post counts,
-    and stays in its author's post history. The author is notified."""
+    and stays in its author's post history. The author is notified; mentions never are."""
     require(actor, "post.moderate", post)
     if not post.is_held:
         raise ValidationError("post is not held")
@@ -82,22 +144,37 @@ def reject_post(actor, post, reason):
     return post
 
 
+# --- editing and deleting --------------------------------------------------------------------
+
+
 @transaction.atomic
-def edit_post(actor, post, body_source):
-    """Every edit is kept as a PostRevision, visible to staff. The first edit also records the
-    original text, so the revisions hold every version. Staff edits of others' posts are audited."""
-    post = Post.objects.select_for_update().get(pk=post.pk)
+def edit_post(actor, post, body_source, files=()):
+    """Every edit is kept as a PostRevision, visible to staff; the first edit also records the
+    original. A staff edit shows as one, and an Admin's edit in the Graveyard is a redaction.
+    Posts quoting this one are re-rendered; newly added mentions are notified."""
+    post = Post.objects.select_for_update(of=("self",)).select_related("thread__subforum").get(pk=post.pk)
     decision = require(actor, "post.edit", post)
+    if files and post.thread.subforum is not None:
+        images.check_caps(post.thread.subforum, files, existing=post.attachments.count())
     now = timezone.now()
+    before = render_post(post, attachments=post.attachments.order_by("pk"), validate_quotes=False)
     if not post.revisions.exists():
         PostRevision.objects.create(
             post=post, body_source=post.body_source, edited_by_id=post.author_id, edited_at=post.created_at
         )
-    PostRevision.objects.create(post=post, body_source=body_source, edited_by=actor, edited_at=now)
-    post.body_source, post.body_html, post.edited_at = body_source, render_body(body_source), now
-    post.save(update_fields=["body_source", "body_html", "edited_at"])
-    if decision.via == "staff" and post.author_id != actor.pk:
+    redaction = decision.via == "redaction"
+    PostRevision.objects.create(post=post, body_source=body_source, edited_by=actor, edited_at=now, is_redaction=redaction)
+    post.body_source, post.edited_at = body_source, now
+    post.save(update_fields=["body_source", "edited_at"])
+    _attach(post, actor, files)
+    rendered = _render(post, validate_quotes=not redaction)
+    rerender_quoting(post)
+    if redaction:
+        log.record(actor, "post.redact", post, {"author": post.author_id})
+    elif decision.via == "staff" and post.author_id != actor.pk:
         log.record(actor, "post.edit", post, {"author": post.author_id})
+    already = {u.pk for u in before.mentions}
+    notify_mentions(post, [u for u in rendered.mentions if u.pk not in already])
     return post
 
 
@@ -105,25 +182,67 @@ def edit_post(actor, post, body_source):
 def delete_post(actor, post, reason=""):
     """Soft delete: the post stays, visible to Admins and Owners with who deleted it and why.
     Staff must give a reason for deleting someone else's post, and are audited."""
-    post = Post.objects.select_for_update().get(pk=post.pk)
+    post = Post.objects.select_for_update(of=("self",)).select_related("thread__subforum").get(pk=post.pk)
     decision = require(actor, "post.delete", post)
     by_staff = decision.via == "staff" and post.author_id != actor.pk
     if by_staff and not reason.strip():
-        raise ValidationError("staff must give a reason for deleting a member's post")
+        raise ValidationError("Staff must give a reason for deleting a member's post.")
     post.deleted_at, post.deleted_by, post.delete_reason = timezone.now(), actor, reason
     post.save(update_fields=["deleted_at", "deleted_by", "delete_reason"])
+    rerender_quoting(post)
     if by_staff:
         log.record(actor, "post.delete", post, {"author": post.author_id, "reason": reason})
     return post
 
 
-def _set_thread(actor, thread, action, **fields):
-    thread = Thread.objects.select_for_update().get(pk=thread.pk)
+@transaction.atomic
+def purge_revisions(actor, post):
+    """An Owner empties every earlier version of a Graveyard post, so redacted text survives
+    nowhere. The current version and the record of who purged stay."""
+    post = Post.objects.select_for_update(of=("self",)).select_related("thread__subforum").get(pk=post.pk)
+    require(actor, "post.purge_revisions", post)
+    now = timezone.now()
+    latest = post.revisions.order_by("-edited_at", "-pk").first()
+    earlier = post.revisions.exclude(pk=latest.pk if latest else None).filter(purged_at__isnull=True)
+    count = earlier.update(body_source="", purged_by=actor, purged_at=now)
+    log.record(actor, "post.purge_revisions", post, {"revisions": count})
+    return count
+
+
+# --- thread titles, states, moves and endings ------------------------------------------------
+
+
+def _locked_thread(thread):
+    return Thread.objects.select_for_update(of=("self",)).select_related("subforum").get(pk=thread.pk)
+
+
+@transaction.atomic
+def edit_title(actor, thread, title):
+    thread = _locked_thread(thread)
+    decision = require(actor, "thread.edit_title", thread)
+    title = title.strip()
+    if not title:
+        raise ValidationError("A thread needs a title.")
+    now = timezone.now()
+    if not thread.title_revisions.exists():
+        ThreadTitleRevision.objects.create(
+            thread=thread, title=thread.title, edited_by_id=thread.author_id, edited_at=thread.created_at
+        )
+    ThreadTitleRevision.objects.create(thread=thread, title=title, edited_by=actor, edited_at=now)
+    thread.title = title
+    thread.save(update_fields=["title"])
+    if decision.via in ("staff", "redaction") and thread.author_id != actor.pk:
+        log.record(actor, f"thread.title_{'redact' if decision.via == 'redaction' else 'edit'}", thread)
+    return thread
+
+
+def _set_thread(actor, thread, action, payload=None, **fields):
+    thread = _locked_thread(thread)
     require(actor, action, thread)
     for name, value in fields.items():
         setattr(thread, name, value)
     thread.save(update_fields=list(fields))
-    log.record(actor, action, thread, {k: str(v) for k, v in fields.items()})
+    log.record(actor, action, thread, payload or {k: str(v) for k, v in fields.items()})
     return thread
 
 
@@ -138,6 +257,72 @@ def set_pinned(actor, thread, pinned):
     return _set_thread(actor, thread, "thread.pin", is_pinned=pinned)
 
 
+def _effective_min_read_rank(subforum):
+    rank, node = 0, subforum
+    while node is not None:
+        rank = max(rank, roles.rank_of(node.setting("subforum.min_read_role")))
+        node = node.parent
+    return rank
+
+
+def widens_audience(source, destination):
+    """True when members who cannot read `source` could read `destination` (rule 26)."""
+    return _effective_min_read_rank(destination) < _effective_min_read_rank(source)
+
+
+def _end(actor, thread, action, area_kind, reason):
+    now = timezone.now()
+    fields = {"state": Thread.State.ARCHIVED, "ended_by": actor, "ended_at": now, "end_reason": reason,
+              "is_pinned": False}
+    payload = {"from": thread.subforum_id, "reason": reason}
+    if area_kind is not None:
+        area = SubForum.objects.get(kind=area_kind)
+        fields.update(origin_subforum=thread.subforum, subforum=area)
+        payload["widened_audience"] = widens_audience(thread.subforum, area)
+    return _set_thread(actor, thread, action, payload=payload, **fields)
+
+
 @transaction.atomic
-def archive_thread(actor, thread):
-    return _set_thread(actor, thread, "thread.archive", state=Thread.State.ARCHIVED)
+def archive_thread(actor, thread, reason=""):
+    return _end(actor, thread, "thread.archive", None, reason)
+
+
+@transaction.atomic
+def send_to_graveyard(actor, thread, reason):
+    if not reason.strip():
+        raise ValidationError("Give a reason for sending a thread to the Graveyard.")
+    return _end(actor, thread, "thread.graveyard", SubForum.Kind.GRAVEYARD, reason)
+
+
+@transaction.atomic
+def send_to_classics(actor, thread, reason=""):
+    return _end(actor, thread, "thread.classics", SubForum.Kind.CLASSICS, reason)
+
+
+@transaction.atomic
+def move_thread(actor, thread, destination):
+    thread = _locked_thread(thread)
+    require(actor, "thread.move", MoveRequest(thread, destination))
+    source = thread.subforum
+    thread.subforum = destination
+    thread.save(update_fields=["subforum"])
+    log.record(actor, "thread.move", thread, {
+        "from": source.pk, "to": destination.pk, "widened_audience": widens_audience(source, destination),
+    })
+    return thread
+
+
+@transaction.atomic
+def restore_thread(actor, thread):
+    """Owner only: unarchive in place, or bring a thread back from the Graveyard or the Classics
+    to the sub-forum it came from."""
+    thread = _locked_thread(thread)
+    require(actor, "thread.restore", thread)
+    payload = {"from": thread.subforum_id, "to": thread.origin_subforum_id or thread.subforum_id}
+    if thread.origin_subforum_id:
+        thread.subforum_id = thread.origin_subforum_id
+    thread.state, thread.origin_subforum = Thread.State.OPEN, None
+    thread.ended_by, thread.ended_at, thread.end_reason = None, None, ""
+    thread.save(update_fields=["subforum", "state", "origin_subforum", "ended_by", "ended_at", "end_reason"])
+    log.record(actor, "thread.restore", thread, payload)
+    return thread

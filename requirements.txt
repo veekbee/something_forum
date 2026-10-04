@@ -5,6 +5,9 @@ django-storages>=1.14,<2
 boto3>=1.40,<2
 psycopg[binary]>=3.2,<4
 cryptography>=46
+markdown-it-py>=4,<5
+linkify-it-py>=2.2,<3
+Pillow>=12
 stripe>=16,<17
 
 # Development and tests

@@ -53,4 +53,4 @@ This repository is public.
 
 ## Current milestone
 
-Milestone 1, as defined in `docs/DESIGN.md` under "First Claude Code session: milestone 1": scaffold, data model, permission service, settings registry, seed data, authentication with TOTP, and tests. No member-facing UI beyond login and TOTP enrolment.
+Done: milestone 1 (scaffold, data model, permission service, registry, TOTP sign-in), milestone 2 (onboarding and the promotion workflow) and build step 3 (forum pages), as defined in `docs/DESIGN.md`. Next in the build order is step 4: moderation queue, audit log view, per-member view, DM threads with Admin search. Its decisions are not yet in the design doc.

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ member.display_name }}{% endblock %}
+{% block content %}
+<h1>{{ member.display_name }}</h1>
+<section class="panel">
+  <p>{% if role %}{{ role.name|capfirst }}{% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
+  {% if private %}
+  <p class="muted">Only you see this: {{ private.post_count }} post{{ private.post_count|pluralize }}.
+    {% if private.progress %}Toward {{ private.progress.toward }}: {{ private.progress.days }} of {{ private.progress.days_needed }} days{% if private.progress.posts_needed %}, {{ private.progress.posts }} of {{ private.progress.posts_needed }} posts{% endif %}{% if private.progress.in_progress %}; a promotion is in progress{% endif %}.{% endif %}</p>
+  {% endif %}
+</section>
+{% if classics %}
+<h2>Thread Classics</h2>
+<ul class="list panel">{% for t in classics %}<li><a href="{% url 'thread' t.pk %}">{{ t.title }}</a></li>{% endfor %}</ul>
+{% endif %}
+{% if record is not None %}
+<h2>Disciplinary record</h2>
+{% if record %}
+<ul class="list panel">{% for a in record %}<li>{{ a.get_kind_display|capfirst }} · {{ a.starts_at|date:"j M Y" }}{% if a.public_summary %} · {{ a.public_summary }}{% endif %}
+  <div class="meta muted">Initiated by {{ a.initiated_by.display_name }}{% if a.approved_by %}, approved by {{ a.approved_by.display_name }}{% endif %}{% if a.status != "active" %} · {{ a.get_status_display }}{% endif %}</div></li>{% endfor %}</ul>
+{% else %}<p class="muted">None.</p>{% endif %}
+{% endif %}
+<h2>Posts</h2>
+{% if page.object_list %}
+<ul class="list panel">
+  {% for post in page.object_list %}
+  <li><a href="{% url 'thread' post.thread_id %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.created_at|date:"j M Y" }}</span>
+    {% if post.is_held %}<span class="status pending">Held for review</span>{% endif %}
+    {% if post.rejected_at %}<span class="status">Rejected</span>{% endif %}
+    <div class="excerpt">{{ post.body_source|truncatechars:200 }}</div></li>
+  {% endfor %}
+</ul>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">No posts to show.</p>{% endif %}
+{% endblock %}

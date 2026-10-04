@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Title history{% endblock %}
+{% block content %}
+<h1>Title history</h1>
+<p><a href="{% url 'thread' thread.pk %}">Back to the thread</a></p>
+<ol class="list panel">
+  {% for rev in revisions %}<li>{{ rev.title }} <span class="muted">· {{ rev.edited_at|date:"j M Y, H:i" }} by {{ rev.edited_by.display_name }}</span></li>
+  {% empty %}<li class="muted">The title has never changed.</li>{% endfor %}
+</ol>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Move thread{% endblock %}
+{% block content %}
+<h1>Move “{{ thread.title }}”</h1>
+<form class="panel" method="{% if chosen %}post{% else %}get{% endif %}">{% if chosen %}{% csrf_token %}{% endif %}
+  <p><label for="to">To</label><select id="to" name="to">
+    {% for sf in options %}<option value="{{ sf.pk }}"{% if sf == chosen %} selected{% endif %}>{{ sf.name }}</option>{% endfor %}
+  </select></p>
+  {% if chosen and widens %}<p class="notice warn">More members can read {{ chosen.name }} than can read {{ thread.subforum.name }}. Moving the thread shows it to them.</p>{% endif %}
+  <div class="actions"><button>{% if chosen %}Move thread{% else %}Continue{% endif %}</button><a href="{% url 'thread' thread.pk %}">Cancel</a></div>
+</form>
+{% endblock %}

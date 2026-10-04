@@ -55,6 +55,23 @@ SUBFORUMS = [
 ]
 
 
+# Read-only areas where threads end, readable by Provisional and above whatever a thread's origin.
+ENDING_AREAS = [
+    {
+        "kind": "graveyard",
+        "slug": "thread-graveyard",
+        "name": "Thread Graveyard",
+        "description": "Threads that were deleted. Kept for good, read-only.",
+    },
+    {
+        "kind": "classics",
+        "slug": "thread-classics",
+        "name": "Thread Classics",
+        "description": "Threads of especially high quality that have reached their end.",
+    },
+]
+
+
 class Command(BaseCommand):
     help = "Create roles, the Owner account (from OWNER_* environment variables) and the initial sub-forums."
 
@@ -75,6 +92,13 @@ class Command(BaseCommand):
                 },
             )
             self.stdout.write(f"Sub-forum {spec['name']}: {'created' if created else 'exists'}")
+
+        for position, spec in enumerate(ENDING_AREAS, start=len(SUBFORUMS) + 1):
+            _, created = SubForum.objects.get_or_create(
+                kind=spec["kind"],
+                defaults={**spec, "position": position, "settings": {"subforum.min_read_role": "provisional"}},
+            )
+            self.stdout.write(f"{spec['name']}: {'created' if created else 'exists'}")
 
         self._seed_owner()
 

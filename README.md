@@ -10,9 +10,11 @@ code must enforce. Guidance for Claude Code sessions is in [CLAUDE.md](CLAUDE.md
 
 ## Status
 
-Milestone 2 (onboarding): invitations with sponsorship slots and a waitlist, acceptance, TOTP
-enrolment and identity details, the Admin review queue at `/staff/onboarding/`, complimentary
-membership, and the promotion workflow. Forum pages arrive with build step 3. Admins and Owners can
+Built so far: milestone 1 (data model, permission service, settings registry, TOTP sign-in),
+milestone 2 (invitations with sponsorship slots and a waitlist, Admin review at `/staff/onboarding/`,
+complimentary membership, promotions) and build step 3 (the forum: sub-forums, threads, the Markdown
+editor with mentions, quotes and image uploads, editing and deleting, the Thread Graveyard and Thread
+Classics, profiles and search). Pages are plain; the visual design comes later. Admins and Owners can
 inspect data, read-only, at `/staff/admin/`.
 
 ## Running it
@@ -77,7 +79,7 @@ resets the database between transactional tests.
 | `core` | Settings registry, permission service (`core/permissions.py`), access-control middleware, read-only staff admin, `seed` command, site settings, notifications, data requests |
 | `accounts` | User, roles and role assignments, encrypted identity records, sessions |
 | `sponsorship` | Invitations, sponsorships (the pedigree), promotions and eligibility |
-| `boards` | Sub-forums, threads (including DMs), posts, revisions, attachments, rate limits and held posts |
+| `boards` | Sub-forums, threads (including DMs), posts, revisions, quotes, attachments; rate limits and held posts; the Markdown renderer (`rendering.py`), image re-encoding (`images.py`), what each member can see (`visibility.py`) and the forum pages |
 | `moderation` | Reports, moderation actions, sponsor reviews, DM access grants |
 | `billing` | Stripe subscription and charge records |
 | `audit` | Append-only audit log |

@@ -40,7 +40,14 @@ def test_registry_defaults_match_design():
         "subforum.post_rate_limit_by_role": {},
         "subforum.thread_rate_limit": None,
         "subforum.images": "off",
-        "subforum.links": "members_only",
+        "subforum.links": "full_and_above",
+        "subforum.max_images_per_post": 4,
+        "subforum.max_image_mb": 5,
+        "mentions.max_notified_per_post": 10,
+        "pagination.posts_per_thread_page": 20,
+        "pagination.threads_per_subforum_page": 30,
+        "pagination.search_results_per_page": 20,
+        "pagination.profile_posts_per_page": 20,
         "subforum.edit_window_minutes": 30,
         "subforum.hold_posts": "first_n_provisional",
     }
@@ -95,9 +102,12 @@ def test_seed_creates_roles_owner_and_subforums(seeded):
     ]
     owner = User.objects.get(email="owner@example.test")
     assert roles.is_owner(owner) and owner.status == User.Status.ACTIVE
-    assert list(SubForum.objects.values_list("slug", flat=True)) == [
-        "guest-lobby", "general-discussion", "serious-discussion", "seminars",
+    assert list(SubForum.objects.values_list("slug", "kind")) == [
+        ("guest-lobby", "regular"), ("general-discussion", "regular"), ("serious-discussion", "regular"),
+        ("seminars", "regular"), ("thread-graveyard", "graveyard"), ("thread-classics", "classics"),
     ]
+    for area in SubForum.objects.exclude(kind="regular"):
+        assert area.setting("subforum.min_read_role") == "provisional"
     lobby = SubForum.objects.get(slug="guest-lobby")
     assert [lobby.setting(f"subforum.min_{k}_role") for k in ("read", "thread", "reply")] == ["guest"] * 3
     assert lobby.setting("subforum.post_rate_limit") is None
@@ -145,3 +155,17 @@ def test_identity_fields_are_encrypted_at_rest(make_user):
         stored = cursor.fetchone()
     assert "Ada" not in stored[0] and "555" not in stored[1]
     assert IdentityRecord.objects.get(user=member).real_name == "Ada Example"
+
+
+def test_links_value_rename_migration(seeded):
+    import importlib
+
+    from django.apps import apps
+
+    migration = importlib.import_module("boards.migrations.0003_rename_links_members_only")
+    old = SubForum.objects.create(name="Old", slug="old")
+    SubForum.objects.filter(pk=old.pk).update(settings={"subforum.links": "members_only"})
+    migration.forward(apps, None)
+    old.refresh_from_db()
+    assert old.settings == {"subforum.links": "full_and_above"}
+    assert SubForum.objects.get(slug="guest-lobby").settings["subforum.links"] == "off"

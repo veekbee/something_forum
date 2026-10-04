@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ subforum.name }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'home' %}">Forum</a>{% if subforum.parent %} › <a href="{% url 'subforum' subforum.parent.slug %}">{{ subforum.parent.name }}</a>{% endif %}</p>
+<h1>{{ subforum.name }}</h1>
+<p class="muted">{{ subforum.description }}</p>
+{% if may_start %}<p><a class="button" href="{% url 'new_thread' subforum.slug %}">New thread</a></p>{% endif %}
+{% if page.object_list %}
+<ul class="list panel threads">
+  {% for thread in page.object_list %}
+  <li>
+    {% if thread.is_pinned %}<span class="status">Pinned</span>{% endif %}
+    {% if thread.state != "open" %}<span class="status">{{ thread.get_state_display }}</span>{% endif %}
+    <a class="thread-title" href="{% url 'thread' thread.pk %}">{{ thread.title }}</a>
+    <div class="meta muted">by {{ thread.author.display_name }} · last activity {{ thread.last_post_at|timesince }} ago{% if thread.origin_subforum %} · from {{ thread.origin_subforum.name }}{% endif %}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">No threads yet.</p>{% endif %}
+{% endblock %}

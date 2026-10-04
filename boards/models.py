@@ -8,20 +8,34 @@ from core import registry
 
 
 class SubForum(models.Model):
+    class Kind(models.TextChoices):
+        REGULAR = "regular"
+        # Read-only areas on the forum index where threads end (docs/DESIGN.md, Thread endings).
+        GRAVEYARD = "graveyard"
+        CLASSICS = "classics"
+
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="children")
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=120, unique=True)
     description = models.TextField(blank=True)
     position = models.PositiveIntegerField(default=0)
     is_archived = models.BooleanField(default=False)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.REGULAR)
     # Overrides of registry keys with sub-forum scope; missing keys fall back (core.registry).
     settings = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["position", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["kind"], condition=~Q(kind="regular"), name="one_graveyard_one_classics")
+        ]
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_ending_area(self):
+        return self.kind != self.Kind.REGULAR
 
     def clean(self):
         registry.validate_subforum_settings(self.settings)
@@ -53,6 +67,15 @@ class Thread(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     last_post_at = models.DateTimeField(default=timezone.now)
     post_count = models.PositiveIntegerField(default=0)
+    # Set when a thread ends in the Graveyard or the Classics; origin_subforum is where it came from.
+    origin_subforum = models.ForeignKey(
+        SubForum, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    ended_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    ended_at = models.DateTimeField(null=True, blank=True)
+    end_reason = models.TextField(blank=True)
 
     class Meta:
         constraints = [
@@ -65,6 +88,15 @@ class Thread(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ThreadTitleRevision(models.Model):
+    """Every title a thread has had; visible to staff."""
+
+    thread = models.ForeignKey(Thread, on_delete=models.PROTECT, related_name="title_revisions")
+    title = models.CharField(max_length=200)
+    edited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    edited_at = models.DateTimeField(default=timezone.now)
 
 
 class ThreadParticipant(models.Model):
@@ -126,9 +158,26 @@ class Post(models.Model):
 
 class PostRevision(models.Model):
     post = models.ForeignKey(Post, on_delete=models.PROTECT, related_name="revisions")
-    body_source = models.TextField()
+    body_source = models.TextField(blank=True)
     edited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     edited_at = models.DateTimeField(default=timezone.now)
+    # An Admin's edit of a Graveyard thread, shown as "redacted by staff".
+    is_redaction = models.BooleanField(default=False)
+    # An Owner purge empties body_source on earlier revisions so removed text survives nowhere.
+    purged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    purged_at = models.DateTimeField(null=True, blank=True)
+
+
+class PostQuote(models.Model):
+    """One row per quote, so editing or deleting the quoted post can re-render the posts quoting it."""
+
+    quoting_post = models.ForeignKey(Post, on_delete=models.PROTECT, related_name="quotes_made")
+    quoted_post = models.ForeignKey(Post, on_delete=models.PROTECT, related_name="quoted_by")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["quoting_post", "quoted_post"], name="one_quote_row_per_pair")]
 
 
 class Attachment(models.Model):

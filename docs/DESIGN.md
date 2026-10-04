@@ -112,8 +112,8 @@ Per-sub-forum settings to support from day one:
 | Minimum role to reply | Provisional … Admin |  |
 | Post rate limit | N posts per hour / day / week, per user | Applies to new posts; editing is separate |
 | Thread rate limit | N new threads per period, per user | Prevents one member flooding a sub-forum |
-| Images | Off / inline / attachments only | Also sets a per-post size cap |
-| Links | Off / members-only / on | Off reduces spam risk in probation areas |
+| Images | Off / inline / attachments | Inline places uploaded images within the post; attachments shows them as thumbnails beneath it. Sets the per-post image cap |
+| Links | Off / full\_and\_above / on | Governs outside links only; links within the forum always work. Off reduces spam risk in probation areas |
 | Edit window | Minutes, or unlimited | Edits keep a history visible to staff |
 | Posts held for review | Off / first N posts of a Provisional (default 5) / all | Feeds the moderation queue |
 | Moderators | Set of users | Scope of the Moderator role |
@@ -136,10 +136,36 @@ Per-role rate limits (decided 3 Oct 2026): a sub-forum can set a different post 
 Thread and post behaviours:
 
 - Threads are flat and chronological, with quote-reply. Nested threading is deliberately out of scope; it changes the character of discussion.
-- Posts support rich text (Markdown or a limited HTML subset), quoting, and mentions. No reaction counters or vote scores by default; they shift incentives toward performance over conversation. Revisit later if members want them.
+- Posts support rich text in Markdown, quoting, and mentions. No reaction counters or vote scores by default; they shift incentives toward performance over conversation. Revisit later if members want them.
 - Soft-delete only. Deleted posts stay visible to Admins with who deleted them and why.
-- Thread states: open, locked, pinned, archived (read-only, excluded from "new posts"). A locked thread takes no new replies except from Admins and Owners, anywhere, and Moderators in sub-forums they moderate (decided 3 Oct 2026). An archived thread cannot be modified by anyone, Admins and Owners included: no replies, edits or deletions (confirmed 3 Oct 2026).
+- Thread states: open, locked, pinned, archived (read-only, excluded from "new posts"). A locked thread takes no new replies except from Admins and Owners, anywhere, and Moderators in sub-forums they moderate (decided 3 Oct 2026). An archived thread cannot be modified by anyone, Admins and Owners included: no replies, edits or deletions (confirmed 3 Oct 2026). The two exceptions are an Owner unarchiving a thread and Admin redaction in the Thread Graveyard, both below (decided 3 Oct 2026).
 - Full-text search across threads and posts, scoped by what the searcher may read.
+
+Markdown allow-list (decided 3 Oct 2026): paragraphs and line breaks, bold and italic, strikethrough, bulleted and numbered lists, block quotes, inline code and code blocks, horizontal rules, and two levels of headings, rendered small, for essay-length posts. No tables, since they read badly on a phone. Raw HTML is shown as plain text, never rendered and never silently stripped. Links and images follow the next two paragraphs.
+
+Links (decided 3 Oct 2026): links to pages inside the forum always work. The links setting governs outside links only. With `off` they show as plain text; with `full_and_above` (the default, renamed from members-only) they are clickable when the author is Full or above and plain text from Guests and Provisionals; with `on` they are clickable from everyone. The Guest Lobby keeps `off`. Every outside link carries `rel="nofollow noopener noreferrer"`, and there is no "leaving the forum" warning page.
+
+Images (decided 3 Oct 2026): images from other websites are never loaded, because loading one would tell that site who is reading and when; a pasted image address is an ordinary outside link. Only images uploaded to the forum appear, in JPEG, PNG, WebP or GIF, with no SVG and no other file types at launch. The server re-encodes every upload, which strips camera metadata such as location and neutralises malformed files. A sub-forum allows at most 4 images per post and 5 MB per image before re-encoding (proposed).
+
+Mentions (decided 3 Oct 2026): `@` followed by the member's slug, with autocomplete. A mention notifies the member only if they can read the thread; otherwise it links to their profile and sends nothing. Held posts notify on release, rejected posts never, and invited accounts cannot be mentioned. At most 10 mentions in a post send notifications (proposed).
+
+Quotes (decided 3 Oct 2026): a quote carries the author, a link to the original post and the quoted excerpt, and may only come from the same thread or DM, so copied text never crosses a permission boundary. If the original is edited, the quote keeps the words replied to and shows an "edited since" note. If the original is deleted, the quoted text is replaced by "quoted post deleted" for everyone but staff. Held and rejected posts cannot be quoted.
+
+Editing and deleting (confirmed 3 Oct 2026): authors edit and delete their own posts only within the edit window and never in a locked thread. Staff edit and delete any post in sub-forums they moderate, at any time and without a second approver; deleting someone else's post needs a reason, and a post edited by staff shows an "edited by staff" note. A thread's starter may edit its title within the edit window of their first post, staff at any time, and earlier titles are kept for staff. Moderators move threads between sub-forums they moderate; Admins and Owners move them anywhere. A held post does not count as new thread activity until it is released.
+
+Thread endings (decided 3 Oct 2026). A thread can end in three ways:
+
+| Ending | What it means | Who | Readable by |
+| --- | --- | --- | --- |
+| Archived in place | Read-only in its own sub-forum | Admin or Owner | The sub-forum's readers |
+| Thread Graveyard | What deleting a thread means; the thread is kept for good | Moderators in their sub-forums, Admins, Owners, with a reason | Provisional and above |
+| Thread Classics | An honour for a thread of especially high quality that has reached its end | Admin or Owner | Provisional and above |
+
+The Graveyard and the Classics are two read-only areas on the forum index, and a thread in either shows the sub-forum it came from. Because both are readable by Provisional and above whatever a thread's origin, sending a thread there can widen its audience; the confirmation step says so when it does, as does a move between sub-forums. DMs cannot be sent to either. An Admin may edit the title and posts of a Graveyard thread when it was deleted for something that should be removed; each edited post shows a "redacted by staff" note, and an Owner can purge the earlier versions from the revision history when the removed text must not survive anywhere. An Owner can unarchive a thread or bring one back from the Graveyard or the Classics, and every one of these actions is audited. The starter of a Classics thread has it listed under "Thread Classics" on their profile.
+
+Profiles (decided 3 Oct 2026) show join date, role, Thread Classics honours and the member's public disciplinary record. They show no post count, which would reward volume; members see their own count privately, beside their progress toward promotion.
+
+Page sizes (confirmed 3 Oct 2026): 20 posts per thread page, 30 threads per sub-forum page, 20 search results per page, 20 posts per page of a member's post history. Layout follows the vBulletin structure adapted mobile-first: a forum index listing sub-forums with thread and post counts and the latest post, then the Graveyard and the Classics; a sub-forum page listing threads; a flat thread page. Pages are built plain for now, and the visual look is decided in a later design pass (decided 3 Oct 2026).
 
 Direct messages are modelled as a private thread type between two or more members, so they reuse the same storage, search and retention machinery. Admin visibility of DMs is covered in the next section.
 
@@ -297,12 +323,14 @@ Design choices, each made for extensibility: roles are rows and assignments, not
 | Invitation | sponsor, invitee\_email, token\_hash (the token itself is only emailed), vouching\_notes, invitee (User, nullable), status (pending, accepted, waitlisted, approved, declined, invitee\_declined, rescinded, expired), created\_at, accepted\_at, decided\_by, decided\_at | Admin manual review happens here. Acceptance creates the User (status invited) and IdentityRecord and sets invitee. Approval moves the User to guest, assigns the guest role and creates the first Sponsorship. decided\_by and decided\_at record whoever ended or approved the invitation: an Admin or Owner, the sponsor (rescinded), the invitee (invitee\_declined), or nobody (expired). Expiry is computed from created\_at and the setting, not stored. Slot rules are in Rules the code must enforce |
 | Sponsorship | sponsor, member, sponsor\_role (at the time), started\_at, ended\_at, end\_reason (tenured, transferred, sponsor\_left, sponsor\_banned, member\_removed), previous (self FK), is\_original | Active sponsorship = ended\_at null. Pedigree = the is\_original rows. A transfer closes one row and opens another pointing back at it. Cap checks count a sponsor's active rows |
 | Promotion | member, from\_role, to\_role, recommended\_by, reviewed\_by, review\_notes, decided\_by, status (recommended, reviewed, approved, declined), timestamps | Eligibility is computed, not stored. The row is the workflow record |
-| SubForum | parent (self FK, nullable), name, slug, description, position, is\_archived, settings (JSONB) | settings validated against the registry below; missing keys fall back to site defaults |
-| Thread | subforum (nullable for DMs), kind (discussion, dm), title, author, state (open, locked, archived), is\_pinned, created\_at, last\_post\_at, post\_count | DM threads have no subforum and are visible only to participants, Admins, Owners, and Moderators under a grant |
+| SubForum | parent (self FK, nullable), name, slug, description, position, is\_archived, kind (regular, graveyard, classics), settings (JSONB) | settings validated against the registry below; missing keys fall back to site defaults. Exactly one graveyard and one classics sub-forum exist, created by seed, read-only, readable by Provisional and above |
+| Thread | subforum (nullable for DMs), kind (discussion, dm), title, author, state (open, locked, archived), is\_pinned, created\_at, last\_post\_at, post\_count, origin\_subforum (nullable), ended\_by, ended\_at, end\_reason | DM threads have no subforum and are visible only to participants, Admins, Owners, and Moderators under a grant. A thread in the Graveyard or the Classics is archived and keeps origin\_subforum. last\_post\_at ignores held posts until release |
+| ThreadTitleRevision | thread, title, edited\_by, edited\_at | Written on every title change; visible to staff |
 | ThreadParticipant | thread, user, joined\_at, last\_read\_at | DM membership and per-user read position. Also used for thread subscriptions |
 | Post | thread, author, body\_source, body\_html, created\_at, edited\_at, is\_held, released\_by, released\_at, rejected\_by, rejected\_at, deleted\_at, deleted\_by, delete\_reason | Index on (author, created\_at) serves the rolling-window rate limits, which are computed from this table rather than stored. Rejected posts are excluded from rate-limit and held-post counts; deleted posts are not. body\_html is rendered server-side through a strict allow-list and never re-rendered on read |
-| PostRevision | post, body\_source, edited\_by, edited\_at | Written on every edit; visible to staff |
-| Attachment | post, uploader, storage\_key, filename, mime, size\_bytes, width, height, created\_at | Served only via signed URL after a permission check on the post |
+| PostRevision | post, body\_source, edited\_by, edited\_at, is\_redaction, purged\_by, purged\_at | Written on every edit; visible to staff. An edit by anyone other than the author drives the "edited by staff" note, and a Graveyard redaction the "redacted by staff" note. An Owner purge clears body\_source on earlier revisions and records who purged them |
+| PostQuote | quoting\_post, quoted\_post | One row per quote. When a quoted post is edited, deleted or anonymised, the posts quoting it are re-rendered |
+| Attachment | post, uploader, storage\_key, filename, mime, size\_bytes, width, height, created\_at | Images only, stored after server-side re-encoding. Served only via signed URL after a permission check on the post |
 | Report | post (nullable), user (nullable), reporter, reason, created\_at, status, handled\_by, handled\_at | Feeds the moderation queue alongside held posts and automatic flags |
 | ModerationAction | target\_user, kind (note, warning, hold, suspension, read\_only, ban, ban\_reversal, sponsorship\_transfer, sponsoring\_suspension), initiated\_by, approved\_by (nullable), status (pending, active, expired, reversed), starts\_at, ends\_at, internal\_reason, public\_summary, is\_public, related\_post, related\_action | sponsoring\_suspension removes the right to sponsor until ends\_at. is\_public false only for kind note. A note is active on creation with no approver. Public record = query over is\_public rows |
 | SponsorReview | banned\_member, sponsor, triggering\_action, status (pending, decided), outcome (no\_action, warning, sponsoring\_suspension, ban), suspension\_months, invitees\_transfer (bool), resulting\_action, decided\_by, decided\_at, notes, created\_at | Opened in the same transaction as an approved ban on a Guest or Provisional whose active sponsor is not Admin or Owner. Decided only by Admin or Owner |
@@ -344,8 +372,15 @@ Every number below is a registry entry with a default; Owners change site-wide v
 | subforum.post\_rate\_limit | none | sub-forum | Serious Discussion 1 per 24h; Seminars 1 per 7d; rolling window |
 | subforum.post\_rate\_limit\_by\_role | {} (no overrides) | sub-forum | Decided 3 Oct 2026; maps role to a limit that replaces post\_rate\_limit for that role; none set at launch |
 | subforum.thread\_rate\_limit | none | sub-forum |  |
-| subforum.images | off | sub-forum |  |
-| subforum.links | members\_only | sub-forum | Guest Lobby sets off |
+| subforum.images | off | sub-forum | Values off, inline, attachments |
+| subforum.max\_images\_per\_post | 4 | sub-forum | Proposed |
+| subforum.max\_image\_mb | 5 | sub-forum | Proposed; per image, before re-encoding |
+| subforum.links | full\_and\_above | sub-forum | Decided 3 Oct 2026; values off, full\_and\_above, on; outside links only; Guest Lobby sets off |
+| mentions.max\_notified\_per\_post | 10 | site | Proposed |
+| pagination.posts\_per\_thread\_page | 20 | site | Confirmed |
+| pagination.threads\_per\_subforum\_page | 30 | site | Confirmed |
+| pagination.search\_results\_per\_page | 20 | site | Confirmed |
+| pagination.profile\_posts\_per\_page | 20 | site | Confirmed |
 | subforum.edit\_window\_minutes | 30 | sub-forum | Proposed |
 | subforum.hold\_posts | first\_n\_provisional | sub-forum | Guest Lobby also holds Guest posts |
 
@@ -363,7 +398,7 @@ Every number below is a registry entry with a default; Owners change site-wide v
 10. AuditEntry rows are written inside the same database transaction as the action they record, and the table rejects updates and deletes.
 11. Posts are soft-deleted only. Erasure anonymises per the Privacy section and is the one path that clears personal fields.
 12. A ban on a Guest or Provisional opens a SponsorReview in the same transaction, unless the sponsor is Admin or Owner. Nothing happens to the sponsor until an Admin or Owner decides the review.
-13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum; archived threads accept no changes from anyone. A rejected post is shown to its author only in their post history, never in the thread. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
+13. Locked threads accept replies only from Admins, Owners and Moderators of that sub-forum; archived threads accept no changes from anyone, except Owner unarchiving and Admin redaction in the Graveyard (rule 26). A rejected post is shown to its author only in their post history, never in the thread. Moderator rank counts toward a sub-forum's minimum roles only where the member moderates.
 14. The service worker caches only static shell assets, including one static offline page that contains no member content. It never caches server-rendered pages, HTMX fragments or attachments. The logout response sends `Clear-Site-Data: "cache", "storage"`.
 15. An account with status invited reaches only its onboarding pages (TOTP enrolment, identity details, onboarding status, declining the invitation, logout). It never appears in member lists, search, mentions or the pedigree. The invitation acceptance page is the only onboarding page served without a session.
 16. Sponsorship slots go first to the sponsor's active sponsorships, then to live invitations (pending, accepted, waitlisted) in the order they were sent. When a slot frees, the earliest-sent live invitation without one takes it, and a waitlisted invitation becomes accepted at that moment. Approval turns the invitation's slot into the new Sponsorship; every other ending frees it.
@@ -371,6 +406,15 @@ Every number below is a registry entry with a default; Owners change site-wide v
 18. A pending invitation expires invitation.expiry\_days after it was sent. Accepted and waitlisted invitations never expire.
 19. When an invitation ends without approval, its invited account can no longer sign in, and after invitation.ended\_account\_deletion\_days the account and its IdentityRecord are deleted. This is the one routine hard delete outside erasure. The Invitation row and the audit entries survive it.
 20. Only an Admin or Owner can grant a complimentary subscription, which moves a Guest to Provisional as payment would.
+21. Post bodies are rendered once, server-side, through the Markdown allow-list; raw HTML is escaped, never rendered. Whether an outside link is clickable depends on the sub-forum's links setting and the author's role when the post is rendered.
+22. No image is ever loaded from another site. Uploads are images of the allowed types only, re-encoded by the server before storage, within the sub-forum's per-post caps.
+23. A mention notifies only a member who can read the thread, and only once the post is visible (released, if held). Invited accounts cannot be mentioned. No more than mentions.max\_notified\_per\_post notifications go out per post.
+24. A quote may only reference a visible post in the same thread or DM. Editing, deleting or anonymising a quoted post re-renders every post that quotes it; a deleted original's text is shown only to staff.
+25. Authors edit and delete their own posts within the edit window and never in a locked thread. Staff edit and delete any post in sub-forums they moderate; deleting another member's post requires a reason; a staff edit is marked as one. Earlier post bodies and thread titles are kept as revisions.
+26. Sending a thread to the Graveyard is open to Moderators in their sub-forums, Admins and Owners, with a reason; sending one to the Classics, and archiving in place, to Admins and Owners; unarchiving or bringing a thread back, to Owners only. Only Admins edit Graveyard threads, and only Owners purge earlier revisions. DM threads cannot be sent to either area. When an action widens a thread's audience, the confirmation says so.
+27. Pinning is for Admins and Owners; locking and unlocking also for Moderators in their sub-forums. Moderators move threads only between sub-forums they moderate.
+28. Profiles show no post count to anyone but the member themselves.
+29. Moderators' search covers held and rejected posts in sub-forums they moderate. Search covers no DMs until DM search is designed.
 
 ### First Claude Code session: milestone 1
 
@@ -399,6 +443,19 @@ Definition of done:
 - The comp path moves a Guest to Provisional with a comped Subscription and a provisional RoleAssignment, and only an Admin or Owner can use it.
 - Pages, mobile-first: send invitation (showing whether it will hold a slot or wait), acceptance, onboarding status, review queue showing waiting time, invitation list for sponsors.
 
+### Build step 3: forum pages
+
+Scope: the forum index, sub-forum pages, thread pages, the editor, profiles and search, built plain and mobile-first, plus the Graveyard and the Classics, the Markdown allow-list, links, image uploads, mentions and quotes as decided above.
+
+Definition of done:
+
+- Migrations for the new fields on SubForum, Thread and PostRevision, the new ThreadTitleRevision and PostQuote tables, and the rename of the links value members\_only to full\_and\_above in stored settings. Seed creates the Graveyard and the Classics.
+- Renderer tests: each allowed element renders; tables and three-level headings do not; raw HTML appears as text; outside links follow the setting and the author's role and carry the rel attributes; image addresses from other sites become links.
+- Upload tests: allowed types pass, SVG and other types are refused, metadata is gone after re-encoding, both caps are enforced.
+- Mention and quote tests: no notification to a member who cannot read the thread; held posts notify on release; a quote from another thread is refused; editing and deleting a quoted post re-render the quoting post.
+- Thread-ending tests for every actor and action in rule 26, including the audience warning and Owner purge.
+- Pages show 20, 30, 20 and 20 items as the registry says, with no "show all".
+
 Later milestones follow the build order in Recommended direction.
 
 ### Repository
@@ -409,7 +466,7 @@ Change workflow (decided 3 Oct 2026): this file is the single authority for the 
 
 ## Open questions for later sessions
 
-Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen), onboarding flow and invitation states, account created at acceptance, invitee decline and sponsor rescind, email-only identity check at launch, complimentary Guest-to-Provisional path, invitation expiry.
+Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen), onboarding flow and invitation states, account created at acceptance, invitee decline and sponsor rescind, email-only identity check at launch, complimentary Guest-to-Provisional path, invitation expiry, Markdown allow-list, outside links, images, mentions, quotes, page sizes, post and thread editing and deletion, Thread Graveyard and Thread Classics, profiles without post counts, plain pages with the look decided later.
 
 Still open:
 
@@ -419,6 +476,9 @@ Still open:
 - [ ] What fails probation, beyond a ban: for example a warning count or a Moderator recommendation.
 - [ ] Proposed defaults awaiting confirmation: transfer grace period 30 days, edit window 30 minutes, audit retention 2 years, scraping threshold 600 requests per 10 minutes, deletion of ended invited accounts after 30 days.
 - [ ] Whether someone whose invitation was declined by an Admin can be invited again, and by whom.
+- [ ] The forum's visual look, in a design pass once the plain pages exist.
+- [ ] Non-image attachments (for example PDFs for Seminars), if a need appears.
+- [ ] Proposed caps awaiting confirmation: 4 images and 5 MB per image per post, 10 notified mentions per post.
 - [ ] What the Mod feedback feed shows, and who reads it.
 - [ ] How a locked-out member sends an appeal to Admins: a public form adds an unauthenticated page; an email address does not.
 - [ ] Deleting audit entries at the end of the retention period, given the append-only trigger (deferred 3 Oct 2026).

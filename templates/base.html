@@ -12,11 +12,14 @@
     <a class="brand" href="{% url 'home' %}">Forum</a>
     {% if user.is_authenticated %}
     <nav>
-      {% block nav %}{% endblock %}
+      {% if nav_forum %}<a href="{% url 'search' %}">Search</a><a href="{% url 'member_profile' user.slug %}">Profile</a>{% endif %}
+      {% if nav_invite %}<a href="{% url 'invitations' %}">Invitations</a>{% endif %}
+      {% if nav_review %}<a href="{% url 'review_queue' %}">Review queue</a>{% endif %}
       <form class="inline-form" method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button class="secondary">Sign out</button></form>
     </nav>
     {% endif %}
   </div></header>
   <main>{% block content %}{% endblock %}</main>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

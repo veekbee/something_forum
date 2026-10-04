@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ thread.title }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'home' %}">Forum</a> › <a href="{% url 'subforum' thread.subforum.slug %}">{{ thread.subforum.name }}</a></p>
+<h1>{{ thread.title }}</h1>
+{% if thread.origin_subforum %}<p class="notice">From {{ thread.origin_subforum.name }}. {% if thread.end_reason %}{{ thread.end_reason }}{% endif %}</p>
+{% elif thread.state == "archived" %}<p class="notice">This thread is archived and read-only.</p>
+{% elif thread.state == "locked" %}<p class="notice">This thread is locked.</p>{% endif %}
+
+<div class="actions thread-actions">
+  {% if may.title %}<a href="{% url 'edit_title' thread.pk %}">Edit title</a>{% endif %}
+  {% if may.titles %}<a href="{% url 'title_revisions' thread.pk %}">Title history</a>{% endif %}
+  {% if may.lock %}<form method="post" action="{% url 'thread_toggle' thread.pk 'lock' %}">{% csrf_token %}<button class="secondary">{% if thread.state == "locked" %}Unlock{% else %}Lock{% endif %}</button></form>{% endif %}
+  {% if may.pin %}<form method="post" action="{% url 'thread_toggle' thread.pk 'pin' %}">{% csrf_token %}<button class="secondary">{% if thread.is_pinned %}Unpin{% else %}Pin{% endif %}</button></form>{% endif %}
+  {% if may.move %}<a href="{% url 'move_thread' thread.pk %}">Move</a>{% endif %}
+  {% if may.archive %}<a href="{% url 'end_thread' thread.pk 'archive' %}">Archive</a>{% endif %}
+  {% if may.graveyard %}<a href="{% url 'end_thread' thread.pk 'graveyard' %}">Send to Graveyard</a>{% endif %}
+  {% if may.classics %}<a href="{% url 'end_thread' thread.pk 'classics' %}">Send to Classics</a>{% endif %}
+  {% if may.restore %}<form method="post" action="{% url 'thread_toggle' thread.pk 'restore' %}">{% csrf_token %}<button class="secondary">Restore</button></form>{% endif %}
+</div>
+
+{% for entry in entries %}{% with post=entry.post %}
+<article class="panel post{% if post.is_held %} held{% endif %}{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}">
+  <header class="meta"><a href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a>
+    <span class="muted">· <a href="{% url 'post_link' post.pk %}">{{ post.created_at|date:"j M Y, H:i" }}</a>{% if post.edited_at %} · edited{% endif %}{% if entry.note %} · {{ entry.note }}{% endif %}</span>
+    {% if post.is_held %}<span class="status pending">Held for review</span>{% endif %}
+    {% if post.deleted_at %}<span class="status">Deleted by {{ post.deleted_by.display_name }}{% if post.delete_reason %}: {{ post.delete_reason }}{% endif %}</span>{% endif %}
+  </header>
+  <div class="body">{{ post.body_html|safe }}</div>
+  <div class="actions">
+    {% if entry.may_quote %}<a href="?quote={{ post.pk }}#reply">Quote</a>{% endif %}
+    {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
+    {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}
+    {% if entry.may_revisions %}<a href="{% url 'post_revisions' post.pk %}">History</a>{% endif %}
+    {% if entry.may_moderate %}
+      <form method="post" action="{% url 'moderate_post' post.pk 'release' %}">{% csrf_token %}<button>Release</button></form>
+      <form method="post" action="{% url 'moderate_post' post.pk 'reject' %}">{% csrf_token %}<input type="text" name="reason" placeholder="Reason" aria-label="Reason for rejecting"> <button class="secondary">Reject</button></form>
+    {% endif %}
+  </div>
+</article>
+{% endwith %}{% endfor %}
+{% include "boards/_pagination.html" %}
+
+{% if form %}
+<form class="panel" id="reply" method="post" action="{% url 'reply' thread.pk %}" enctype="multipart/form-data">{% csrf_token %}
+  <h2>Reply</h2>
+  {% include "boards/_editor.html" %}
+  <button>Post reply</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/mentions.js' %}" defer></script>{% endblock %}

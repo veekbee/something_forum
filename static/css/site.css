@@ -49,3 +49,25 @@ ul.list > li:first-child { border-top: 0; }
 .status.waitlisted, .status.pending { color: var(--warn); border-color: var(--warn); }
 .status.approved, .status.accepted { color: var(--ok); border-color: var(--ok); }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+
+/* Forum pages */
+.crumbs { font-size: .9rem; margin: 0; }
+.meta { font-size: .9rem; }
+.forums li.depth-1 { padding-left: 1.25rem; }
+.forum-name, .thread-title { font-weight: 600; display: inline-block; margin-right: .5rem; }
+.post .body { overflow-wrap: anywhere; }
+.post .body h3 { font-size: 1.05rem; margin: 1rem 0 .4rem; }
+.post .body h4 { font-size: .95rem; margin: .9rem 0 .3rem; }
+.post .body img { max-width: 100%; height: auto; border-radius: var(--radius); }
+.post .body pre, pre.source { overflow-x: auto; background: var(--bg); padding: .6rem; border-radius: var(--radius); white-space: pre-wrap; }
+.post .body blockquote { margin: .5rem 0; padding: .25rem .75rem; border-left: 3px solid var(--line); color: var(--muted); }
+.post .body blockquote.quote .quote-meta { font-size: .85rem; margin: .25rem 0; }
+.post-attachments img { max-width: 8rem; max-height: 8rem; object-fit: cover; margin: .25rem .25rem 0 0; }
+.post.held { border-style: dashed; }
+.post.deleted { opacity: .7; }
+.thread-actions { margin-bottom: var(--space); }
+.pagination { display: flex; gap: 1rem; justify-content: center; margin: var(--space) 0; }
+.excerpt { color: var(--muted); font-size: .95rem; }
+select { font: inherit; padding: .5rem; width: 100%; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); }
+.mention-list { list-style: none; margin: .25rem 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.mention-list button { width: 100%; text-align: left; background: transparent; color: var(--text); border: 0; border-radius: 0; }

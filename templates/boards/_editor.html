@@ -1,0 +1,9 @@
+{% load static %}
+{% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+{% for field in form %}<p>{{ field.label_tag }}{{ field }}{% for e in field.errors %}<span class="errors">{{ e }}</span>{% endfor %}</p>{% endfor %}
+{% if images != "off" %}
+<p><label for="id_images">Images</label><input id="id_images" type="file" name="images" multiple accept="image/jpeg,image/png,image/webp,image/gif">
+<span class="helptext">JPEG, PNG, WebP or GIF.{% if images == "inline" %} Place them with <code>![caption](image:1)</code>, <code>image:2</code> and so on; any you do not place appear at the end.{% else %} They appear beneath your post.{% endif %}{% if existing_images %} This post already has {{ existing_images }}.{% endif %}</span></p>
+{% endif %}
+<details class="helptext"><summary>Formatting</summary>
+<p>Markdown: <code>**bold**</code>, <code>*italic*</code>, <code>~~struck~~</code>, lists, <code>&gt; quotes</code>, <code>`code`</code>, <code>#</code> and <code>##</code> headings. Mention someone with <code>@</code> and their name in the address of their profile.</p></details>

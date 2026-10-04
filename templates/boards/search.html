@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h1>Search</h1>
+<form class="panel" method="get"><p><label for="q">Words to find</label><input id="q" type="text" name="q" value="{{ query }}"></p>
+  <span class="helptext">Use quotes for a phrase and a minus sign to exclude a word.</span> <button>Search</button></form>
+{% if page is not None %}
+{% if page.object_list %}
+<ul class="list panel">
+  {% for post in page.object_list %}
+  <li><a href="{% url 'post_link' post.pk %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.author.display_name }}, {{ post.created_at|date:"j M Y" }}</span>
+    <div class="excerpt">{{ post.body_source|truncatechars:200 }}</div></li>
+  {% endfor %}
+</ul>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">Nothing found.</p>{% endif %}
+{% endif %}
+{% endblock %}

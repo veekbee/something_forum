@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<h1>{{ heading }}</h1>
+<section class="panel">
+  <p>{{ explanation }}</p>
+  {% if warning %}<p class="notice warn">{{ warning }}</p>{% endif %}
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  <form method="post">{% csrf_token %}
+    {% if reason_field %}<p><label for="reason">Reason{% if not reason_required %} (optional){% endif %}</label><input id="reason" type="text" name="reason"{% if reason_required %} required{% endif %}></p>{% endif %}
+    <div class="actions"><button>{{ button }}</button><a href="{{ back }}">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

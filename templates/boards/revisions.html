@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Post history{% endblock %}
+{% block content %}
+<h1>History of a post by {{ post.author.display_name }}</h1>
+<p><a href="{% url 'post_link' post.pk %}">Back to the post</a></p>
+<ol class="list panel">
+  {% for rev in revisions %}
+  <li><div class="meta muted">{{ rev.edited_at|date:"j M Y, H:i" }} by {{ rev.edited_by.display_name }}{% if rev.is_redaction %} · redaction{% endif %}</div>
+    {% if rev.purged_at %}<p class="muted">Purged by {{ rev.purged_by.display_name }} on {{ rev.purged_at|date:"j M Y" }}.</p>
+    {% else %}<pre class="source">{{ rev.body_source }}</pre>{% endif %}</li>
+  {% empty %}<li class="muted">Never edited. Current text:<pre class="source">{{ post.body_source }}</pre></li>
+  {% endfor %}
+</ol>
+{% if may_purge %}
+<form method="post" class="panel">{% csrf_token %}<p>Purging empties every earlier version, so removed text survives nowhere. It cannot be undone.</p><button>Purge earlier versions</button></form>
+{% endif %}
+{% endblock %}

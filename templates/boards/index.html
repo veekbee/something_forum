@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Forum</h1>
+{% if not regular and not endings %}<p class="muted">There is nothing you can read yet.</p>{% endif %}
+<ul class="list panel forums">
+  {% for row in regular %}
+  <li class="depth-{{ row.depth }}">
+    <a class="forum-name" href="{% url 'subforum' row.subforum.slug %}">{{ row.subforum.name }}</a>
+    <span class="muted">{{ row.subforum.description }}</span>
+    <div class="meta muted">{{ row.threads }} thread{{ row.threads|pluralize }} · {{ row.posts }} post{{ row.posts|pluralize }}
+      {% if row.latest %}· latest: <a href="{% url 'post_link' row.latest.pk %}">{{ row.latest.thread.title|truncatechars:50 }}</a> by {{ row.latest.author.display_name }}, {{ row.latest.created_at|timesince }} ago{% endif %}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% if endings %}
+<h2>Where threads end</h2>
+<ul class="list panel forums">
+  {% for row in endings %}
+  <li><a class="forum-name" href="{% url 'subforum' row.subforum.slug %}">{{ row.subforum.name }}</a>
+    <span class="muted">{{ row.subforum.description }}</span>
+    <div class="meta muted">{{ row.threads }} thread{{ row.threads|pluralize }}</div></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

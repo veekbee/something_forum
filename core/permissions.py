@@ -159,8 +159,8 @@ def _subforum_start_thread(actor, subforum):
     writable = _can_write_anything(actor)
     if not writable:
         return writable
-    if subforum.is_archived:
-        return deny("sub-forum is archived")
+    if subforum.is_archived or subforum.is_ending_area:
+        return deny("sub-forum is read-only")
     if not _meets(actor, subforum, "subforum.min_thread_role"):
         return deny("role is below this sub-forum's minimum to start a thread")
     if limits.thread_limit_reached(actor, subforum):
@@ -220,7 +220,7 @@ def _thread_reply(actor, thread):
     if not writable:
         return writable
     subforum = thread.subforum
-    if subforum.is_archived or thread.state == thread.State.ARCHIVED:
+    if _is_ended(thread):
         return deny("thread is archived")
     if thread.state == thread.State.LOCKED and not roles.moderates(actor, subforum):
         return deny("thread is locked")
@@ -257,19 +257,19 @@ def _post_read_in_history(actor, post):
     return _post_read(actor, post)
 
 
-def _discussion_post_open(post):
-    """Common refusals for changing a forum post. DM posts are not editable until DMs are
-    designed in build step 4."""
-    thread = post.thread
-    if thread.kind == thread.Kind.DM:
-        return deny("direct messages cannot be changed")
-    if thread.subforum.is_archived or thread.state == thread.State.ARCHIVED:
-        return deny("thread is archived")
-    if post.deleted_at is not None:
-        return deny("post was deleted")
-    if post.rejected_at is not None:
-        return deny("post was rejected")
-    return allow()
+def _in_graveyard(thread):
+    return thread.subforum is not None and thread.subforum.kind == thread.subforum.Kind.GRAVEYARD
+
+
+def _is_ended(thread):
+    """Archived in place, or in the Graveyard or the Classics: no changes (design rule 13)."""
+    subforum = thread.subforum
+    return subforum.is_archived or subforum.is_ending_area or thread.state == thread.State.ARCHIVED
+
+
+def _redactor(actor):
+    """Admins and Owners may redact Graveyard threads, the one change allowed there (rule 26)."""
+    return actor.status == User.Status.ACTIVE and roles.is_admin_or_owner(actor)
 
 
 def _within_edit_window(post):
@@ -277,35 +277,48 @@ def _within_edit_window(post):
     return window is None or timezone.now() - post.created_at <= timedelta(minutes=window)
 
 
-@rule("post.edit")
-def _post_edit(actor, post):
-    """Staff edit any post in sub-forums they moderate; authors edit their own within the
-    sub-forum's edit window, and not once the thread is locked."""
-    is_open = _discussion_post_open(post)
-    if not is_open:
-        return is_open
+def _post_change(actor, post, allow_redaction):
+    thread = post.thread
+    if thread.kind == thread.Kind.DM:
+        return deny("direct messages cannot be changed")
+    if post.deleted_at is not None:
+        return deny("post was deleted")
+    if post.rejected_at is not None:
+        return deny("post was rejected")
+    if _in_graveyard(thread):
+        if allow_redaction and _redactor(actor):
+            return allow(via="redaction")
+        return deny("thread is in the Graveyard")
+    if _is_ended(thread):
+        return deny("thread is archived")
     readable = _post_read(actor, post)
     if not readable:
         return readable
     writable = _can_write_anything(actor)
     if not writable:
         return writable
-    if roles.moderates(actor, post.thread.subforum):
+    if roles.moderates(actor, thread.subforum):
         return allow(via="staff")
     if post.author_id != actor.pk:
         return deny("not your post")
-    if post.thread.state == post.thread.State.LOCKED:
+    if thread.state == thread.State.LOCKED:
         return deny("thread is locked")
     if not _within_edit_window(post):
         return deny("edit window has closed")
     return allow(via="author")
 
 
+@rule("post.edit")
+def _post_edit(actor, post):
+    """Rule 25: staff edit any post in sub-forums they moderate; authors their own within the edit
+    window and never in a locked thread. Admins and Owners may also redact in the Graveyard."""
+    return _post_change(actor, post, allow_redaction=True)
+
+
 @rule("post.delete")
 def _post_delete(actor, post):
-    """Soft delete. Staff in sub-forums they moderate; authors their own posts, on the same
-    terms as editing."""
-    return _post_edit(actor, post)
+    """Soft delete, on the same terms as editing; nothing in the Graveyard is deleted."""
+    return _post_change(actor, post, allow_redaction=False)
 
 
 @rule("post.read_revisions")
@@ -318,10 +331,56 @@ def _post_read_revisions(actor, post):
     return allow()
 
 
+@rule("post.purge_revisions")
+def _post_purge_revisions(actor, post):
+    if not (actor.status == User.Status.ACTIVE and roles.is_owner(actor)):
+        return deny("only Owners purge revisions")
+    if not _in_graveyard(post.thread):
+        return deny("revisions are purged only for Graveyard threads")
+    return allow()
+
+
+@rule("thread.edit_title")
+def _thread_edit_title(actor, thread):
+    """The starter within the edit window of their first post; staff at any time."""
+    if thread.kind == thread.Kind.DM:
+        return deny("direct messages have no title to edit")
+    if _in_graveyard(thread):
+        return allow(via="redaction") if _redactor(actor) else deny("thread is in the Graveyard")
+    if _is_ended(thread):
+        return deny("thread is archived")
+    readable = _thread_read(actor, thread)
+    if not readable:
+        return readable
+    writable = _can_write_anything(actor)
+    if not writable:
+        return writable
+    if roles.moderates(actor, thread.subforum):
+        return allow(via="staff")
+    if thread.author_id != actor.pk:
+        return deny("only the thread's starter may edit its title")
+    if thread.state == thread.State.LOCKED:
+        return deny("thread is locked")
+    first = thread.posts.filter(author=actor).order_by("created_at", "pk").first()
+    if first is None or not _within_edit_window(first):
+        return deny("edit window has closed")
+    return allow(via="author")
+
+
+@rule("thread.read_title_revisions")
+def _thread_read_title_revisions(actor, thread):
+    readable = _thread_read(actor, thread)
+    if not readable:
+        return readable
+    if thread.subforum is None or not roles.moderates(actor, thread.subforum):
+        return deny("title history is visible to staff")
+    return allow()
+
+
 def _thread_state_change(actor, thread, staff_check, who):
     if thread.kind == thread.Kind.DM:
         return deny("direct messages have no thread state")
-    if thread.subforum.is_archived or thread.state == thread.State.ARCHIVED:
+    if _is_ended(thread):
         return deny("thread is archived")
     if actor.status != User.Status.ACTIVE:
         return deny(f"account is {actor.status}")
@@ -330,22 +389,101 @@ def _thread_state_change(actor, thread, staff_check, who):
     return allow()
 
 
+def _leadership(actor, _subforum):
+    return roles.is_admin_or_owner(actor)
+
+
 @rule("thread.lock")
 def _thread_lock(actor, thread):
-    """Lock or unlock. Moderators may lock within their sub-forums."""
+    """Lock or unlock. Moderators may lock within their sub-forums (rule 27)."""
     return _thread_state_change(actor, thread, roles.moderates, "staff of this sub-forum")
 
 
 @rule("thread.pin")
 def _thread_pin(actor, thread):
-    """Pin or unpin. The design gives Moderators lock but not pin, so Admins and Owners only."""
-    return _thread_state_change(actor, thread, lambda a, _sf: roles.is_admin_or_owner(a), "Admins and Owners")
+    """Pin or unpin: Admins and Owners (rule 27)."""
+    return _thread_state_change(actor, thread, _leadership, "Admins and Owners")
 
 
 @rule("thread.archive")
 def _thread_archive(actor, thread):
-    """Archiving is final: nothing can change an archived thread, so there is no unarchive rule."""
-    return _thread_state_change(actor, thread, lambda a, _sf: roles.is_admin_or_owner(a), "Admins and Owners")
+    """Archive in place: Admins and Owners (rule 26)."""
+    return _thread_state_change(actor, thread, _leadership, "Admins and Owners")
+
+
+@rule("thread.graveyard")
+def _thread_graveyard(actor, thread):
+    """What deleting a thread means: Moderators in their sub-forums, Admins, Owners (rule 26)."""
+    return _thread_state_change(actor, thread, roles.moderates, "staff of this sub-forum")
+
+
+@rule("thread.classics")
+def _thread_classics(actor, thread):
+    return _thread_state_change(actor, thread, _leadership, "Admins and Owners")
+
+
+@dataclass(frozen=True)
+class MoveRequest:
+    thread: Any
+    destination: Any
+
+
+@rule("thread.move")
+def _thread_move(actor, request):
+    """Moderators move threads only between sub-forums they moderate; Admins and Owners anywhere
+    (rule 27). Ending areas are reached by the ending actions, not by moving."""
+    thread, destination = request.thread, request.destination
+    if destination.is_ending_area or destination.is_archived:
+        return deny("threads cannot be moved there")
+    if destination.pk == thread.subforum_id:
+        return deny("the thread is already there")
+
+    def both(a, _subforum):
+        return roles.moderates(a, thread.subforum) and roles.moderates(a, destination)
+
+    return _thread_state_change(actor, thread, both, "staff of both sub-forums")
+
+
+@rule("thread.restore")
+def _thread_restore(actor, thread):
+    """Unarchive, or bring back from the Graveyard or the Classics: Owners only (rule 26)."""
+    if thread.kind == thread.Kind.DM or not _is_ended(thread) or thread.subforum.is_archived:
+        return deny("thread is not archived")
+    if actor.status != User.Status.ACTIVE or not roles.is_owner(actor):
+        return deny("only Owners restore threads")
+    return allow()
+
+
+# --- members ---------------------------------------------------------------------------------
+
+HIDDEN_STATUSES = {User.Status.INVITED, User.Status.REMOVED, User.Status.TOMBSTONE}
+
+
+@rule("member.view_profile")
+def _member_view_profile(actor, member):
+    base = _can_read_anything(actor)
+    if not base:
+        return base
+    if member.status in HIDDEN_STATUSES:
+        return deny("no such member")
+    return allow()
+
+
+@rule("member.view_record")
+def _member_view_record(actor, member):
+    """The public disciplinary record is for members at Provisional and above."""
+    viewable = _member_view_profile(actor, member)
+    if not viewable:
+        return viewable
+    if roles.trust_rank(actor) < roles.rank_of(roles.PROVISIONAL):
+        return deny("the disciplinary record is for Provisional members and above")
+    return allow()
+
+
+@rule("member.private_stats")
+def _member_private_stats(actor, member):
+    """A member's own post count and promotion progress, shown to nobody else (rule 28)."""
+    return allow() if actor.pk == member.pk else deny("only the member sees this")
 
 
 @rule("search.use")

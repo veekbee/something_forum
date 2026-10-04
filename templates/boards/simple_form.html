@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<h1>{{ heading }}</h1>
+<form class="panel" method="post">{% csrf_token %}
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  {{ form.as_p }}
+  <div class="actions"><button>{{ button }}</button><a href="{{ back }}">Cancel</a></div>
+</form>
+{% endblock %}
