@@ -19,6 +19,10 @@ def create_portal_session(customer, return_url):
     return _client().billing_portal.Session.create(customer=customer, return_url=return_url)
 
 
+def refund(payment_intent_id):
+    return _client().Refund.create(payment_intent=payment_intent_id)
+
+
 def cancel_subscription(subscription_id):
     return _client().Subscription.cancel(subscription_id)
 

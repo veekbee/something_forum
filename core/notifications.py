@@ -75,6 +75,11 @@ def describe(notification):
         "sponsorship.offer_accepted": ("Your offer to vouch was accepted; you are now their sponsor",
                                        reverse("invitations")),
         "sponsorship.offer_declined": ("Your offer to vouch was declined", reverse("invitations")),
+        "emoji.approved": (f"Your emoji :{data.get('name', '')}: is live", reverse("emoji_list")),
+        "emoji.rejected": (f"Your emoji :{data.get('name', '')}: was not approved: {data.get('reason', '')}",
+                           reverse("emoji_list")),
+        "emoji.retired": (f"Your emoji :{data.get('name', '')}: was retired", reverse("emoji_list")),
+        "emoji.refunded": ("Your custom emoji purchase was refunded", reverse("extras")),
         "account.factor_reset": ("Your authenticator was reset; set up a new one when you next sign in", None),
         "session.concurrent_location": ("Your account was in use from two countries at the same time, so we asked "
                                         "the newer device to sign in again. If that wasn't you, change your password.",

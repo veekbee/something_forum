@@ -287,7 +287,7 @@ def member_view(request, slug):
             "blocks_received": Block.objects.filter(blocked=member).select_related("blocker"),
             "subscription": Subscription.objects.filter(user=member).first(),
         "charges": Charge.objects.filter(user=member).order_by("-created_at"),
-        "entitlements": member.entitlements.select_related("extra").order_by("granted_at"),
+        "entitlements": _entitlements(request.user, member),
             "sessions": UserSession.objects.filter(user=member).order_by("-last_seen_at")[:20],
             "has_identity": IdentityRecord.objects.filter(user=member).exists(),
         })
@@ -367,6 +367,13 @@ def extra_action(request, pk, step):
         raise PermissionDenied("unknown step")
     return _staff_page_act(request, entitlement.user, lambda: act(
         request.user, entitlement, request.POST.get("internal_reason", ""), request.POST.get("public_summary", "")))
+
+
+def _entitlements(actor, member):
+    rows = list(member.entitlements.select_related("extra", "charge").order_by("granted_at"))
+    for row in rows:
+        row.may_refund = bool(can(actor, "emoji.refund", row))
+    return rows
 
 
 def _staff_page_act(request, member, fn):

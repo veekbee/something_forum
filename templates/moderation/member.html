@@ -51,9 +51,11 @@
 
 {% if full %}
 <section class="panel"><h2>Payment</h2>
-  {% for e in entitlements %}<form method="post" action="{% url 'extra_action' e.pk e.revoked_at|yesno:'restore,revoke' %}">{% csrf_token %}<p>Extra: {{ e.extra.name }}{% if e.revoked_at %} <span class="status">revoked {{ e.revoked_at|date:"j M Y" }}</span>{% endif %}<br>
+  {% for e in entitlements %}{% if e.extra.key == "custom_emoji" %}<p>Extra: {{ e.extra.name }}, {{ e.granted_at|date:"j M Y" }}{% if e.revoked_at %} <span class="status">refunded</span>{% endif %}
+    {% if e.may_refund %}<form class="inline-form" method="post" action="{% url 'emoji_refund' e.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{% url 'staff_member' member.slug %}"><button class="secondary">Refund</button></form>{% endif %}</p>
+  {% else %}<form method="post" action="{% url 'extra_action' e.pk e.revoked_at|yesno:'restore,revoke' %}">{% csrf_token %}<p>Extra: {{ e.extra.name }}{% if e.revoked_at %} <span class="status">revoked {{ e.revoked_at|date:"j M Y" }}</span>{% endif %}<br>
     <input type="text" name="internal_reason" required placeholder="Reason, for staff" aria-label="Reason, for staff"> <input type="text" name="public_summary" required placeholder="Public summary" aria-label="Public summary">
-    <button class="secondary">{% if e.revoked_at %}Restore (public){% else %}Revoke (public, not refunded){% endif %}</button></p></form>{% endfor %}
+    <button class="secondary">{% if e.revoked_at %}Restore (public){% else %}Revoke (public, not refunded){% endif %}</button></p></form>{% endif %}{% endfor %}
   {% for c in charges %}<p class="muted">{{ c.get_kind_display|capfirst }} · {{ c.amount_cents|dollars }} · {{ c.created_at|date:"j M Y" }}</p>{% endfor %}
   {% if subscription %}<p>{{ subscription.get_status_display }}{% if subscription.comped_by %} (comped by {{ subscription.comped_by.display_name }}){% endif %}{% if subscription.current_period_end %} · paid to {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>{% else %}<p class="muted">No subscription.</p>{% endif %}
 </section>

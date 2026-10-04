@@ -948,8 +948,78 @@ def _extras_buy(actor, extra):
         return deny(f"account is {actor.status}")
     if roles.trust_rank(actor) < roles.rank_of(extra.min_role):
         return deny(f"for {extra.min_role.capitalize()} members and above")
+    if extra.key == "custom_emoji":
+        # Bought once per emoji; one unused purchase at a time (rule 62).
+        from boards.emoji import credit
+
+        if credit(actor) is not None:
+            return deny("you have an emoji paid for and not yet submitted")
+        return allow()
     if _has_extra(actor, extra.key):
         return deny("you already have it")
+    return allow()
+
+
+# --- custom emoji (rule 62) ------------------------------------------------------------------
+
+
+@rule("emoji.submit")
+def _emoji_submit(actor, _target=None):
+    from boards.emoji import credit
+
+    if actor.status != User.Status.ACTIVE or _banned(actor):
+        return deny(f"account is {actor.status}")
+    if roles.trust_rank(actor) < roles.rank_of(roles.PROVISIONAL):
+        return deny("custom emoji are for Provisional members and above")
+    if credit(actor) is None:
+        return deny("buy the custom emoji extra first")
+    return allow()
+
+
+@rule("emoji.review")
+def _emoji_review(actor, emoji):
+    """Any staff member approves or rejects, but not their own."""
+    if not _staff_active(actor):
+        return deny("staff review custom emoji")
+    if emoji.status != emoji.Status.PENDING:
+        return deny(f"emoji is {emoji.status}", code="handled")
+    if emoji.purchaser_id == actor.pk:
+        return deny("another staff member reviews your own emoji")
+    return allow()
+
+
+@rule("emoji.retire")
+def _emoji_retire(actor, emoji):
+    if not _staff_active(actor):
+        return deny("staff retire custom emoji")
+    if emoji.status != emoji.Status.APPROVED:
+        return deny("only an approved emoji can be retired")
+    return allow()
+
+
+@rule("emoji.view_image")
+def _emoji_view_image(actor, emoji):
+    """An approved emoji shows to every member who can read; others to staff and the purchaser."""
+    readable = _can_read_anything(actor)
+    if not readable:
+        return readable
+    if emoji.status == emoji.Status.APPROVED or emoji.purchaser_id == actor.pk or _staff_active(actor):
+        return allow()
+    return deny("not an approved emoji")
+
+
+@rule("emoji.refund")
+def _emoji_refund(actor, entitlement):
+    from boards.models import CustomEmoji
+
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners refund")
+    if entitlement.extra.key != "custom_emoji" or entitlement.revoked_at is not None:
+        return deny("nothing to refund")
+    if entitlement.charge is None or entitlement.charge.status == "refunded":
+        return deny("nothing to refund")
+    if CustomEmoji.objects.filter(charge=entitlement.charge, status__in=["pending", "approved"]).exists():
+        return deny("an emoji bought with it is pending or live")
     return allow()
 
 

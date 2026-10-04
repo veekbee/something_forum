@@ -43,6 +43,14 @@ class User(AbstractBaseUser):
     avatar = models.ForeignKey("boards.Attachment", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     caption = models.CharField(max_length=40, blank=True)
 
+    class EmojiDisplay(models.TextChoices):
+        IMAGES = "images"
+        STILL = "still"
+        NAMES = "names"
+
+    # How custom emoji show to this member (rule 62): images, still images, or names only.
+    emoji_display = models.CharField(max_length=8, choices=EmojiDisplay.choices, default=EmojiDisplay.IMAGES)
+
     objects = UserManager()
 
     USERNAME_FIELD = "email"

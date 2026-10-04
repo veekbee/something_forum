@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}How emoji show{% endblock %}
+{% block content %}
+<h1>How custom emoji show for you</h1>
+<form class="panel" method="post">{% csrf_token %}
+  {% for value, label in choices %}<p><label class="inline"><input type="radio" name="emoji_display" value="{{ value }}"{% if value == current %} checked{% endif %}> {% if value == "images" %}Images, animated where they are{% elif value == "still" %}Still images (animated emoji show their first frame){% else %}Names only, like :name:{% endif %}</label></p>{% endfor %}
+  <p class="muted">If your device asks for reduced motion, animated emoji already show still.</p>
+  <button>Save</button>
+</form>
+{% endblock %}

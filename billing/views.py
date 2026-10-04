@@ -95,7 +95,10 @@ def extras_page(request):
     from billing import extras
     from billing.models import Extra
 
-    rows = [{"extra": e, "owned": extras.has_extra(request.user, e.key), "may_buy": can(request.user, "extras.buy", e)}
+    from boards.emoji import credit
+
+    rows = [{"extra": e, "owned": extras.has_extra(request.user, e.key), "may_buy": can(request.user, "extras.buy", e),
+             "credit": credit(request.user) if e.key == "custom_emoji" else None}
             for e in Extra.objects.filter(is_active=True).order_by("name")]
     return render(request, "billing/extras.html", {"rows": rows})
 

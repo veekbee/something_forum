@@ -211,3 +211,39 @@ class Attachment(models.Model):
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
+
+
+class CustomEmoji(models.Model):
+    """A custom emoji (docs/DESIGN.md, Custom emoji; rule 62): bought as an extra, shared with every
+    member once any staff member approves it, typed as :name:. A rejected emoji's charge pays for one
+    resubmission, linked by resubmission_of. Only approved emoji render as images."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending"
+        APPROVED = "approved"
+        REJECTED = "rejected"
+        RETIRED = "retired"
+
+    name = models.CharField(max_length=32, unique=True)
+    image = models.ForeignKey(Attachment, on_delete=models.PROTECT, related_name="+")
+    purchaser = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="custom_emoji")
+    charge = models.ForeignKey("billing.Charge", on_delete=models.PROTECT, related_name="custom_emoji")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(default=timezone.now)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reject_reason = models.TextField(blank=True)
+    retired_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    retired_at = models.DateTimeField(null=True, blank=True)
+    resubmission_of = models.OneToOneField(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="resubmission"
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(name__regex=r"^[a-z0-9_]{2,32}$"), name="emoji_name_format")
+        ]

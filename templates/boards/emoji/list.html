@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Custom emoji{% endblock %}
+{% block content %}
+<h1>Custom emoji</h1>
+{% if error %}<p class="errors">{{ error }}</p>{% endif %}
+<p class="muted">Type an emoji's name between colons, like <code>:name:</code>. Members add emoji as a paid extra, and staff approve each one. <a href="{% url 'display_settings' %}">How emoji show for you</a>.</p>
+{% if may_submit %}<p><a class="button" href="{% url 'emoji_new' %}">Add your emoji</a></p>{% else %}<p><a href="{% url 'extras' %}">Buy a custom emoji</a></p>{% endif %}
+<ul class="list panel">
+  {% for e in approved %}
+  <li><img class="emoji" src="{% url 'emoji_image' e.pk %}" alt="{{ e.name }}"> <code>:{{ e.name }}:</code> <span class="muted">added by {{ e.purchaser.display_name }}</span>
+    {% if staff %}<form class="inline-form" method="post" action="{% url 'emoji_retire' e.pk %}">{% csrf_token %}<button class="secondary">Retire</button></form>{% endif %}</li>
+  {% empty %}<li class="muted">No custom emoji yet.</li>{% endfor %}
+</ul>
+{% if mine %}
+<h2>Yours, not live</h2>
+<ul class="list panel">{% for e in mine %}<li><code>:{{ e.name }}:</code> <span class="status {{ e.status }}">{{ e.get_status_display }}</span>{% if e.reject_reason %} <span class="muted">{{ e.reject_reason }}</span>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+{% if retired %}
+<h2>Retired</h2>
+<ul class="list panel">{% for e in retired %}<li><code>:{{ e.name }}:</code> <span class="muted">retired {{ e.retired_at|date:"j M Y" }}</span></li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

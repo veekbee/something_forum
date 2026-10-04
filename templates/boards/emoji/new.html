@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Add your emoji{% endblock %}
+{% block content %}
+<h1>Add your emoji</h1>
+{% if replaces %}<p class="notice">This replaces <code>:{{ replaces.name }}:</code>, which was not approved. Your payment covers this one resubmission.</p>{% endif %}
+<p class="muted">Staff approve each emoji before members can use it. It shows at the height of the text around it.</p>
+{% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+<form class="panel" method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button>Submit for approval</button></form>
+{% endblock %}

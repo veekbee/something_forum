@@ -18,6 +18,7 @@ TYPES = {
     "promotion": "Promotions",
     "sponsor_review": "Sponsor reviews",
     "transfer": "Sponsorship transfers past their deadline",
+    "emoji": "Custom emoji awaiting approval",
 }
 
 
@@ -84,11 +85,20 @@ def _transfers(actor):
     return [Item("transfer", t, t.deadline_at) for t in due if can(actor, "sponsorship.decide_transfer", t)]
 
 
+def _emoji(actor):
+    """Rule 62: any staff member approves a custom emoji."""
+    from boards.models import CustomEmoji
+
+    pending = CustomEmoji.objects.filter(status=CustomEmoji.Status.PENDING).select_related("purchaser")
+    return [Item("emoji", e, e.created_at) for e in pending if can(actor, "emoji.review", e)]
+
+
 def items(actor, only=None):
     if not can(actor, "queue.view"):
         return []
     sources = {"held": _held, "report": _reports, "flag": _reports, "action": _actions,
-               "promotion": _promotions, "sponsor_review": _sponsor_reviews, "transfer": _transfers}
+               "promotion": _promotions, "sponsor_review": _sponsor_reviews, "transfer": _transfers,
+               "emoji": _emoji}
     collected, seen = [], set()
     for type_, source in sources.items():
         if only and type_ != only or source in seen:

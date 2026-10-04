@@ -5,7 +5,9 @@
 <p class="muted">Paid once, kept for good, including through a lapse.</p>
 <ul class="list panel">
   {% for row in rows %}<li><strong>{{ row.extra.name }}</strong>
-    {% if row.owned %}<span class="status approved">Yours</span>{% if row.extra.key == "avatar_caption" %} <a href="{% url 'customise' %}">Set your avatar and caption</a>{% endif %}
+    {% if row.extra.key == "custom_emoji" %}<a href="{% url 'emoji_list' %}">The forum's emoji</a>
+      {% if row.may_buy %}<form class="inline-form" method="post" action="{% url 'buy_extra' row.extra.key %}">{% csrf_token %}<button>Buy one</button></form>{% elif row.credit %} <a href="{% url 'emoji_new' %}">Add the emoji you paid for</a>{% else %}<span class="muted">{{ row.may_buy.reason }}</span>{% endif %}
+    {% elif row.owned %}<span class="status approved">Yours</span>{% if row.extra.key == "avatar_caption" %} <a href="{% url 'customise' %}">Set your avatar and caption</a>{% endif %}
     {% elif row.may_buy %}<form class="inline-form" method="post" action="{% url 'buy_extra' row.extra.key %}">{% csrf_token %}<button>Buy</button></form>
     {% else %}<span class="muted">{{ row.may_buy.reason }}</span>{% endif %}</li>
   {% empty %}<li class="muted">Nothing on sale.</li>{% endfor %}

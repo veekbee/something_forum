@@ -1,6 +1,6 @@
 from django.urls import path
 
-from boards import message_views, views
+from boards import emoji_views, message_views, views
 
 urlpatterns = [
     path("", views.forum_index, name="home"),
@@ -30,5 +30,13 @@ urlpatterns = [
     path("messages/<int:pk>/leave/", message_views.leave, name="dm_leave"),
     path("messages/<int:pk>/remove/<int:user_pk>/", message_views.remove, name="dm_remove"),
     path("search/", views.search, name="search"),
+    path("emoji/", emoji_views.emoji_list, name="emoji_list"),
+    path("emoji/new/", emoji_views.emoji_new, name="emoji_new"),
+    path("emoji/<int:pk>/image/", emoji_views.emoji_image, name="emoji_image"),
+    path("emoji/<int:pk>/still/", emoji_views.emoji_still, name="emoji_still"),
+    path("emoji/<int:pk>/retire/", emoji_views.emoji_retire, name="emoji_retire"),
+    path("emoji/<int:pk>/<str:step>/", emoji_views.emoji_review, name="emoji_review"),
+    path("emoji/refund/<int:pk>/", emoji_views.emoji_refund, name="emoji_refund"),
+    path("settings/display/", emoji_views.display_settings, name="display_settings"),
     path("attachments/<int:pk>/", views.attachment, name="attachment"),
 ]

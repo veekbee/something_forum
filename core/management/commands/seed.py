@@ -113,6 +113,11 @@ class Command(BaseCommand):
             defaults={"name": "Custom avatar and caption", "stripe_price_setting": "STRIPE_PRICE_AVATAR_CAPTION",
                       "min_role": "provisional"},
         )
+        Extra.objects.get_or_create(
+            key="custom_emoji",
+            defaults={"name": "Custom emoji", "stripe_price_setting": "STRIPE_PRICE_CUSTOM_EMOJI",
+                      "min_role": "provisional"},
+        )
         staff = User.objects.filter(role_assignments__revoked_at__isnull=True,
                                     role_assignments__role__name__in=lapse.STAFF_ROLES).distinct()
         for user in staff:

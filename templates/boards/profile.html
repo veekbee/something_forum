@@ -14,7 +14,7 @@
     {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
   </div>{% endif %}
   {% if may_customise %}<p><a href="{% url 'customise' %}">Change your avatar and caption</a></p>{% elif own %}<p><a href="{% url 'extras' %}">Extras</a></p>{% endif %}
-  {% if own %}<p><a href="{% url 'sessions' %}">Your sessions</a></p>{% endif %}
+  {% if own %}<p><a href="{% url 'sessions' %}">Your sessions</a> · <a href="{% url 'display_settings' %}">How emoji show</a> · <a href="{% url 'emoji_list' %}">Custom emoji</a></p>{% endif %}
   {% if private %}
   <p class="muted">Only you see this: {{ private.post_count }} post{{ private.post_count|pluralize }}.
     {% if private.progress %}Toward {{ private.progress.toward }}: {{ private.progress.days }} of {{ private.progress.days_needed }} days{% if private.progress.posts_needed %}, {{ private.progress.posts }} of {{ private.progress.posts_needed }} posts{% endif %}{% if private.progress.in_progress %}; a promotion is in progress{% endif %}.{% endif %}</p>

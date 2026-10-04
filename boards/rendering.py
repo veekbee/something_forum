@@ -126,6 +126,27 @@ def _mention_tokens(content, ctx, users):
     return out
 
 
+def _emoji_tokens(tokens):
+    """Wrap each `:name:` in a span that the response layer may turn into an image (rule 62). Done
+    on stored HTML once; whether it shows as an image depends on the emoji's status and the reader."""
+    from boards.emoji import TEXT_RE
+
+    out = []
+    for token in tokens:
+        if token.type != "text" or ":" not in token.content:
+            out.append(token)
+            continue
+        last = 0
+        for match in TEXT_RE.finditer(token.content):
+            out.append(_text(token.content[last:match.start()]))
+            span = Token("html_inline", "", 0)
+            span.content = f'<span class="emoji-code" data-emoji="{match.group(1)}">:{match.group(1)}:</span>'
+            out.append(span)
+            last = match.end()
+        out.append(_text(token.content[last:]) if last else token)
+    return out
+
+
 def _process_inline(children, ctx, users):
     out, link_stack = [], []
     for token in children:
@@ -154,7 +175,7 @@ def _process_inline(children, ctx, users):
         elif token.type == "image":
             out.extend(_image(token, ctx))
         elif token.type == "text" and not link_stack:
-            out.extend(_mention_tokens(token.content, ctx, users))
+            out.extend(_emoji_tokens(_mention_tokens(token.content, ctx, users)))
         else:
             out.append(token)
     return out

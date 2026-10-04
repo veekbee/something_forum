@@ -89,3 +89,6 @@ select { font: inherit; padding: .5rem; width: 100%; color: inherit; background:
 
 footer.site { border-top: 1px solid var(--line); margin-top: calc(var(--space) * 2); padding: var(--space) 0; font-size: .9rem; }
 footer.site .inner { max-width: 46rem; margin: 0 auto; padding: 0 var(--space); display: flex; flex-wrap: wrap; gap: .5rem 1rem; }
+
+/* Custom emoji: the height of the text, up to three times as wide (rule 62). */
+img.emoji { height: 1.25em; width: auto; max-width: 3.75em; vertical-align: -0.25em; }
