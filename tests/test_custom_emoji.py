@@ -104,7 +104,7 @@ def test_name_rules(member, name):
         emoji.submit(member, name, png())
 
 
-def test_names_are_unique_whatever_their_status(member, make_user, live):
+def test_live_names_are_unique(member, make_user, live):
     other = make_user("provisional")
     pay(other)
     with pytest.raises(ValidationError):
@@ -291,3 +291,23 @@ def test_submit_page(member, make_user):
     client.post("/emoji/new/", {"name": "wave", "image": png()})
     assert CustomEmoji.objects.get().name == "wave"
     assert b"wave" in signed_in(make_user("moderator")).get("/staff/queue/").content
+
+
+def test_rejection_frees_the_name_but_retirement_does_not(member, make_user):
+    pay(member)
+    first = emoji.submit(member, "party", png())
+    emoji.reject(make_user("moderator"), first, "Try a clearer image")
+    again = emoji.submit(member, "party", png())
+    assert again.resubmission_of == first
+    emoji.retire(make_user("moderator"), emoji.approve(make_user("moderator"), again))
+    other = make_user("provisional")
+    pay(other)
+    with pytest.raises(ValidationError):
+        emoji.submit(other, "party", png())
+
+
+def test_review_shows_the_animation_and_its_still_frame(member, make_user):
+    pay(member)
+    spin = emoji.submit(member, "spin", gif())
+    page = signed_in(make_user("moderator")).get("/staff/queue/").content.decode()
+    assert f"/emoji/{spin.pk}/image/" in page and f"/emoji/{spin.pk}/still/" in page

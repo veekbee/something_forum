@@ -81,7 +81,7 @@ def submit(user, name, upload):
     name = (name or "").strip()
     if not NAME_RE.match(name):
         raise ValidationError("A name is 2 to 32 lowercase letters, digits or underscores.")
-    if CustomEmoji.objects.filter(name=name).exists():
+    if CustomEmoji.objects.filter(name=name).exclude(status=Status.REJECTED).exists():
         raise ValidationError(f":{name}: is taken.")
     found = credit(user)
     if found is None:

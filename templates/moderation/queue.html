@@ -81,7 +81,7 @@
     </form>
 
   {% elif item.type == "emoji" %}
-    <p><img class="emoji" src="{% url 'emoji_image' o.pk %}" alt="{{ o.name }}"> <code>:{{ o.name }}:</code> from {{ o.purchaser.display_name }}{% if o.resubmission_of_id %} (a resubmission){% endif %}</p>
+    <p><img class="emoji" src="{% url 'emoji_image' o.pk %}" alt="{{ o.name }}"> <img class="emoji" src="{% url 'emoji_still' o.pk %}" alt="{{ o.name }}, still frame" title="Still frame"> <code>:{{ o.name }}:</code> from {{ o.purchaser.display_name }}{% if o.resubmission_of_id %} (a resubmission){% endif %}</p>
     <div class="actions">
       <form method="post" action="{% url 'emoji_review' o.pk 'approve' %}">{% csrf_token %}<input type="hidden" name="next" value="{% url 'queue' %}"><button>Approve</button></form>
       <form method="post" action="{% url 'emoji_review' o.pk 'reject' %}">{% csrf_token %}<input type="hidden" name="next" value="{% url 'queue' %}"><input type="text" name="reason" required placeholder="Why not, for the member" aria-label="Reason"> <button class="secondary">Reject</button></form>

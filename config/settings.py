@@ -110,6 +110,9 @@ CSP_EXTRA_IMG_SRC = env("CSP_EXTRA_IMG_SRC", default="").split()
 # Country or DB-IP Lite Country, under their own licence terms). Without one, countries are unknown
 # and the concurrent-location check never fires.
 GEOIP_COUNTRY_DATABASE = env("GEOIP_COUNTRY_DATABASE", default="")
+# Proxies whose X-Forwarded-For header is trusted for the client address (rule 57; Launch checklist).
+# Space-separated addresses. Empty means the connection's own address is used.
+TRUSTED_PROXIES = env("TRUSTED_PROXIES", default="").split()
 # The long-lived cookie holding a random device identifier.
 DEVICE_COOKIE_NAME = "device"
 DEVICE_COOKIE_AGE = 2 * 365 * 24 * 3600

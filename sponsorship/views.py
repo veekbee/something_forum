@@ -33,7 +33,7 @@ class InvitationForm(forms.Form):
 
 def invitations(request):
     """The sponsor's invitations, and the form to send one."""
-    may_sponsor = can(request.user, "member.sponsor")
+    may_sponsor = can(request.user, "invitation.send")
     form = InvitationForm(request.POST or None)
     errors = []
     if request.method == "POST":

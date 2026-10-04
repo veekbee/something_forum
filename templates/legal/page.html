@@ -10,7 +10,7 @@
 <body>
   <main>
     <h1>{{ title }}</h1>
-    <p class="notice warn"><strong>Draft.</strong> This text is a placeholder awaiting legal review. Nobody joins {{ site_name }} until the reviewed text replaces it.</p>
+    {% if draft %}<p class="notice warn"><strong>Draft.</strong> This text is a placeholder awaiting legal review. Nobody joins {{ site_name }} until the reviewed text replaces it.</p>{% endif %}
     {% for paragraph in body %}<p>{{ paragraph }}</p>{% endfor %}
     <p><a href="{% url 'legal' 'member-agreement' %}">Member agreement</a> · <a href="{% url 'legal' 'privacy' %}">Privacy notice</a></p>
   </main>

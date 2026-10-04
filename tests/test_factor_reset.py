@@ -104,7 +104,7 @@ def test_reset_from_the_staff_view(member, make_user):
 # --- the server command for a sole Owner -------------------------------------------------------
 
 
-def test_command_resets_the_sole_owner(owner):
+def test_command_resets_an_owner(owner):
     enrol_totp(owner)
     call_command("reset_second_factor", owner.email, note="lost phone", stdout=io.StringIO())
     assert not Authenticator.objects.filter(user=owner).exists()
@@ -112,19 +112,21 @@ def test_command_resets_the_sole_owner(owner):
     assert entry.actor is None and entry.payload["method"] == "server_command"
 
 
-def test_command_refuses_when_another_owner_exists(owner, make_user):
-    make_user("owner")
+def test_command_works_with_several_owners(owner, make_user):
+    second = make_user("owner")
     enrol_totp(owner)
-    with pytest.raises(CommandError):
-        call_command("reset_second_factor", owner.email, note="lost phone", stdout=io.StringIO())
+    enrol_totp(second)
+    call_command("reset_second_factor", second.email, note="both lost phones", stdout=io.StringIO())
+    assert not Authenticator.objects.filter(user=second).exists()
     assert Authenticator.objects.filter(user=owner).exists()
 
 
-def test_command_refuses_anyone_but_the_owner(owner, make_user):
+def test_command_refuses_anyone_but_an_owner(owner, make_user):
     admin = make_user("admin")
     grant(admin, "admin")
     enrol_totp(admin)
     with pytest.raises(CommandError):
         call_command("reset_second_factor", admin.email, note="x", stdout=io.StringIO())
+    assert Authenticator.objects.filter(user=admin).exists()
     with pytest.raises(CommandError):
         call_command("reset_second_factor", owner.email, note=" ", stdout=io.StringIO())

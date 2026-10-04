@@ -161,6 +161,8 @@ _SETTINGS = [
             "Largest custom emoji upload, in kilobytes."),
     Setting("emoji.allow_animated", True, frozenset({SITE}), _bool, "confirmed",
             "Whether animated GIF emoji are accepted."),
+    Setting("legal.reviewed", False, frozenset({SITE}), _bool, "confirmed",
+            "Set by an Owner once the legal text is reviewed. Until then no invitation can be sent."),
     Setting("site.name", "Something Forum", frozenset({SITE}), _text, "confirmed",
             "The forum's name: page titles, the home-screen manifest and authenticator apps. A working title."),
     Setting("dm.max_participants", 8, frozenset({SITE}), _positive_int, "proposed",

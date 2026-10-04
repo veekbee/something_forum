@@ -120,7 +120,8 @@ def legal(request, slug):
     if slug not in LEGAL_PAGES:
         raise Http404
     title, body = LEGAL_PAGES[slug]
-    return render(request, "legal/page.html", {"title": title, "body": body})
+    return render(request, "legal/page.html", {"title": title, "body": body,
+                                               "draft": not registry.site_value("legal.reviewed")})
 
 
 @require_GET

@@ -54,6 +54,7 @@ def test_registry_defaults_match_design():
         "emoji.max_kb": 512,
         "emoji.allow_animated": True,
         "site.name": "Something Forum",
+        "legal.reviewed": False,
         "dm.max_participants": 8,
         "dm.max_new_conversations_per_day": 10,
         "dm.links": "full_and_above",

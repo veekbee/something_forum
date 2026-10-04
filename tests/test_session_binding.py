@@ -284,3 +284,46 @@ def test_deleting_an_ended_invited_account_takes_its_sessions(make_user):
     from accounts.models import User
 
     assert not User.objects.filter(pk=invitee.pk).exists()
+
+
+# --- after re-authentication, and behind a proxy (decided 4 Oct 2026) ---------------------------
+
+
+def test_after_signing_in_again_both_devices_carry_on(member):
+    older_client, older = sign_in(member, AU, "dev-a")
+    _, first = sign_in(member, CA, "dev-b")
+    first.refresh_from_db()
+    assert first.revoke_reason == "concurrent_location"
+    again_client, again = sign_in(member, CA, "dev-b")
+    again.refresh_from_db()
+    assert again.revoked_at is None
+    assert again_client.get("/").status_code == 200 and older_client.get("/").status_code == 200
+    flag = Report.objects.get(kind="flag_concurrent_location")
+    assert again.pk in flag.details["sessions"] and flag.details["repeats"] == 1
+    assert Notification.objects.filter(recipient=member, kind="session.concurrent_location").count() == 1
+
+
+def test_another_new_device_is_still_asked_once(member):
+    sign_in(member, AU, "dev-a")
+    sign_in(member, CA, "dev-b")
+    sign_in(member, CA, "dev-b")
+    _, third = sign_in(member, CA, "dev-c")
+    third.refresh_from_db()
+    assert third.revoke_reason == "concurrent_location"
+
+
+def _request(remote, forwarded=None):
+    meta = {"REMOTE_ADDR": remote}
+    if forwarded:
+        meta["HTTP_X_FORWARDED_FOR"] = forwarded
+    return RequestFactory().get("/", **meta)
+
+
+def test_forwarded_addresses_trusted_only_from_the_proxy(settings):
+    settings.TRUSTED_PROXIES = ["10.0.0.5"]
+    assert sessions.client_address(_request("10.0.0.5", f"1.2.3.4, {AU}")) == AU
+    assert sessions.client_address(_request("192.0.2.9", AU)) == "192.0.2.9"
+    settings.TRUSTED_PROXIES = ["10.0.0.5", "10.0.0.6"]  # a chain: the nearest address is a proxy too
+    assert sessions.client_address(_request("10.0.0.5", f"{AU}, 10.0.0.6")) == AU
+    settings.TRUSTED_PROXIES = []
+    assert sessions.client_address(_request("10.0.0.5", AU)) == "10.0.0.5"

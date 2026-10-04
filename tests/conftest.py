@@ -17,6 +17,12 @@ def seeded(db, monkeypatch):
     monkeypatch.setenv("OWNER_PASSWORD", "test-owner-password")
     monkeypatch.setenv("OWNER_DISPLAY_NAME", "Test Owner")
     call_command("seed", stdout=io.StringIO())
+    # Invitations wait for legal.reviewed (rule 65); most tests need to send them. The gate itself
+    # is tested in tests/test_install_and_csp.py with the setting back at its default.
+    from core.models import SiteSetting
+
+    owner = User.objects.get(email="owner@example.test")
+    SiteSetting.objects.update_or_create(key="legal.reviewed", defaults={"value": True, "updated_by": owner})
 
 
 @pytest.fixture

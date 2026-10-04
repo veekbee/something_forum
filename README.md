@@ -70,9 +70,9 @@ Run these once a day (cron, or the host's scheduler):
 Once, on the day billing goes live, an Owner runs `manage.py launch_billing`: comps granted before
 then become founding comps ending a year later.
 
-If the forum's single Owner loses their authenticator, someone with access to the server runs
-`manage.py reset_second_factor <owner email> --note "<why>"`. It refuses while there is more than
-one Owner, since another Owner can then reset it from the per-member view.
+If an Owner loses their authenticator and no other Owner can reset it from the per-member view,
+someone with access to the server runs `manage.py reset_second_factor <owner email> --note "<why>"`.
+It resets Owners only, and is audited.
 
 ## Tests
 

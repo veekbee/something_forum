@@ -224,7 +224,9 @@ class CustomEmoji(models.Model):
         REJECTED = "rejected"
         RETIRED = "retired"
 
-    name = models.CharField(max_length=32, unique=True)
+    # Unique among pending, approved and retired emoji: a rejection frees the name, while a retired
+    # name stays reserved so old posts keep showing the right text (decided 4 Oct 2026).
+    name = models.CharField(max_length=32)
     image = models.ForeignKey(Attachment, on_delete=models.PROTECT, related_name="+")
     purchaser = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="custom_emoji")
     charge = models.ForeignKey("billing.Charge", on_delete=models.PROTECT, related_name="custom_emoji")
@@ -245,5 +247,7 @@ class CustomEmoji(models.Model):
 
     class Meta:
         constraints = [
-            models.CheckConstraint(condition=models.Q(name__regex=r"^[a-z0-9_]{2,32}$"), name="emoji_name_format")
+            models.CheckConstraint(condition=models.Q(name__regex=r"^[a-z0-9_]{2,32}$"), name="emoji_name_format"),
+            models.UniqueConstraint(fields=["name"], condition=~models.Q(status="rejected"),
+                                    name="emoji_name_unique_unless_rejected"),
         ]

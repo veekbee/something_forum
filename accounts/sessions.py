@@ -5,9 +5,13 @@ long-lived cookie; there is no client-side fingerprinting. Location is the count
 sign-in in a database on this server, and only the /24 or /48 prefix of the address is kept.
 
 Two different devices on one account, both active within session.concurrency_window_minutes, in two
-different countries, end the newer session: it must sign in again with password and authenticator,
-the member is told on both devices and by account email, and one concurrent-location flag per 24
-hours goes to Admins and Owners. Nothing else happens automatically."""
+different countries, end the newer session once: it must sign in again with password and
+authenticator, and after that both carry on and repeats are only flagged. The member is told on both
+devices and by account email, and one concurrent-location flag per 24 hours goes to Admins and
+Owners. Nothing else happens automatically.
+
+Behind a proxy, the client address comes from X-Forwarded-For, trusted only when the connection is
+from a proxy named in settings.TRUSTED_PROXIES."""
 
 import functools
 import ipaddress
@@ -90,7 +94,17 @@ def country_for(address):
 
 
 def client_address(request):
-    return request.META.get("REMOTE_ADDR", "")
+    """The server's view of the connection, or, when that is a trusted proxy, the nearest address in
+    X-Forwarded-For that is not itself a trusted proxy."""
+    remote = request.META.get("REMOTE_ADDR", "")
+    trusted = set(settings.TRUSTED_PROXIES)
+    if remote not in trusted:
+        return remote
+    forwarded = [a.strip() for a in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if a.strip()]
+    for address in reversed(forwarded):
+        if address not in trusted:
+            return address
+    return remote
 
 
 def new_device_id():
@@ -180,9 +194,17 @@ def _check_concurrent(record, now):
         country=record.country))
     if not others:
         return None
-    end(record, Reason.CONCURRENT_LOCATION, now, delete_session=False)
     ids = [record.pk, *(o.pk for o in others)]
-    log.record(None, "session.concurrent_location", record.user, {"sessions": ids})
+    # Once this device has been asked to sign in again and has done so, it holds the authenticator:
+    # signing it out again would prove nothing more, so repeats are only flagged (decided 4 Oct 2026).
+    reauthenticated = UserSession.objects.filter(
+        user=record.user, device_id=record.device_id, revoke_reason=Reason.CONCURRENT_LOCATION
+    ).exclude(pk=record.pk).exists()
+    if reauthenticated:
+        log.record(None, "session.concurrent_location", record.user, {"sessions": ids, "signed_out": False})
+        return _flag(record.user, ids, now)
+    end(record, Reason.CONCURRENT_LOCATION, now, delete_session=False)
+    log.record(None, "session.concurrent_location", record.user, {"sessions": ids, "signed_out": True})
     Notification.objects.create(recipient=record.user, kind="session.concurrent_location", payload={})
     return _flag(record.user, ids, now)
 

@@ -1343,6 +1343,18 @@ def _sponsorship_remove_after_transfer(actor, transfer):
     return allow()
 
 
+@rule("invitation.send")
+def _invitation_send(actor, _target=None):
+    """Rule 65: nobody is invited until an Owner has set legal.reviewed, after the member agreement
+    and privacy notice have had legal review."""
+    may = _member_sponsor(actor, None)
+    if not may:
+        return may
+    if not registry.site_value("legal.reviewed"):
+        return deny("the member agreement and privacy notice are still awaiting legal review")
+    return allow()
+
+
 def _ready_for_review(invitation):
     from sponsorship.models import Invitation
 

@@ -66,7 +66,7 @@ def send_invitation(sponsor, invitee_email, vouching_notes, accept_url):
     """Create the invitation and email the link. `accept_url(token)` builds the absolute link.
     Returns (invitation, holds_slot): an invitation without a slot is still sent, and its invitee
     is waitlisted on accepting."""
-    require(sponsor, "member.sponsor")
+    require(sponsor, "invitation.send")
     email = invitee_email.strip().lower()
     if User.objects.filter(email__iexact=email).exists():
         raise ValidationError("That address already belongs to an account.")

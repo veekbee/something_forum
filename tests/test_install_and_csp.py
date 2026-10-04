@@ -10,6 +10,8 @@ import pytest
 from django.conf import settings
 from PIL import Image
 
+from django.test import Client
+
 from boards import services
 from core.services import set_site_setting
 from moderation.models import Report
@@ -114,11 +116,39 @@ def test_only_pages_and_fragments_count(member_client, owner):
 # --- legal pages ------------------------------------------------------------------------------
 
 
+@pytest.fixture
+def unreviewed(seeded):
+    from core.models import SiteSetting
+
+    SiteSetting.objects.filter(key="legal.reviewed").delete()
+
+
 @pytest.mark.parametrize("slug,title", [("member-agreement", b"Member agreement"), ("privacy", b"Privacy notice")])
-def test_legal_pages_are_public_drafts(client, seeded, slug, title):
+def test_legal_pages_are_public_drafts_until_reviewed(client, unreviewed, owner, slug, title):
     response = client.get(f"/legal/{slug}/")
     assert response.status_code == 200
     assert title in response.content and b"Draft." in response.content and b"legal review" in response.content
+    set_site_setting(owner, "legal.reviewed", True)
+    assert b"Draft." not in client.get(f"/legal/{slug}/").content
+
+
+def test_no_invitations_until_the_legal_text_is_reviewed(member_client, unreviewed, owner):
+    from django.core.exceptions import PermissionDenied
+
+    from audit.models import AuditEntry
+    from tests.factories import invite
+
+    page = member_client.get("/invitations/").content
+    assert b"awaiting legal review" in page
+    with pytest.raises(PermissionDenied):
+        invite(member_client.member)
+    owner_client = Client()
+    enrol_totp(owner)
+    owner_client.force_login(owner)
+    owner_client.post("/staff/settings/", {"key": "legal.reviewed", "value": "true"})
+    assert AuditEntry.objects.filter(action="site_setting.write", payload__key="legal.reviewed").exists()
+    invitation, _ = invite(member_client.member)
+    assert invitation.pk
 
 
 def test_unknown_legal_page_is_not_found(client, seeded):
