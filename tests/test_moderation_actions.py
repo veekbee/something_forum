@@ -261,3 +261,15 @@ def test_take_action_page_proposes_for_approval(client, make_user, general, scop
     action = ModerationAction.objects.get(target_user=target)
     assert action.status == Status.PENDING and list(action.scope_subforums.all()) == [general]
     assert client.get(f"/staff/members/{make_user('moderator').slug}/act/").status_code == 403
+
+
+def test_profile_shows_staff_links_on_other_members_only(client, make_user):
+    mod, target = make_user("moderator"), make_user("full")
+    enrol_totp(mod)
+    client.force_login(mod)
+    assert f"/staff/members/{target.slug}/act/".encode() in client.get(f"/members/{target.slug}/").content
+    assert b"/act/" not in client.get(f"/members/{mod.slug}/").content
+    member = make_user("full")
+    enrol_totp(member)
+    client.force_login(member)
+    assert b"/act/" not in client.get(f"/members/{target.slug}/").content

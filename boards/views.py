@@ -440,13 +440,13 @@ def member_profile(request, slug):
         context["may_block"] = bool(can(request.user, "member.block", member))
         context["blocked"] = Block.objects.filter(blocker=request.user, blocked=member).exists()
         context["may_report"] = bool(can(request.user, "report.create", member))
-    else:
-        context["may_customise"] = bool(can(request.user, "profile.customise"))
         from core.permissions import ActionRequest
 
         context["may_act"] = any(
             can(request.user, "moderation.initiate", ActionRequest(kind, member)) for kind in ("note", "warning")
         )
+    else:
+        context["may_customise"] = bool(can(request.user, "profile.customise"))
     return render(request, "boards/profile.html", context)
 
 
