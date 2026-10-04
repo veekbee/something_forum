@@ -22,12 +22,8 @@
 <h2>Thread Classics</h2>
 <ul class="list panel">{% for t in classics %}<li><a href="{% url 'thread' t.pk %}">{{ t.title }}</a></li>{% endfor %}</ul>
 {% endif %}
-{% if record is not None %}
-<h2>Disciplinary record</h2>
-{% if record %}
-<ul class="list panel">{% for a in record %}<li>{{ a.get_kind_display|capfirst }}{% for sf in a.scope_subforums.all %}{% if forloop.first %} in {% elif forloop.last %} and {% else %}, {% endif %}{{ sf.name }}{% endfor %} · {{ a.starts_at|date:"j M Y" }}{% if a.public_summary %} · {{ a.public_summary }}{% endif %}
-  <div class="meta muted">Initiated by {{ a.initiated_by.display_name }}{% if a.approved_by %}, approved by {{ a.approved_by.display_name }}{% endif %}{% if a.status == "reversed" and a.kind == "ban" %} · lifted {{ a.ends_at|date:"j M Y" }}{% elif a.status == "expired" %} · ended{% endif %}</div></li>{% endfor %}</ul>
-{% else %}<p class="muted">None.</p>{% endif %}
+{% if record_count is not None %}
+<p><a href="{% url 'rap_sheet' member.slug %}">Rap Sheet</a> <span class="muted">· {{ record_count }} entr{{ record_count|pluralize:"y,ies" }}</span></p>
 {% endif %}
 <h2>Posts</h2>
 {% if page.object_list %}

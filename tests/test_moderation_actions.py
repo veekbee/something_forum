@@ -121,7 +121,7 @@ def test_record_shows_where_a_limited_action_applies(client, make_user, general)
                                public_summary="Flaming", scope_subforums=[general])
     enrol_totp(viewer)
     client.force_login(viewer)
-    assert b"Suspension in General Discussion" in client.get(f"/members/{target.slug}/").content
+    assert b"Suspension in General Discussion" in client.get(f"/members/{target.slug}/rap-sheet/").content
 
 
 # --- Probation -----------------------------------------------------------------------------
@@ -234,8 +234,8 @@ def test_record_shows_lifted_without_saying_how(client, make_user):
     moderation.lift_ban(make_user("owner"), ban, "Paid the fee")
     enrol_totp(viewer)
     client.force_login(viewer)
-    page = client.get(f"/members/{target.slug}/").content.decode()
-    assert "lifted" in page and "Paid the fee" not in page
+    page = client.get(f"/members/{target.slug}/rap-sheet/").content.decode()
+    assert "lifted" in page.lower() and "Paid the fee" not in page
 
 
 def test_member_is_told_when_action_is_taken(make_user):

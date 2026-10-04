@@ -345,7 +345,7 @@ def _is_ended(thread):
 
 
 def _redactor(actor):
-    """Admins and Owners may redact Graveyard threads, the one change allowed there (rule 26)."""
+    """Admins and Owners edit Graveyard thread titles (rule 26)."""
     return actor.status == User.Status.ACTIVE and roles.is_admin_or_owner(actor)
 
 
@@ -377,7 +377,12 @@ def _post_change(actor, post, allow_redaction):
     if post.rejected_at is not None:
         return deny("post was rejected")
     if _in_graveyard(thread):
-        if allow_redaction and _redactor(actor):
+        # Rule 26: Moderators redact posts in Graveyard threads that came from sub-forums they
+        # moderate; Admins and Owners anywhere.
+        if allow_redaction and actor.status == User.Status.ACTIVE and (
+            roles.is_admin_or_owner(actor)
+            or (thread.origin_subforum is not None and roles.moderates(actor, thread.origin_subforum))
+        ):
             return allow(via="redaction")
         return deny("thread is in the Graveyard")
     if _is_ended(thread):

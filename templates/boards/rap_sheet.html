@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Rap Sheet: {{ member.display_name }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'member_profile' member.slug %}">{{ member.display_name }}</a></p>
+<h1>Rap Sheet</h1>
+{% if entries %}
+<ul class="list panel">
+  {% for e in entries %}{% with a=e.action %}
+  <li><strong>{{ a.get_kind_display|capfirst }}{% for sf in a.scope_subforums.all %}{% if forloop.first %} in {% elif forloop.last %} and {% else %}, {% endif %}{{ sf.name }}{% endfor %}</strong>
+    <span class="muted">· {{ a.starts_at|date:"j M Y" }}</span>
+    {% if a.status == "reversed" and a.kind == "ban" %}<span class="status">Lifted {{ a.ends_at|date:"j M Y" }}</span>{% elif a.status == "annulled" %}<span class="status">Annulled</span>{% elif a.status == "expired" %}<span class="status">Ended</span>{% endif %}
+    {% if a.public_summary %}<p>{{ a.public_summary }}</p>{% endif %}
+    <div class="meta muted">Initiated by {{ a.initiated_by.display_name }}{% if a.approved_by %}, approved by {{ a.approved_by.display_name }}{% endif %}{% if e.where %} · {% if e.link %}<a href="{{ e.link }}">{{ e.where }}</a>{% else %}{{ e.where }}{% endif %}{% endif %}</div></li>
+  {% endwith %}{% endfor %}
+</ul>
+{% else %}<p class="muted">A clean record.</p>{% endif %}
+{% endblock %}

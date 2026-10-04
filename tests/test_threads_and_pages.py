@@ -156,9 +156,15 @@ def test_admin_redacts_in_the_graveyard(make_user, general):
     thread = services.send_to_graveyard(make_user("moderator"), thread, "doxxing")
     post.refresh_from_db()
     post.thread = thread
-    for role in ("moderator", "full"):
-        assert not can(make_user(role), "post.edit", post)
+    assert not can(make_user("full"), "post.edit", post)
     assert not can(author, "post.edit", post)
+    serious_mod = make_user("tenured")
+    grant(serious_mod, "moderator", scope_subforum=SubForum.objects.get(slug="serious-discussion"))
+    assert not can(serious_mod, "post.edit", post)        # not from their sub-forum
+    general_mod = make_user("tenured")
+    grant(general_mod, "moderator", scope_subforum=general)
+    assert can(general_mod, "post.edit", post)            # the thread came from theirs
+    assert not can(general_mod, "thread.edit_title", thread)  # titles stay with Admins
     admin = make_user("admin")
     services.edit_post(admin, post, "[removed]")
     services.edit_title(admin, thread, "Removed thread")
@@ -285,9 +291,9 @@ def test_disciplinary_record_for_provisional_and_above(client, make_user):
     for user in (guest, provisional):
         enrol_totp(user)
     client.force_login(guest)
-    assert b"Disciplinary record" not in client.get(f"/members/{member.slug}/").content
+    assert client.get(f"/members/{member.slug}/rap-sheet/").status_code == 404
     client.force_login(provisional)
-    assert b"Rude" in client.get(f"/members/{member.slug}/").content
+    assert b"Rude" in client.get(f"/members/{member.slug}/rap-sheet/").content
 
 
 def test_invited_accounts_have_no_profile(client, make_user):

@@ -53,4 +53,4 @@ This repository is public.
 
 ## Current milestone
 
-Done: milestone 1 (scaffold, data model, permission service, registry, TOTP sign-in), milestone 2 (onboarding and the promotion workflow), build step 3 (forum pages) and build step 4 (moderation and direct messages), as defined in `docs/DESIGN.md`. Next in the build order is step 5: billing.
+Done: milestone 1 (scaffold, data model, permission service, registry, TOTP sign-in), milestone 2 (onboarding and the promotion workflow), build step 3 (forum pages), build step 4 (moderation and direct messages) and build step 5 (billing), as defined in `docs/DESIGN.md`. One part of step 5 waits on design: moving a lapsed sponsor's sponsees into sponsorship transfer, which the design has not specified (see the sponsorship-transfer brief); step 5 also uses interim readings for when billing launches, Permanent Ban sponsor reviews, redaction outside the Graveyard and revoking extras. Check them when the next design patch lands. Next in the build order is step 6: the anti-scraping layer, the mobile-first UI and home-screen installability.

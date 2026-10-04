@@ -16,8 +16,9 @@ complimentary membership, promotions) and build step 3 (the forum: sub-forums, t
 editor with mentions, quotes and image uploads, editing and deleting, the Thread Graveyard and Thread
 Classics, profiles and search) and build step 4 (direct messages with blocking, the moderation queue
 with reports and automatic flags, scoped actions and Probation, the per-member view, the audit log,
-the Mod feedback feed, and notifications with pointer-only email). Pages are plain; the visual
-design comes later. Admins and Owners can inspect data, read-only, at `/staff/admin/`.
+the Mod feedback feed, and notifications with pointer-only email) and build step 5 (Stripe billing:
+annual membership, the lapse clock, comps, ban payments, the Permanent Ban, gifts, paid extras, the
+Rap Sheet). Pages are plain; the visual design comes later. Admins and Owners can inspect data, read-only, at `/staff/admin/`.
 
 ## Running it
 

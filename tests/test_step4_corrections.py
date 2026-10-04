@@ -111,7 +111,7 @@ def test_record_lists_every_named_sub_forum(client, make_user, general, serious)
                                scope_subforums=[general, serious])
     enrol_totp(viewer)
     client.force_login(viewer)
-    assert b"Suspension in General Discussion and Serious Discussion" in client.get(f"/members/{target.slug}/").content
+    assert b"Suspension in General Discussion and Serious Discussion" in client.get(f"/members/{target.slug}/rap-sheet/").content
 
 
 # --- following -----------------------------------------------------------------------------

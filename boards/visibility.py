@@ -50,11 +50,16 @@ def visible_threads(actor, subforum):
 
 
 def thread_posts(actor, thread):
-    """Posts shown in the thread, oldest first. A rejected post never appears in the thread for
-    its author; it is in their post history instead."""
+    """Posts shown in the thread, oldest first. A deleted post that had been published keeps its
+    place as a placeholder (rule 47); the page shows its text only to those allowed to read it.
+    Rejected posts were never published and leave nothing; a rejected post is in its author's post
+    history instead."""
     if not can(actor, "thread.read", thread):
         return Post.objects.none()
-    return visible_posts(actor).filter(thread=thread).order_by("created_at", "pk")
+    placeholders = Post.objects.filter(
+        thread=thread, deleted_at__isnull=False, is_held=False, rejected_at__isnull=True
+    )
+    return (visible_posts(actor).filter(thread=thread) | placeholders).order_by("created_at", "pk")
 
 
 def post_history(viewer, member):

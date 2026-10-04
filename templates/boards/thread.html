@@ -23,6 +23,9 @@
 </div>
 
 {% for entry in entries %}{% with post=entry.post %}
+{% if entry.placeholder %}
+<article class="panel post placeholder" id="post-{{ post.pk }}"><p class="muted">Deleted by {% if post.deleted_by_id == post.author_id %}the author{% else %}{{ post.deleted_by.display_name }}{% endif %}.</p></article>
+{% else %}
 <article class="panel post{% if post.is_held %} held{% endif %}{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}">
   <header class="meta">{% avatar post.author 32 %}<a href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a>{% if post.author.caption %}<span class="caption">{{ post.author.caption }}</span>{% endif %}
     <span class="muted">· <a href="{% url 'post_link' post.pk %}">{{ post.created_at|date:"j M Y, H:i" }}</a>{% if post.edited_at %} · edited{% endif %}{% if entry.note %} · {{ entry.note }}{% endif %}</span>
@@ -42,6 +45,7 @@
     {% endif %}
   </div>
 </article>
+{% endif %}
 {% endwith %}{% endfor %}
 {% include "boards/_pagination.html" %}
 

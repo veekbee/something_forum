@@ -158,6 +158,7 @@ def thread_page(request, pk):
     may_reply = can(user, "thread.reply", thread)
     entries = [{
         "post": post,
+        "placeholder": post.deleted_at is not None and not can(user, "post.read", post),
         "note": notes.get(post.pk),
         "may_edit": can(user, "post.edit", post),
         "may_delete": can(user, "post.delete", post),
@@ -426,9 +427,9 @@ def member_profile(request, slug):
         "own": member.pk == request.user.pk,
     }
     if can(request.user, "member.view_record", member):
-        context["record"] = ModerationAction.objects.filter(
+        context["record_count"] = ModerationAction.objects.filter(
             target_user=member, is_public=True, status__in=ModerationAction.RECORD_STATUSES
-        ).select_related("initiated_by", "approved_by").prefetch_related("scope_subforums").order_by("-starts_at")
+        ).count()
     if can(request.user, "member.private_stats", member):
         context["private"] = _private_stats(member, role)
     if member.pk != request.user.pk:
@@ -525,3 +526,30 @@ def attachment(request, pk):
     response["Cache-Control"] = "private, no-store"
     response["Content-Disposition"] = "inline"
     return response
+
+
+@require_GET
+def rap_sheet(request, slug):
+    """The public disciplinary record's own page (rule 48), newest first. A link to the offending
+    post passes the reader's normal permission check; removed posts and DM offences are never
+    linked."""
+    member = get_object_or_404(User, slug=slug)
+    decision = can(request.user, "member.view_record", member)
+    if not decision:
+        raise Http404
+    entries = []
+    actions = ModerationAction.objects.filter(
+        target_user=member, is_public=True, status__in=ModerationAction.RECORD_STATUSES
+    ).select_related("initiated_by", "approved_by", "related_post__thread").prefetch_related(
+        "scope_subforums").order_by("-starts_at", "-pk")
+    for action in actions:
+        post, where, link = action.related_post, "", None
+        if post is not None:
+            if post.thread.kind == Thread.Kind.DM:
+                where = "in a private message"
+            elif post.deleted_at is not None:
+                where = "in a post since removed by staff"
+            elif can(request.user, "post.read", post):
+                where, link = "in a post", reverse("post_link", args=[post.pk])
+        entries.append({"action": action, "where": where, "link": link})
+    return render(request, "boards/rap_sheet.html", {"member": member, "entries": entries})

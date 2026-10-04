@@ -20,6 +20,7 @@ urlpatterns = [
     path("p/<int:pk>/<str:decision>/", views.moderate_post, name="moderate_post"),
     path("members/autocomplete/", views.mention_autocomplete, name="mention_autocomplete"),
     path("members/<slug:slug>/", views.member_profile, name="member_profile"),
+    path("members/<slug:slug>/rap-sheet/", views.rap_sheet, name="rap_sheet"),
     path("members/<slug:slug>/block/", message_views.block, name="member_block"),
     path("messages/", message_views.inbox, name="inbox"),
     path("messages/new/", message_views.new_conversation, name="new_conversation"),
