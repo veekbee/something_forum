@@ -251,3 +251,16 @@ class CustomEmoji(models.Model):
             models.UniqueConstraint(fields=["name"], condition=~models.Q(status="rejected"),
                                     name="emoji_name_unique_unless_rejected"),
         ]
+
+
+class ThreadRead(models.Model):
+    """A member's read position on a discussion thread (docs/DESIGN.md, Read positions; rule 74):
+    written when they open it or mark all read. Private to the member, never shown to staff, deleted
+    with the account; rows for threads untouched for reading.prune_after_days are pruned."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="thread_reads")
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE, related_name="reads")
+    last_read_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "thread"], name="one_read_position_per_thread")]

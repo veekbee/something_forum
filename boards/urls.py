@@ -5,6 +5,8 @@ from boards import emoji_views, message_views, views
 urlpatterns = [
     path("", views.forum_index, name="home"),
     path("f/<slug:slug>/", views.subforum_page, name="subforum"),
+    path("f/<slug:slug>/read/", views.mark_all_read, name="mark_subforum_read"),
+    path("read/", views.mark_all_read, name="mark_all_read"),
     path("f/<slug:slug>/new/", views.new_thread, name="new_thread"),
     path("t/<int:pk>/", views.thread_page, name="thread"),
     path("t/<int:pk>/reply/", views.reply, name="reply"),

@@ -16,7 +16,7 @@ from django.views.decorators.http import require_GET, require_POST
 from accounts import roles
 from core.context_processors import scoped_band
 from accounts.models import User
-from boards import services, visibility
+from boards import reading, services, visibility
 from boards.models import Attachment, Post, PostRevision, SubForum, Thread
 from boards.rendering import quote_source
 from core import registry
@@ -58,9 +58,11 @@ def forum_index(request):
 
     def summary(subforum):
         posts = visible.filter(thread__subforum=subforum)
+        threads = visibility.visible_threads(user, subforum)
         return {
             "subforum": subforum,
-            "threads": visibility.visible_threads(user, subforum).count(),
+            "threads": threads.count(),
+            "unread": reading.unread(user, threads).exists(),
             "posts": posts.count(),
             "latest": posts.select_related("thread", "author").order_by("-created_at").first(),
             "depth": 0 if subforum.parent_id is None else 1,
@@ -86,14 +88,32 @@ def _files(request):
     return request.FILES.getlist("images")
 
 
+@require_POST
+def mark_all_read(request, slug=None):
+    """Mark every thread the member can read as read: in one sub-forum, or everywhere (rule 74)."""
+    user = request.user
+    if slug is None:
+        subforums = visibility.readable_subforums(user)
+    else:
+        subforum = get_object_or_404(SubForum, slug=slug)
+        _require(user, "subforum.read", subforum)
+        subforums = [subforum]
+    for subforum in subforums:
+        reading.mark_all_read(user, visibility.visible_threads(user, subforum))
+    return redirect("subforum", slug=slug) if slug else redirect("home")
+
+
 @require_GET
 def subforum_page(request, slug):
     subforum = get_object_or_404(SubForum, slug=slug)
     _require(request.user, "subforum.read", subforum)
     threads = visibility.visible_threads(request.user, subforum).select_related("author", "origin_subforum")
+    page = _page(request, reading.with_marks(request.user, threads), "pagination.threads_per_subforum_page")
+    for thread in page.object_list:
+        thread.unread = reading.is_unread(thread)
     return render(request, "boards/subforum.html", {
         "subforum": subforum,
-        "page": _page(request, threads, "pagination.threads_per_subforum_page"),
+        "page": page,
         "may_start": can(request.user, "subforum.start_thread", subforum),
         "scoped_band": scoped_band(request.user, subforum),
     })
@@ -154,6 +174,7 @@ def _post_notes(posts):
 def thread_page(request, pk):
     thread = _thread_or_404(request.user, pk)
     services.open_thread(request.user, thread)
+    reading.mark_read(request.user, thread)
     user = request.user
     page = _page(request, visibility.thread_posts(user, thread).select_related("author", "deleted_by"),
                  "pagination.posts_per_thread_page")

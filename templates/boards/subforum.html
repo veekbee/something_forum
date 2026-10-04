@@ -2,14 +2,14 @@
 {% block title %}{{ subforum.name }}{% endblock %}
 {% block content %}
 <p class="crumbs"><a href="{% url 'home' %}">Forum</a>{% if subforum.parent %} › <a href="{% url 'subforum' subforum.parent.slug %}">{{ subforum.parent.name }}</a>{% endif %} › {{ subforum.name }}</p>
-<div class="titlebar"><h1>{{ subforum.name }}</h1><div class="actions">{% if may_start %}<a class="button" href="{% url 'new_thread' subforum.slug %}">New thread</a>{% endif %}</div></div>
+<div class="titlebar"><h1>{{ subforum.name }}</h1><div class="actions"><form method="post" action="{% url 'mark_subforum_read' subforum.slug %}">{% csrf_token %}<button class="secondary">Mark all read</button></form>{% if may_start %}<a class="button" href="{% url 'new_thread' subforum.slug %}">New thread</a>{% endif %}</div></div>
 {% if subforum.description %}<p class="muted">{{ subforum.description }}</p>{% endif %}
 {% if page.object_list %}
 <table class="list threads">
   <thead><tr><th>Thread</th><th class="n">Posts</th><th>Last activity</th></tr></thead>
   <tbody>
   {% for thread in page.object_list %}
-  <tr><td>{% if thread.is_pinned %}<span class="tag">Pinned</span> {% endif %}{% if thread.state != "open" %}<span class="tag">{{ thread.get_state_display }}</span> {% endif %}<a class="title thread-title" href="{% url 'thread' thread.pk %}">{{ thread.title }}</a>
+  <tr><td>{% if thread.is_pinned %}<span class="tag">Pinned</span> {% endif %}{% if thread.state != "open" %}<span class="tag">{{ thread.get_state_display }}</span> {% endif %}<a class="title thread-title{% if thread.unread %} unread{% endif %}" href="{% url 'thread' thread.pk %}">{{ thread.title }}</a>
       <span class="sub">by {{ thread.author.display_name }}{% if thread.origin_subforum %} · from {{ thread.origin_subforum.name }}{% endif %}</span></td>
     <td class="n num" data-label="posts">{{ thread.post_count }}</td>
     <td class="last" data-label="last">{{ thread.last_post_at|timesince }} ago</td></tr>

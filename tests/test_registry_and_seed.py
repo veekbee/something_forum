@@ -55,6 +55,8 @@ def test_registry_defaults_match_design():
         "emoji.allow_animated": True,
         "site.name": "Something Forum",
         "legal.reviewed": False,
+        "reading.unread_window_days": 30,
+        "reading.prune_after_days": 365,
         "dm.max_participants": 8,
         "dm.max_new_conversations_per_day": 10,
         "dm.links": "full_and_above",
