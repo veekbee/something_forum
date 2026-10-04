@@ -19,9 +19,10 @@ CLOSED, BANNED, LIMITED, NORMAL = "closed", "banned", "limited", "normal"
 
 
 def _in_force(user, *kinds):
+    """Site-wide actions only: a suspension limited to one sub-forum does not restrict DMs."""
     from moderation.models import ModerationAction
 
-    return ModerationAction.objects.in_force().filter(target_user=user, kind__in=kinds).exists()
+    return ModerationAction.objects.in_force().sitewide().filter(target_user=user, kind__in=kinds).exists()
 
 
 def standing(user):
@@ -36,7 +37,7 @@ def standing(user):
         return LIMITED
     if user.status in (User.Status.READ_ONLY, User.Status.SUSPENDED):
         return LIMITED
-    if _in_force(user, "probation", "read_only", "suspension"):
+    if _in_force(user, "probation", "suspension"):
         return LIMITED
     from moderation.models import Report
 

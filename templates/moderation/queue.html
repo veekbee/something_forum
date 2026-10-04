@@ -5,6 +5,10 @@
 <h1>Moderation queue</h1>
 {% if error %}<p class="notice warn">{{ error }}</p>{% endif %}
 <nav class="actions"><a href="?">All</a>{% for key, label in types.items %}<a href="?type={{ key }}">{{ label }}</a>{% endfor %}</nav>
+{% if mine %}<section class="panel"><h2>Your proposals awaiting approval</h2><ul class="list">
+  {% for a in mine %}<li>{{ a.get_kind_display|capfirst }} for {{ a.target_user.display_name }}
+    <form class="inline-form" method="post" action="{% url 'withdraw_action' a.pk %}">{% csrf_token %}<button class="secondary">Withdraw</button></form></li>{% endfor %}
+</ul></section>{% endif %}
 {% if not items %}<p class="muted">Nothing is waiting.</p>{% endif %}
 {% for item in items %}{% with o=item.obj %}
 <article class="panel queue-item">
@@ -43,8 +47,11 @@
 
   {% elif item.type == "action" %}
     <p>{{ o.get_kind_display|capfirst }} for <a href="{% url 'member_profile' o.target_user.slug %}">{{ o.target_user.display_name }}</a>, proposed by {{ o.initiated_by.display_name }}{% if o.ends_at %} until {{ o.ends_at|date:"j M Y" }}{% endif %}</p>
-    <p class="muted">{{ o.internal_reason }}</p>
-    <form method="post" action="{% url 'approve_action' o.pk %}">{% csrf_token %}<button>Approve</button></form>
+    <p class="muted">{{ o.internal_reason }}{% if o.scope_subforum %} · only in {{ o.scope_subforum.name }}{% endif %}</p>
+    <div class="actions">
+      <form method="post" action="{% url 'approve_action' o.pk %}">{% csrf_token %}{% if o.is_public %}<input type="text" name="public_summary" value="{{ o.public_summary_draft }}" aria-label="Public summary"> {% endif %}<button>Approve</button></form>
+      <form method="post" action="{% url 'decline_action' o.pk %}">{% csrf_token %}<input type="text" name="reason" placeholder="Why decline?" aria-label="Why decline" required> <button class="secondary">Decline</button></form>
+    </div>
 
   {% elif item.type == "promotion" %}
     <p><a href="{% url 'member_profile' o.member.slug %}">{{ o.member.display_name }}</a>: {{ o.from_role.name }} to {{ o.to_role.name }}, recommended by {{ o.recommended_by.display_name }}{% if o.reviewed_by %}, reviewed by {{ o.reviewed_by.display_name }}{% endif %}</p>

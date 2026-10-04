@@ -58,7 +58,8 @@ def should_hold(user, subforum):
         return False
     if roles.moderates(user, subforum):
         return False
-    if ModerationAction.objects.in_force().filter(target_user=user, kind=ModerationAction.Kind.HOLD).exists():
+    holds = ModerationAction.objects.in_force().applying_in(subforum)
+    if holds.filter(target_user=user, kind=ModerationAction.Kind.HOLD).exists():
         return True
     mode = subforum.setting("subforum.hold_posts")
     if mode == "all":

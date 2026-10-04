@@ -3,9 +3,10 @@
 {% block content %}
 <h1>{{ member.display_name }}</h1>
 <section class="panel">
-  <p>{% if role %}{{ role.name|capfirst }}{% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
-  {% if may_message or may_block or may_report %}<div class="actions">
+  <p>{% if role %}{{ role.name|capfirst }}{% endif %}{% if member.status == "read_only" %} · read-only (lapsed){% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
+  {% if may_message or may_block or may_report or may_act %}<div class="actions">
     {% if may_report %}<a href="{% url 'report_member' member.slug %}">Report</a>{% endif %}
+    {% if may_act %}<a href="{% url 'take_action' member.slug %}">Moderate</a>{% endif %}
     {% if may_message %}<a class="button" href="{% url 'new_conversation' %}?to={{ member.slug }}">Message</a>{% endif %}
     {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
   </div>{% endif %}
@@ -21,8 +22,8 @@
 {% if record is not None %}
 <h2>Disciplinary record</h2>
 {% if record %}
-<ul class="list panel">{% for a in record %}<li>{{ a.get_kind_display|capfirst }} · {{ a.starts_at|date:"j M Y" }}{% if a.public_summary %} · {{ a.public_summary }}{% endif %}
-  <div class="meta muted">Initiated by {{ a.initiated_by.display_name }}{% if a.approved_by %}, approved by {{ a.approved_by.display_name }}{% endif %}{% if a.status != "active" %} · {{ a.get_status_display }}{% endif %}</div></li>{% endfor %}</ul>
+<ul class="list panel">{% for a in record %}<li>{{ a.get_kind_display|capfirst }}{% if a.scope_subforum %} in {{ a.scope_subforum.name }}{% endif %} · {{ a.starts_at|date:"j M Y" }}{% if a.public_summary %} · {{ a.public_summary }}{% endif %}
+  <div class="meta muted">Initiated by {{ a.initiated_by.display_name }}{% if a.approved_by %}, approved by {{ a.approved_by.display_name }}{% endif %}{% if a.status == "reversed" and a.kind == "ban" %} · lifted {{ a.ends_at|date:"j M Y" }}{% elif a.status == "expired" %} · ended{% endif %}</div></li>{% endfor %}</ul>
 {% else %}<p class="muted">None.</p>{% endif %}
 {% endif %}
 <h2>Posts</h2>

@@ -118,8 +118,8 @@ def test_suspension_needs_months(make_user):
 def test_decide_ban(make_user):
     review, sponsor_user = _open_review(make_user)
     services.decide_sponsor_review(make_user("owner"), review, "ban", public_summary="Sponsor of banned member")
-    sponsor_user.refresh_from_db()
-    assert sponsor_user.status == User.Status.BANNED
+    assert ModerationAction.objects.in_force().filter(target_user=sponsor_user, kind="ban").exists()
+    assert not can(sponsor_user, "search.use")
 
 
 def test_review_decided_once(make_user):

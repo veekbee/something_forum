@@ -423,8 +423,8 @@ def member_profile(request, slug):
     }
     if can(request.user, "member.view_record", member):
         context["record"] = ModerationAction.objects.filter(
-            target_user=member, is_public=True, status__in=["active", "expired", "reversed"]
-        ).select_related("initiated_by", "approved_by").order_by("-starts_at")
+            target_user=member, is_public=True, status__in=ModerationAction.RECORD_STATUSES
+        ).select_related("initiated_by", "approved_by", "scope_subforum").order_by("-starts_at")
     if can(request.user, "member.private_stats", member):
         context["private"] = _private_stats(member, role)
     if member.pk != request.user.pk:
@@ -435,6 +435,11 @@ def member_profile(request, slug):
         context["may_block"] = bool(can(request.user, "member.block", member))
         context["blocked"] = Block.objects.filter(blocker=request.user, blocked=member).exists()
         context["may_report"] = bool(can(request.user, "report.create", member))
+        from core.permissions import ActionRequest
+
+        context["may_act"] = any(
+            can(request.user, "moderation.initiate", ActionRequest(kind, member)) for kind in ("note", "warning")
+        )
     return render(request, "boards/profile.html", context)
 
 

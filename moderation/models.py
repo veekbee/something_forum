@@ -96,11 +96,18 @@ class Report(models.Model):
 
 class ModerationActionQuerySet(models.QuerySet):
     def in_force(self, at=None):
-        """Active actions whose period covers `at` (default now)."""
+        """Active actions whose period covers `at` (default now), whatever the expiry job has done."""
         at = at or timezone.now()
         return self.filter(status=ModerationAction.Status.ACTIVE, starts_at__lte=at).filter(
             Q(ends_at__isnull=True) | Q(ends_at__gt=at)
         )
+
+    def sitewide(self):
+        return self.filter(scope_subforum__isnull=True)
+
+    def applying_in(self, subforum):
+        """Site-wide actions and those limited to `subforum`."""
+        return self.filter(Q(scope_subforum__isnull=True) | Q(scope_subforum=subforum))
 
 
 class ModerationAction(models.Model):
@@ -109,7 +116,8 @@ class ModerationAction(models.Model):
         WARNING = "warning"
         HOLD = "hold"
         SUSPENSION = "suspension"
-        READ_ONLY = "read_only"
+        # Site-wide read-only as a disciplinary status. Called read_only before 3 Oct 2026.
+        PROBATION = "probation"
         BAN = "ban"
         BAN_REVERSAL = "ban_reversal"
         SPONSORSHIP_TRANSFER = "sponsorship_transfer"
@@ -120,21 +128,36 @@ class ModerationAction(models.Model):
         ACTIVE = "active"
         EXPIRED = "expired"
         REVERSED = "reversed"
+        DECLINED = "declined"
+        WITHDRAWN = "withdrawn"
+
+    # Statuses that appear on the public record; declined and withdrawn actions never do.
+    RECORD_STATUSES = (Status.ACTIVE, Status.EXPIRED, Status.REVERSED)
 
     target_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="moderation_actions"
     )
     kind = models.CharField(max_length=24, choices=Kind.choices)
+    # Set only for a suspension or hold limited to one sub-forum (rule 36).
+    scope_subforum = models.ForeignKey(
+        "boards.SubForum", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     # Null when an Admin or Owner acted alone: the record then shows a single actor.
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
+    declined_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    decline_reason = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(default=timezone.now)
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
     internal_reason = models.TextField()
+    # The initiator drafts the public summary; the approver may edit it; both are kept.
+    public_summary_draft = models.TextField(blank=True)
     public_summary = models.TextField(blank=True)
     is_public = models.BooleanField(default=True)
     related_post = models.ForeignKey(

@@ -37,8 +37,9 @@ def queue_page(request):
         if item.type in ("report", "flag"):
             item.may_resolve = can(request.user, "report.resolve", item.obj)
             item.may_escalate = can(request.user, "report.escalate", item.obj)
+    mine = ModerationAction.objects.filter(initiated_by=request.user, status=ModerationAction.Status.PENDING)
     return render(request, "moderation/queue.html", {
-        "items": items, "types": queue.TYPES, "only": only, "reasons": REASONS,
+        "items": items, "types": queue.TYPES, "only": only, "reasons": REASONS, "mine": mine.select_related("target_user"),
         "error": request.GET.get("error", ""),
     })
 
@@ -71,7 +72,67 @@ def report_action(request, pk, action):
 @require_POST
 def approve_action(request, pk):
     action = get_object_or_404(ModerationAction, pk=pk)
-    return _act(request, lambda: services.approve_action(request.user, action))
+    summary = request.POST.get("public_summary")
+    return _act(request, lambda: services.approve_action(request.user, action, summary))
+
+
+@require_POST
+def decline_action(request, pk):
+    action = get_object_or_404(ModerationAction, pk=pk)
+    return _act(request, lambda: services.decline_action(request.user, action, request.POST.get("reason", "")))
+
+
+@require_POST
+def withdraw_action(request, pk):
+    action = get_object_or_404(ModerationAction, pk=pk)
+    return _act(request, lambda: services.withdraw_action(request.user, action))
+
+
+@require_POST
+def lift_ban(request, pk):
+    ban = get_object_or_404(ModerationAction, pk=pk)
+    return _act(request, lambda: services.lift_ban(request.user, ban, request.POST.get("reason", "")))
+
+
+def take_action(request, slug):
+    """Propose (or, for Admins and Owners, take) a moderation action on a member."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from boards.models import SubForum
+    from core.permissions import ActionRequest
+
+    member = get_object_or_404(User, slug=slug)
+    kinds = [(k, label) for k, label in ModerationAction.Kind.choices
+             if can(request.user, "moderation.initiate", ActionRequest(k, member))
+             or (k in ("hold", "suspension") and any(
+                 can(request.user, "moderation.initiate", ActionRequest(k, member, scope_subforum=sf))
+                 for sf in SubForum.objects.filter(kind=SubForum.Kind.REGULAR)))]
+    if not kinds:
+        raise PermissionDenied("You cannot take action on this member.")
+    scopes = [sf for sf in SubForum.objects.filter(kind=SubForum.Kind.REGULAR)
+              if can(request.user, "moderation.initiate", ActionRequest("suspension", member, scope_subforum=sf))]
+    errors = []
+    if request.method == "POST":
+        post = request.POST
+        scope = next((sf for sf in scopes if str(sf.pk) == post.get("scope")), None)
+        days = post.get("days", "")
+        try:
+            services.initiate_action(
+                request.user, member, post.get("kind", ""), internal_reason=post.get("internal_reason", ""),
+                public_summary=post.get("public_summary", ""), scope_subforum=scope,
+                ends_at=timezone.now() + timedelta(days=int(days)) if days.isdigit() else None,
+            )
+        except (ValidationError, PermissionDenied) as exc:
+            errors = _errors(exc)
+        else:
+            return redirect("queue")
+    active_bans = ModerationAction.objects.in_force().filter(target_user=member, kind=ModerationAction.Kind.BAN)
+    return render(request, "moderation/take_action.html", {
+        "member": member, "kinds": kinds, "scopes": scopes, "errors": errors,
+        "liftable": [b for b in active_bans if can(request.user, "moderation.lift_ban", b)],
+    })
 
 
 @require_POST

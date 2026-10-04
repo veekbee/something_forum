@@ -64,7 +64,7 @@ def test_restricted_members_only_with_sponsor_and_staff(make_user, restriction):
     status = {"read_only_status": User.Status.READ_ONLY, "suspended_status": User.Status.SUSPENDED}.get(restriction)
     member = make_user("full", status=status) if status else make_user("full")
     if not status:
-        _in_force(member, {"probation": "read_only", "suspension": "suspension"}[restriction], admin)
+        _in_force(member, restriction, admin)
     own_sponsor = make_user("tenured")
     sponsor(own_sponsor, member)
     assert dm.may_message(member, own_sponsor) and dm.may_message(member, admin)
@@ -96,7 +96,7 @@ def test_existing_conversation_stays_readable_but_closed(make_user):
     admin = make_user("admin")
     a, b = make_user("full"), make_user("full")
     thread, _ = _start(a, b)
-    _in_force(a, "read_only", admin)
+    _in_force(a, "probation", admin)
     assert can(a, "thread.read", thread)
     assert not can(a, "thread.reply", thread)
     assert "can no longer message" in can(a, "thread.reply", thread).reason

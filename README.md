@@ -58,6 +58,7 @@ Run these once a day (cron, or the host's scheduler):
 ```sh
 .venv/bin/python manage.py expire_invitations     # pending invitations past invitation.expiry_days
 .venv/bin/python manage.py delete_ended_accounts  # invited accounts whose invitation ended unapproved
+.venv/bin/python manage.py expire_actions         # mark time-limited moderation actions as ended
 ```
 
 ## Tests

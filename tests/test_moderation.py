@@ -3,8 +3,8 @@
 import pytest
 from django.core.exceptions import PermissionDenied
 
-from accounts.models import User
 from audit.models import AuditEntry
+from core.permissions import can
 from moderation import services
 from moderation.models import ModerationAction
 from tests.factories import grant, make_post, make_thread
@@ -17,8 +17,8 @@ def test_admin_or_owner_acts_alone(make_user, role):
     assert action.status == ModerationAction.Status.ACTIVE
     assert action.initiated_by == actor
     assert action.approved_by is None
-    target.refresh_from_db()
-    assert target.status == User.Status.BANNED
+    assert ModerationAction.objects.in_force().filter(target_user=target, kind="ban").exists()
+    assert not can(target, "search.use")
 
 
 def test_moderator_action_waits_for_second_approver(make_user):
@@ -39,8 +39,8 @@ def test_ban_approver_must_be_admin_or_owner(make_user):
     with pytest.raises(PermissionDenied):
         services.approve_action(make_user("moderator"), ban)
     services.approve_action(make_user("admin"), ban)
-    target.refresh_from_db()
-    assert target.status == User.Status.BANNED
+    assert ModerationAction.objects.in_force().filter(target_user=target, kind="ban").exists()
+    assert not can(target, "search.use")
 
 
 def test_non_staff_cannot_initiate(make_user):

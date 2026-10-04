@@ -20,9 +20,11 @@ READABLE_STATUSES = {User.Status.GUEST, User.Status.ACTIVE, User.Status.READ_ONL
 WRITABLE_STATUSES = {User.Status.GUEST, User.Status.ACTIVE}
 
 # Kinds a Moderator may initiate and approve; everything else needs an Admin or Owner.
-MODERATOR_KINDS = {"note", "warning", "hold", "suspension", "read_only", "ban"}
-# Kinds whose approver must be an Admin or Owner even when a Moderator initiates.
-ADMIN_APPROVAL_KINDS = {"ban"}
+MODERATOR_KINDS = {"note", "warning", "hold", "suspension", "probation", "ban"}
+# Kinds that always need an Admin or Owner as initiator or approver (rule 36).
+ADMIN_APPROVAL_KINDS = {"ban", "probation"}
+# Kinds a Moderator may limit to one sub-forum they moderate.
+SCOPABLE_KINDS = {"hold", "suspension"}
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,7 @@ class ActionRequest:
     kind: str
     target_user: User
     related_post: Any = None
+    scope_subforum: Any = None
 
 
 @dataclass(frozen=True)
@@ -88,10 +91,13 @@ def can(actor, action, target=None):
 # --- account state -------------------------------------------------------------------------
 
 
-def _in_force(user, *kinds):
+def _in_force(user, *kinds, subforum=None):
+    """Kinds in force on `user`: site-wide ones, plus, given a sub-forum, those limited to it."""
     from moderation.models import ModerationAction
 
-    return ModerationAction.objects.in_force().filter(target_user=user, kind__in=kinds).exists()
+    actions = ModerationAction.objects.in_force().filter(target_user=user, kind__in=kinds)
+    actions = actions.applying_in(subforum) if subforum is not None else actions.sitewide()
+    return actions.exists()
 
 
 def _can_read_anything(user):
@@ -108,7 +114,7 @@ def _can_write_anything(user):
         return readable
     if user.status not in WRITABLE_STATUSES:
         return deny(f"account is {user.status}")
-    if _in_force(user, "suspension", "read_only"):
+    if _in_force(user, "suspension", "probation"):
         return deny("posting is suspended")
     if _request_rate_flagged(user):
         return deny("account is read-only until a Moderator reviews unusual activity")
@@ -174,6 +180,8 @@ def _subforum_start_thread(actor, subforum):
         return deny("sub-forum is read-only")
     if not _meets(actor, subforum, "subforum.min_thread_role"):
         return deny("role is below this sub-forum's minimum to start a thread")
+    if _in_force(actor, "suspension", subforum=subforum):
+        return deny("posting is suspended in this sub-forum")
     if limits.thread_limit_reached(actor, subforum):
         return deny("thread rate limit reached", code="rate_limit")
     if limits.post_limit_reached(actor, subforum):
@@ -241,6 +249,8 @@ def _thread_reply(actor, thread):
         return deny("thread is locked")
     if not _meets(actor, subforum, "subforum.min_reply_role"):
         return deny("role is below this sub-forum's minimum to reply")
+    if _in_force(actor, "suspension", subforum=subforum):
+        return deny("posting is suspended in this sub-forum")
     if limits.post_limit_reached(actor, subforum):
         return deny("post rate limit reached", code="rate_limit")
     return allow()
@@ -883,43 +893,86 @@ def _staff_may_act_on(actor, target_user):
     return allow()
 
 
-def _staff_scope_ok(actor, related_post):
-    """Moderators act within their sub-forums: a scoped Moderator needs a related post in scope."""
+def _staff_scope_ok(actor, related_post, scope_subforum=None):
+    """Moderators act within their sub-forums: a limited action names one they moderate; otherwise
+    a scoped Moderator needs a related post in scope, and only a global Moderator acts on a member
+    with neither."""
     if roles.is_admin_or_owner(actor):
         return True
     if not roles.is_moderator(actor):
         return False
+    if scope_subforum is not None:
+        return roles.moderates(actor, scope_subforum)
     if related_post is not None:
         return roles.moderates(actor, related_post.thread.subforum)
     return roles.moderated_subforum_ids(actor) is None
+
+
+def _needs_leadership(kind, scope_subforum):
+    """Rule 36: bans and Probation always, and a suspension or hold that is not limited to one
+    sub-forum, need an Admin or Owner as initiator or approver."""
+    return kind in ADMIN_APPROVAL_KINDS or kind not in MODERATOR_KINDS or (
+        kind in SCOPABLE_KINDS and scope_subforum is None
+    )
 
 
 @rule("moderation.initiate")
 def _moderation_initiate(actor, request):
     if actor.status != User.Status.ACTIVE:
         return deny(f"account is {actor.status}")
+    if request.scope_subforum is not None and request.kind not in SCOPABLE_KINDS:
+        return deny("only suspensions and holds are limited to a sub-forum")
     if not roles.is_admin_or_owner(actor):
         if request.kind not in MODERATOR_KINDS:
             return deny("only Admins and Owners may take this action")
-        if not _staff_scope_ok(actor, request.related_post):
+        if not _staff_scope_ok(actor, request.related_post, request.scope_subforum):
             return deny("outside your moderation scope")
     return _staff_may_act_on(actor, request.target_user)
 
 
-@rule("moderation.approve")
-def _moderation_approve(actor, action):
+def _eligible_approver(actor, action):
     if action.status != action.Status.PENDING:
-        return deny("action is not awaiting approval")
+        return deny("already handled", code="handled")
     if action.initiated_by_id == actor.pk:
         return deny("approver must differ from initiator")
     if actor.status != User.Status.ACTIVE:
         return deny(f"account is {actor.status}")
     admin = roles.is_admin_or_owner(actor)
-    if (action.kind in ADMIN_APPROVAL_KINDS or action.kind not in MODERATOR_KINDS) and not admin:
+    if _needs_leadership(action.kind, action.scope_subforum) and not admin:
         return deny("this action needs an Admin or Owner to approve")
-    if not admin and not _staff_scope_ok(actor, action.related_post):
+    if not admin and not _staff_scope_ok(actor, action.related_post, action.scope_subforum):
         return deny("outside your moderation scope")
     return _staff_may_act_on(actor, action.target_user)
+
+
+@rule("moderation.approve")
+def _moderation_approve(actor, action):
+    return _eligible_approver(actor, action)
+
+
+@rule("moderation.decline")
+def _moderation_decline(actor, action):
+    """An eligible approver may decline a pending action, with a reason (rule 36)."""
+    return _eligible_approver(actor, action)
+
+
+@rule("moderation.withdraw")
+def _moderation_withdraw(actor, action):
+    if action.status != action.Status.PENDING:
+        return deny("already handled", code="handled")
+    if action.initiated_by_id != actor.pk:
+        return deny("only the initiator withdraws an action")
+    return allow()
+
+
+@rule("moderation.lift_ban")
+def _moderation_lift_ban(actor, ban):
+    """A ban is lifted by the reversal payment (build step 5) or by an Admin or Owner."""
+    if ban.kind != ban.Kind.BAN or ban.status != ban.Status.ACTIVE:
+        return deny("not an active ban")
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners lift bans")
+    return _staff_may_act_on(actor, ban.target_user)
 
 
 @rule("dm.grant_access")
