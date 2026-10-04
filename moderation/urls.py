@@ -5,6 +5,7 @@ from moderation import views
 urlpatterns = [
     path("staff/queue/", views.queue_page, name="queue"),
     path("staff/reports/<int:pk>/<str:action>/", views.report_action, name="report_action"),
+    path("staff/queue/escalate/<str:type_>/<int:pk>/", views.escalate_item, name="escalate_item"),
     path("staff/actions/<int:pk>/approve/", views.approve_action, name="approve_action"),
     path("staff/actions/<int:pk>/decline/", views.decline_action, name="decline_action"),
     path("staff/actions/<int:pk>/withdraw/", views.withdraw_action, name="withdraw_action"),

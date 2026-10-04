@@ -61,7 +61,7 @@ def resolve(actor, item, outcome, hide_reason="", hide_note=""):
     item.handled_by, item.handled_at = actor, timezone.now()
     item.save(update_fields=["status", "outcome", "handled_by", "handled_at"])
     log.record(actor, "report.resolve", item, {"outcome": outcome, "kind": item.kind})
-    if item.reporter_id:
+    if item.reporter_id and item.kind != Report.Kind.ESCALATION:
         Notification.objects.create(recipient_id=item.reporter_id, kind="report.outcome",
                                     payload={"report": item.pk, "outcome": outcome})
     if item.escalated_by_id and item.escalated_by_id != actor.pk:
@@ -83,6 +83,33 @@ def escalate(actor, item, note):
     for user in roles.leadership():
         Notification.objects.create(recipient=user, kind="queue.escalated", payload={"report": item.pk})
     return item
+
+
+@transaction.atomic
+def escalate_item(actor, item, note):
+    """Escalate a held post, a pending action or a promotion: an escalation report points at it, and
+    until an Admin or Owner resolves that report, only they act on the item. Resolving the report
+    does not by itself release, approve or decide the item."""
+    from boards.models import Post
+    from moderation.models import ModerationAction
+
+    require(actor, "queue.escalate", item)
+    if not note.strip():
+        raise ValidationError("Say why you are escalating.")
+    if isinstance(item, Post):
+        link, about = {"post": item}, item.author
+    elif isinstance(item, ModerationAction):
+        link, about = {"related_action": item}, item.target_user
+    else:
+        link, about = {"related_promotion": item}, item.member
+    escalation = Report.objects.create(
+        source=Report.Source.MEMBER, kind=Report.Kind.ESCALATION, reporter=actor, user=about,
+        status=Report.Status.ESCALATED, escalated_by=actor, escalation_note=note.strip(), **link,
+    )
+    log.record(actor, "report.escalate", escalation, {"kind": escalation.kind})
+    for user in roles.leadership():
+        Notification.objects.create(recipient=user, kind="queue.escalated", payload={"report": escalation.pk})
+    return escalation
 
 
 @transaction.atomic

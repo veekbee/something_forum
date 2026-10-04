@@ -14,7 +14,11 @@
 <article class="panel queue-item">
   <header class="meta"><span class="status">{{ types|get_item:item.type|default:item.type }}</span>
     <span class="muted">waiting {{ item.waiting_since|timesince }}</span>
-    {% if o.status == "escalated" %}<span class="status pending">Escalated by {{ o.escalated_by.display_name }}: {{ o.escalation_note }}</span>{% endif %}</header>
+    {% if o.status == "escalated" %}<span class="status pending">Escalated by {{ o.escalated_by.display_name }}: {{ o.escalation_note }}</span>{% endif %}
+    {% if item.escalated %}<span class="status pending">Escalated: waiting for an Admin or Owner</span>{% endif %}</header>
+  {% if item.may_escalate and item.type != "report" and item.type != "flag" %}
+  <form class="actions" method="post" action="{% url 'escalate_item' item.type o.pk %}">{% csrf_token %}<input type="text" name="note" placeholder="Why escalate?" aria-label="Why escalate" required> <button class="secondary">Escalate</button></form>
+  {% endif %}
 
   {% if item.type == "held" %}
     <p><a href="{% url 'post_link' o.pk %}">{{ o.thread.title }}</a> · {{ o.author.display_name }} in {{ o.thread.subforum.name }}</p>
@@ -26,7 +30,7 @@
     </div>
 
   {% elif item.type == "report" or item.type == "flag" %}
-    <p>{% if o.is_flag %}{{ o.get_kind_display }}{% else %}{{ o.get_reason_display }}{% if o.note %}: {{ o.note }}{% endif %} · reported by {{ o.reporter.display_name }}{% endif %}</p>
+    <p>{% if o.is_flag %}{{ o.get_kind_display }}{% elif o.kind == "escalation" %}Escalated {% if o.related_action %}{{ o.related_action.get_kind_display }} for {{ o.related_action.target_user.display_name }}{% elif o.related_promotion %}promotion of {{ o.related_promotion.member.display_name }}{% else %}held post{% endif %}. Resolving this hands the item back; it does not act on it.{% else %}{{ o.get_reason_display }}{% if o.note %}: {{ o.note }}{% endif %} · reported by {{ o.reporter.display_name }}{% endif %}</p>
     <p>{% if o.post %}<a href="{% url 'post_link' o.post.pk %}">{{ o.post.thread.title }}</a> · post by {{ o.post.author.display_name }}{% endif %}
        {% if o.user %} · member <a href="{% url 'member_profile' o.user.slug %}">{{ o.user.display_name }}</a>{% endif %}
        {% if o.details.refusals %} · {{ o.details.refusals }} refused posts{% endif %}{% if o.details.deletions %} · {{ o.details.deletions }} deletions{% endif %}{% if o.details.requests %} · {{ o.details.requests }} requests in 10 minutes; the account is read-only until resolved{% endif %}</p>
@@ -47,7 +51,7 @@
 
   {% elif item.type == "action" %}
     <p>{{ o.get_kind_display|capfirst }} for <a href="{% url 'member_profile' o.target_user.slug %}">{{ o.target_user.display_name }}</a>, proposed by {{ o.initiated_by.display_name }}{% if o.ends_at %} until {{ o.ends_at|date:"j M Y" }}{% endif %}</p>
-    <p class="muted">{{ o.internal_reason }}{% if o.scope_subforum %} · only in {{ o.scope_subforum.name }}{% endif %}</p>
+    <p class="muted">{{ o.internal_reason }}{% for sf in o.scope_subforums.all %}{% if forloop.first %} · only in {% else %}, {% endif %}{{ sf.name }}{% endfor %}</p>
     <div class="actions">
       <form method="post" action="{% url 'approve_action' o.pk %}">{% csrf_token %}{% if o.is_public %}<input type="text" name="public_summary" value="{{ o.public_summary_draft }}" aria-label="Public summary"> {% endif %}<button>Approve</button></form>
       <form method="post" action="{% url 'decline_action' o.pk %}">{% csrf_token %}<input type="text" name="reason" placeholder="Why decline?" aria-label="Why decline" required> <button class="secondary">Decline</button></form>

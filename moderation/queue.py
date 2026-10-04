@@ -27,11 +27,20 @@ class Item:
     waiting_since: datetime
 
 
+def _visible(actor, action, item, link):
+    """Staff who may act on an item see it; so do staff who can see its open escalation, since an
+    escalated item stays in the queue, marked, while it waits for an Admin or Owner."""
+    if can(actor, action, item):
+        return True
+    escalation = Report.objects.waiting().filter(kind=Report.Kind.ESCALATION, **{link: item}).first()
+    return escalation is not None and bool(can(actor, "report.view", escalation))
+
+
 def _held(actor):
     posts = Post.objects.filter(is_held=True, thread__kind=Thread.Kind.DISCUSSION).select_related(
         "author", "thread__subforum"
     )
-    return [Item("held", p, p.created_at) for p in posts if can(actor, "post.moderate", p)]
+    return [Item("held", p, p.created_at) for p in posts if _visible(actor, "post.moderate", p, "post")]
 
 
 def _reports(actor):
@@ -47,7 +56,8 @@ def _actions(actor):
     pending = ModerationAction.objects.filter(status=ModerationAction.Status.PENDING).select_related(
         "target_user", "initiated_by", "related_post__thread__subforum"
     )
-    return [Item("action", a, a.created_at) for a in pending if can(actor, "moderation.approve", a)]
+    return [Item("action", a, a.created_at) for a in pending
+            if _visible(actor, "moderation.approve", a, "related_action")]
 
 
 def _promotions(actor):
@@ -55,7 +65,7 @@ def _promotions(actor):
     found = []
     for promotion in open_:
         action = "promotion.review" if promotion.status == Promotion.Status.RECOMMENDED else "promotion.decide"
-        if can(actor, action, promotion):
+        if _visible(actor, action, promotion, "related_promotion"):
             found.append(Item("promotion", promotion, promotion.recommended_at or promotion.created_at))
     return found
 

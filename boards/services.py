@@ -141,6 +141,8 @@ def _start_thread(author, subforum, title, body_source, files):
     thread = Thread.objects.create(
         subforum=subforum, kind=Thread.Kind.DISCUSSION, title=title, author=author, last_post_at=timezone.now()
     )
+    # Starters follow their threads automatically and can unfollow; replying follows nothing.
+    ThreadParticipant.objects.create(thread=thread, user=author)
     post = _add_post(thread, author, body_source, files)
     return thread, post
 

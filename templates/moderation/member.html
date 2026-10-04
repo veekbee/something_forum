@@ -21,7 +21,7 @@
 </section>
 
 <section class="panel"><h2>Moderation history</h2>
-  <ul class="list">{% for a in actions %}<li>{{ a.get_kind_display|capfirst }}{% if a.scope_subforum %} in {{ a.scope_subforum.name }}{% endif %} <span class="status">{{ a.get_status_display }}</span>
+  <ul class="list">{% for a in actions %}<li>{{ a.get_kind_display|capfirst }}{% for sf in a.scope_subforums.all %}{% if forloop.first %} in {% elif forloop.last %} and {% else %}, {% endif %}{{ sf.name }}{% endfor %} <span class="status">{{ a.get_status_display }}</span>
     <div class="meta muted">{{ a.created_at|date:"j M Y" }} · {{ a.initiated_by.display_name }}{% if a.approved_by %} / {{ a.approved_by.display_name }}{% endif %}{% if a.declined_by %} · declined by {{ a.declined_by.display_name }}: {{ a.decline_reason }}{% endif %}</div>
     <div class="muted">{{ a.internal_reason }}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
 </section>

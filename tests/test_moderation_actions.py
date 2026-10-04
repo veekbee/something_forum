@@ -75,7 +75,7 @@ def test_moderator_suspension_applies_only_in_their_sub_forum(make_user, general
     mod, approver = scoped_mod(general), scoped_mod(general)
     target = make_user("full")
     action = moderation.initiate_action(
-        mod, target, "suspension", internal_reason="flaming", scope_subforum=general,
+        mod, target, "suspension", internal_reason="flaming", scope_subforums=[general],
         ends_at=timezone.now() + timedelta(days=3),
     )
     moderation.approve_action(approver, action)
@@ -88,13 +88,13 @@ def test_moderator_suspension_applies_only_in_their_sub_forum(make_user, general
 def test_moderator_cannot_limit_to_a_sub_forum_they_do_not_moderate(make_user, general, serious, scoped_mod):
     with pytest.raises(PermissionDenied):
         moderation.initiate_action(scoped_mod(general), make_user("full"), "suspension", internal_reason="x",
-                                   scope_subforum=serious)
+                                   scope_subforums=[serious])
 
 
 def test_only_suspensions_and_holds_take_a_scope(make_user, general):
     with pytest.raises(PermissionDenied):
         moderation.initiate_action(make_user("admin"), make_user("full"), "warning", internal_reason="x",
-                                   scope_subforum=general)
+                                   scope_subforums=[general])
 
 
 @pytest.mark.parametrize("kind", ["suspension", "hold", "probation", "ban"])
@@ -110,7 +110,7 @@ def test_sitewide_actions_and_probation_refuse_a_moderator_only_pair(make_user, 
 
 def test_limited_hold_holds_posts_only_there(make_user, general, serious):
     target = make_user("full")
-    moderation.initiate_action(make_user("admin"), target, "hold", internal_reason="x", scope_subforum=general)
+    moderation.initiate_action(make_user("admin"), target, "hold", internal_reason="x", scope_subforums=[general])
     assert services.reply(target, make_thread(general, make_user("full")), "held").is_held
     assert not services.reply(target, make_thread(serious, make_user("full")), "free").is_held
 
@@ -118,7 +118,7 @@ def test_limited_hold_holds_posts_only_there(make_user, general, serious):
 def test_record_shows_where_a_limited_action_applies(client, make_user, general):
     target, viewer = make_user("full"), make_user("full")
     moderation.initiate_action(make_user("admin"), target, "suspension", internal_reason="x",
-                               public_summary="Flaming", scope_subforum=general)
+                               public_summary="Flaming", scope_subforums=[general])
     enrol_totp(viewer)
     client.force_login(viewer)
     assert b"Suspension in General Discussion" in client.get(f"/members/{target.slug}/").content
@@ -259,5 +259,5 @@ def test_take_action_page_proposes_for_approval(client, make_user, general, scop
         "kind": "suspension", "scope": general.pk, "days": "2", "internal_reason": "flaming", "public_summary": "Flaming",
     })
     action = ModerationAction.objects.get(target_user=target)
-    assert action.status == Status.PENDING and action.scope_subforum == general
+    assert action.status == Status.PENDING and list(action.scope_subforums.all()) == [general]
     assert client.get(f"/staff/members/{make_user('moderator').slug}/act/").status_code == 403

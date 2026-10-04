@@ -33,10 +33,15 @@ def queue_page(request):
         raise PermissionDenied(decision.reason)
     only = request.GET.get("type") if request.GET.get("type") in queue.TYPES else None
     items = queue.items(request.user, only)
+    links = {"held": "post", "action": "related_action", "promotion": "related_promotion"}
     for item in items:
         if item.type in ("report", "flag"):
             item.may_resolve = can(request.user, "report.resolve", item.obj)
             item.may_escalate = can(request.user, "report.escalate", item.obj)
+        elif item.type in links:
+            item.escalated = Report.objects.waiting().filter(
+                kind=Report.Kind.ESCALATION, **{links[item.type]: item.obj}).exists()
+            item.may_escalate = can(request.user, "queue.escalate", item.obj)
     mine = ModerationAction.objects.filter(initiated_by=request.user, status=ModerationAction.Status.PENDING)
     return render(request, "moderation/queue.html", {
         "items": items, "types": queue.TYPES, "only": only, "reasons": REASONS, "mine": mine.select_related("target_user"),
@@ -67,6 +72,15 @@ def report_action(request, pk, action):
     if action not in handlers:
         raise PermissionDenied("unknown action")
     return _act(request, handlers[action])
+
+
+@require_POST
+def escalate_item(request, type_, pk):
+    models = {"held": Post, "action": ModerationAction, "promotion": Promotion}
+    if type_ not in models:
+        raise PermissionDenied("unknown item")
+    item = get_object_or_404(models[type_], pk=pk)
+    return _act(request, lambda: reports.escalate_item(request.user, item, request.POST.get("note", "")))
 
 
 @require_POST
@@ -107,21 +121,22 @@ def take_action(request, slug):
     kinds = [(k, label) for k, label in ModerationAction.Kind.choices
              if can(request.user, "moderation.initiate", ActionRequest(k, member))
              or (k in ("hold", "suspension") and any(
-                 can(request.user, "moderation.initiate", ActionRequest(k, member, scope_subforum=sf))
+                 can(request.user, "moderation.initiate", ActionRequest(k, member, scope_subforums=(sf,)))
                  for sf in SubForum.objects.filter(kind=SubForum.Kind.REGULAR)))]
     if not kinds:
         raise PermissionDenied("You cannot take action on this member.")
     scopes = [sf for sf in SubForum.objects.filter(kind=SubForum.Kind.REGULAR)
-              if can(request.user, "moderation.initiate", ActionRequest("suspension", member, scope_subforum=sf))]
+              if can(request.user, "moderation.initiate", ActionRequest("suspension", member, scope_subforums=(sf,)))]
     errors = []
     if request.method == "POST":
         post = request.POST
-        scope = next((sf for sf in scopes if str(sf.pk) == post.get("scope")), None)
+        chosen = set(post.getlist("scope"))
+        scope = [sf for sf in scopes if str(sf.pk) in chosen]
         days = post.get("days", "")
         try:
             services.initiate_action(
                 request.user, member, post.get("kind", ""), internal_reason=post.get("internal_reason", ""),
-                public_summary=post.get("public_summary", ""), scope_subforum=scope,
+                public_summary=post.get("public_summary", ""), scope_subforums=scope,
                 ends_at=timezone.now() + timedelta(days=int(days)) if days.isdigit() else None,
             )
         except (ValidationError, PermissionDenied) as exc:
@@ -216,7 +231,7 @@ def member_view(request, slug):
         "page": _page(request, posts.select_related("thread__subforum").order_by("-created_at"),
                       "pagination.profile_posts_per_page"),
         "actions": ModerationAction.objects.filter(target_user=member).select_related(
-            "initiated_by", "approved_by", "declined_by", "scope_subforum").order_by("-created_at"),
+            "initiated_by", "approved_by", "declined_by").prefetch_related("scope_subforums").order_by("-created_at"),
         "sponsorships": Sponsorship.objects.filter(member=member).select_related("sponsor").order_by("started_at"),
         "invitees": Sponsorship.objects.filter(sponsor=member).select_related("member").order_by("started_at"),
         "invitations": Invitation.objects.filter(sponsor=member).order_by("-created_at"),

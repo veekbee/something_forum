@@ -33,8 +33,8 @@ def _action_visible(actor, action):
     post = action.related_post
     if post is not None and post.thread.kind == post.thread.Kind.DM:
         return False
-    subforum = action.scope_subforum or (post.thread.subforum if post is not None else None)
-    return subforum is None or roles.moderates(actor, subforum)
+    subforums = list(action.scope_subforums.all()) or ([post.thread.subforum] if post is not None else [])
+    return not subforums or any(roles.moderates(actor, sf) for sf in subforums)
 
 
 def _report_visible(actor, report):
@@ -48,8 +48,9 @@ def items(actor):
     actions = ModerationAction.objects.filter(
         kind=ModerationAction.Kind.NOTE
     ) | ModerationAction.objects.filter(status__in=[ModerationAction.Status.DECLINED, ModerationAction.Status.WITHDRAWN])
-    for action in actions.select_related("target_user", "initiated_by", "declined_by", "scope_subforum",
-                                         "related_post__thread__subforum").order_by("-created_at")[:LIMIT]:
+    for action in actions.select_related("target_user", "initiated_by", "declined_by",
+                                         "related_post__thread__subforum").prefetch_related(
+                                             "scope_subforums").order_by("-created_at")[:LIMIT]:
         if not _action_visible(actor, action):
             continue
         if action.kind == ModerationAction.Kind.NOTE:

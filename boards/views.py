@@ -428,7 +428,7 @@ def member_profile(request, slug):
     if can(request.user, "member.view_record", member):
         context["record"] = ModerationAction.objects.filter(
             target_user=member, is_public=True, status__in=ModerationAction.RECORD_STATUSES
-        ).select_related("initiated_by", "approved_by", "scope_subforum").order_by("-starts_at")
+        ).select_related("initiated_by", "approved_by").prefetch_related("scope_subforums").order_by("-starts_at")
     if can(request.user, "member.private_stats", member):
         context["private"] = _private_stats(member, role)
     if member.pk != request.user.pk:

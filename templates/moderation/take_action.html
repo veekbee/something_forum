@@ -12,7 +12,8 @@
 <form class="panel" method="post">{% csrf_token %}
   {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
   <p><label for="kind">Action</label><select id="kind" name="kind" required>{% for key, label in kinds %}<option value="{{ key }}">{{ label|capfirst }}</option>{% endfor %}</select></p>
-  {% if scopes %}<p><label for="scope">Limit to one sub-forum (suspension or hold)</label><select id="scope" name="scope"><option value="">Site-wide (needs an Admin or Owner)</option>{% for sf in scopes %}<option value="{{ sf.pk }}">{{ sf.name }}</option>{% endfor %}</select></p>{% endif %}
+  {% if scopes %}<fieldset><legend>Limit a suspension or hold to these sub-forums (none ticked means site-wide, which needs an Admin or Owner)</legend>
+    {% for sf in scopes %}<label class="inline"><input type="checkbox" name="scope" value="{{ sf.pk }}"> {{ sf.name }}</label> {% endfor %}</fieldset>{% endif %}
   <p><label for="days">Length in days (blank for no end)</label><input id="days" type="text" name="days" inputmode="numeric"></p>
   <p><label for="internal_reason">Reason, for staff</label><textarea id="internal_reason" name="internal_reason" rows="3" required></textarea></p>
   <p><label for="public_summary">Public summary (the approver may edit it)</label><input id="public_summary" type="text" name="public_summary"></p>

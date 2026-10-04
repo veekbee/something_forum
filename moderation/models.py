@@ -40,6 +40,9 @@ class Report(models.Model):
         POST = "post"
         MEMBER = "member"
         DM = "dm"
+        # A Moderator escalating a queue item that is not itself a report: a held post, a pending
+        # action or a promotion awaiting review. Created already escalated (decided 3 Oct 2026).
+        ESCALATION = "escalation"
         FLAG_RATE_LIMIT = "flag_rate_limit"
         FLAG_RAPID_DELETION = "flag_rapid_deletion"
         FLAG_REQUEST_RATE = "flag_request_rate"
@@ -58,6 +61,12 @@ class Report(models.Model):
     post = models.ForeignKey("boards.Post", null=True, blank=True, on_delete=models.PROTECT, related_name="reports")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="reports_against"
+    )
+    related_action = models.ForeignKey(
+        "moderation.ModerationAction", null=True, blank=True, on_delete=models.PROTECT, related_name="escalations"
+    )
+    related_promotion = models.ForeignKey(
+        "sponsorship.Promotion", null=True, blank=True, on_delete=models.PROTECT, related_name="escalations"
     )
     reporter = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="reports_made"
@@ -103,11 +112,11 @@ class ModerationActionQuerySet(models.QuerySet):
         )
 
     def sitewide(self):
-        return self.filter(scope_subforum__isnull=True)
+        return self.filter(scope_subforums__isnull=True)
 
     def applying_in(self, subforum):
-        """Site-wide actions and those limited to `subforum`."""
-        return self.filter(Q(scope_subforum__isnull=True) | Q(scope_subforum=subforum))
+        """Site-wide actions and those whose limits include `subforum`."""
+        return self.filter(Q(scope_subforums__isnull=True) | Q(scope_subforums=subforum)).distinct()
 
 
 class ModerationAction(models.Model):
@@ -138,10 +147,8 @@ class ModerationAction(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="moderation_actions"
     )
     kind = models.CharField(max_length=24, choices=Kind.choices)
-    # Set only for a suspension or hold limited to one sub-forum (rule 36).
-    scope_subforum = models.ForeignKey(
-        "boards.SubForum", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
-    )
+    # Set only for a suspension or hold limited to some sub-forums; empty means site-wide (rule 36).
+    scope_subforums = models.ManyToManyField("boards.SubForum", blank=True, related_name="+")
     initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     # Null when an Admin or Owner acted alone: the record then shows a single actor.
     approved_by = models.ForeignKey(

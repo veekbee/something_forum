@@ -26,16 +26,16 @@ Kind = ModerationAction.Kind
 @transaction.atomic
 def initiate_action(
     actor, target_user, kind, *, internal_reason, public_summary="", ends_at=None, related_post=None,
-    related_action=None, scope_subforum=None,
+    related_action=None, scope_subforums=(),
 ):
     """`public_summary` is the initiator's draft; the approver may edit it before approving."""
-    require(actor, "moderation.initiate", ActionRequest(kind, target_user, related_post, scope_subforum))
+    scope_subforums = tuple(scope_subforums)
+    require(actor, "moderation.initiate", ActionRequest(kind, target_user, related_post, scope_subforums))
     if not internal_reason.strip():
         raise ValidationError("Give the reason, for staff.")
     action = ModerationAction.objects.create(
         target_user=target_user,
         kind=kind,
-        scope_subforum=scope_subforum,
         initiated_by=actor,
         ends_at=ends_at,
         internal_reason=internal_reason,
@@ -44,7 +44,10 @@ def initiate_action(
         related_post=related_post,
         related_action=related_action,
     )
-    log.record(actor, "moderation.initiate", action, {"kind": kind, "target_user": target_user.pk})
+    action.scope_subforums.set(scope_subforums)
+    log.record(actor, "moderation.initiate", action, {
+        "kind": kind, "target_user": target_user.pk, "scope_subforums": [sf.pk for sf in scope_subforums],
+    })
     if kind == Kind.NOTE or roles.is_admin_or_owner(actor):
         _activate(actor, action)
     if kind == Kind.NOTE:
@@ -63,7 +66,7 @@ def _notify_leadership_of_note(actor, note):
 
 def _locked(action):
     return ModerationAction.objects.select_for_update(of=("self",)).select_related(
-        "target_user", "related_post__thread__subforum", "scope_subforum"
+        "target_user", "related_post__thread__subforum"
     ).get(pk=action.pk)
 
 

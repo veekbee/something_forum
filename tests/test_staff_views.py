@@ -206,9 +206,9 @@ def test_moderators_see_their_sub_forums_and_member_items(make_user, general, se
     grant(mod, "moderator", scope_subforum=general)
     member = make_user("full")
     elsewhere = moderation.initiate_action(make_user("admin"), member, "suspension", internal_reason="x",
-                                           scope_subforum=serious)
+                                           scope_subforums=[serious])
     pending = moderation.initiate_action(make_user("moderator"), member, "suspension", internal_reason="x",
-                                         scope_subforum=serious)
+                                         scope_subforums=[serious])
     moderation.decline_action(make_user("admin"), pending, "no")
     about_member = moderation.initiate_action(make_user("admin"), member, "note", internal_reason="member item")
     shown = [i.obj for i in feed.items(mod)]

@@ -56,7 +56,7 @@ class ActionRequest:
     kind: str
     target_user: User
     related_post: Any = None
-    scope_subforum: Any = None
+    scope_subforums: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -630,6 +630,16 @@ def _report_in_scope(actor, report):
         return False
     if report.kind == Report.Kind.FLAG_REQUEST_RATE:
         return roles.is_moderator(actor)
+    if report.related_promotion_id is not None:
+        return roles.is_moderator(actor)
+    if report.related_action_id is not None:
+        action = report.related_action
+        scopes = list(action.scope_subforums.all())
+        if action.related_post is not None and not scopes:
+            scopes = [action.related_post.thread.subforum]
+        if scopes:
+            return any(sf is not None and roles.moderates(actor, sf) for sf in scopes)
+        return _global_moderator(actor)
     subforum = None
     if report.post_id is not None:
         subforum = report.post.thread.subforum
@@ -666,6 +676,31 @@ def _report_resolve(actor, report):
     if report.status == report.Status.ESCALATED and not roles.is_admin_or_owner(actor):
         return deny("escalated items are resolved by Admins and Owners")
     return allow()
+
+
+@rule("queue.escalate")
+def _queue_escalate(actor, item):
+    """Rule 34: any queue item a Moderator can see can be escalated. Reports and flags are marked
+    escalated themselves; a held post, pending action or promotion gets an escalation report."""
+    from boards.models import Post
+    from moderation.models import ModerationAction
+    from sponsorship.models import Promotion
+
+    if not _staff_active(actor) or roles.is_admin_or_owner(actor):
+        return deny("Admins and Owners resolve items directly")
+    if isinstance(item, Post):
+        if _escalated(post=item):
+            return deny("already escalated", code="handled")
+        return _post_moderate(actor, item) if item.is_held else deny("not waiting in the queue")
+    if isinstance(item, ModerationAction):
+        if _escalated(related_action=item):
+            return deny("already escalated", code="handled")
+        return _eligible_approver(actor, item)
+    if isinstance(item, Promotion):
+        if _escalated(related_promotion=item):
+            return deny("already escalated", code="handled")
+        return _promotion_review(actor, item)
+    return deny("this item cannot be escalated")
 
 
 @rule("report.escalate")
@@ -799,6 +834,13 @@ def _search_use(actor, _target):
     return _can_read_anything(actor)
 
 
+def _escalated(**item):
+    """An open escalation points at this queue item, so it waits for an Admin or Owner."""
+    from moderation.models import Report
+
+    return Report.objects.waiting().filter(kind=Report.Kind.ESCALATION, **item).exists()
+
+
 @rule("post.moderate")
 def _post_moderate(actor, post):
     """Release or reject a held post."""
@@ -807,6 +849,8 @@ def _post_moderate(actor, post):
         return base
     if not roles.moderates(actor, post.thread.subforum):
         return deny("not a moderator of this sub-forum")
+    if not roles.is_admin_or_owner(actor) and _escalated(post=post):
+        return deny("escalated to Admins and Owners")
     return allow()
 
 
@@ -935,26 +979,26 @@ def _staff_may_act_on(actor, target_user):
     return allow()
 
 
-def _staff_scope_ok(actor, related_post, scope_subforum=None):
-    """Moderators act within their sub-forums: a limited action names one they moderate; otherwise
-    a scoped Moderator needs a related post in scope, and only a global Moderator acts on a member
-    with neither."""
+def _staff_scope_ok(actor, related_post, scope_subforums=()):
+    """Moderators act within their sub-forums: a limited action names only ones they moderate;
+    otherwise a scoped Moderator needs a related post in scope, and only a global Moderator acts on
+    a member with neither."""
     if roles.is_admin_or_owner(actor):
         return True
     if not roles.is_moderator(actor):
         return False
-    if scope_subforum is not None:
-        return roles.moderates(actor, scope_subforum)
+    if scope_subforums:
+        return all(roles.moderates(actor, sf) for sf in scope_subforums)
     if related_post is not None:
         return roles.moderates(actor, related_post.thread.subforum)
     return roles.moderated_subforum_ids(actor) is None
 
 
-def _needs_leadership(kind, scope_subforum):
+def _needs_leadership(kind, scope_subforums):
     """Rule 36: bans and Probation always, and a suspension or hold that is not limited to one
     sub-forum, need an Admin or Owner as initiator or approver."""
     return kind in ADMIN_APPROVAL_KINDS or kind not in MODERATOR_KINDS or (
-        kind in SCOPABLE_KINDS and scope_subforum is None
+        kind in SCOPABLE_KINDS and not scope_subforums
     )
 
 
@@ -962,12 +1006,12 @@ def _needs_leadership(kind, scope_subforum):
 def _moderation_initiate(actor, request):
     if actor.status != User.Status.ACTIVE:
         return deny(f"account is {actor.status}")
-    if request.scope_subforum is not None and request.kind not in SCOPABLE_KINDS:
+    if request.scope_subforums and request.kind not in SCOPABLE_KINDS:
         return deny("only suspensions and holds are limited to a sub-forum")
     if not roles.is_admin_or_owner(actor):
         if request.kind not in MODERATOR_KINDS:
             return deny("only Admins and Owners may take this action")
-        if not _staff_scope_ok(actor, request.related_post, request.scope_subforum):
+        if not _staff_scope_ok(actor, request.related_post, request.scope_subforums):
             return deny("outside your moderation scope")
     return _staff_may_act_on(actor, request.target_user)
 
@@ -980,9 +1024,12 @@ def _eligible_approver(actor, action):
     if actor.status != User.Status.ACTIVE:
         return deny(f"account is {actor.status}")
     admin = roles.is_admin_or_owner(actor)
-    if _needs_leadership(action.kind, action.scope_subforum) and not admin:
+    if not admin and _escalated(related_action=action):
+        return deny("escalated to Admins and Owners")
+    scopes = tuple(action.scope_subforums.all())
+    if _needs_leadership(action.kind, scopes) and not admin:
         return deny("this action needs an Admin or Owner to approve")
-    if not admin and not _staff_scope_ok(actor, action.related_post, action.scope_subforum):
+    if not admin and not _staff_scope_ok(actor, action.related_post, scopes):
         return deny("outside your moderation scope")
     return _staff_may_act_on(actor, action.target_user)
 
@@ -1095,6 +1142,8 @@ def _promotion_review(actor, promotion):
         return deny(f"account is {actor.status}")
     if not (roles.is_moderator(actor) or roles.is_admin_or_owner(actor)):
         return deny("only Moderators review promotions")
+    if not roles.is_admin_or_owner(actor) and _escalated(related_promotion=promotion):
+        return deny("escalated to Admins and Owners")
     return _promotable(promotion.member, promotion.from_role.name)
 
 
