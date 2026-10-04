@@ -25,7 +25,9 @@
     </nav>
     {% endif %}
   </div></header>
-  <main>{% block content %}{% endblock %}</main>
+  <main>
+  {% if nav_transfer %}<p class="notice warn">You need a new sponsor, and your account is read-only until you have one. <a href="{% url 'transfer_status' %}">What this means</a></p>{% endif %}
+  {% block content %}{% endblock %}</main>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -7,6 +7,7 @@ def nav(request):
     if user is None or not user.is_authenticated or user.status == user.Status.INVITED:
         return {}
     from boards.messages import unread_count
+    from sponsorship.transfers import awaiting_sponsor
 
     return {
         "nav_forum": bool(can(user, "search.use")),
@@ -16,4 +17,5 @@ def nav(request):
         "nav_review": bool(can(user, "invitation.review_queue")),
         "nav_queue": bool(can(user, "queue.view")),
         "nav_audit": bool(can(user, "audit.view")),
+        "nav_transfer": awaiting_sponsor(user),
     }

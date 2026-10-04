@@ -440,6 +440,8 @@ def member_profile(request, slug):
         context["may_block"] = bool(can(request.user, "member.block", member))
         context["blocked"] = Block.objects.filter(blocker=request.user, blocked=member).exists()
         context["may_report"] = bool(can(request.user, "report.create", member))
+        # Shown only to members who could make the offer: the wait is not public (rule 51).
+        context["may_vouch"] = bool(can(request.user, "sponsorship.offer", member))
         from core.permissions import ActionRequest
 
         context["may_act"] = any(

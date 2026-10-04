@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Invitations</h1>
 {% if just_sent == "slot" %}<p class="notice">Invitation sent. It holds one of your sponsorship places.</p>
+{% elif just_sent == "offer" %}<p class="notice">Offer sent. If they accept, you become their sponsor.</p>
 {% elif just_sent == "wait" %}<p class="notice warn">Invitation sent. You have no free sponsorship place, so if they accept they will wait until one frees up or an Admin approves them.</p>{% endif %}
 
 {% if may_sponsor %}
@@ -18,6 +19,17 @@
 </section>
 {% else %}
 <p class="notice">You cannot send invitations right now: {{ may_sponsor.reason }}.</p>
+{% endif %}
+
+{% if error %}<p class="errors">{{ error }}</p>{% endif %}
+{% if offers %}
+<h2>Your offers to vouch</h2>
+<ul class="list panel">
+  {% for offer in offers %}
+  <li><strong>{{ offer.transfer.member.display_name }}</strong> <span class="muted">· offered {{ offer.created_at|date:"j M Y" }}</span>
+    <div class="actions"><form method="post" action="{% url 'offer_action' offer.pk 'withdraw' %}">{% csrf_token %}<button class="secondary">Withdraw</button></form></div></li>
+  {% endfor %}
+</ul>
 {% endif %}
 
 <h2>Sent</h2>

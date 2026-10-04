@@ -17,6 +17,7 @@ TYPES = {
     "action": "Actions awaiting approval",
     "promotion": "Promotions",
     "sponsor_review": "Sponsor reviews",
+    "transfer": "Sponsorship transfers past their deadline",
 }
 
 
@@ -75,11 +76,19 @@ def _sponsor_reviews(actor):
     return [Item("sponsor_review", r, r.created_at) for r in pending if can(actor, "sponsor_review.decide", r)]
 
 
+def _transfers(actor):
+    """Rule 53: a transfer past its deadline waits for an Admin or Owner; nothing is automatic."""
+    from sponsorship.transfers import past_deadline
+
+    due = past_deadline().select_related("member", "sponsorship__sponsor")
+    return [Item("transfer", t, t.deadline_at) for t in due if can(actor, "sponsorship.decide_transfer", t)]
+
+
 def items(actor, only=None):
     if not can(actor, "queue.view"):
         return []
     sources = {"held": _held, "report": _reports, "flag": _reports, "action": _actions,
-               "promotion": _promotions, "sponsor_review": _sponsor_reviews}
+               "promotion": _promotions, "sponsor_review": _sponsor_reviews, "transfer": _transfers}
     collected, seen = [], set()
     for type_, source in sources.items():
         if only and type_ != only or source in seen:

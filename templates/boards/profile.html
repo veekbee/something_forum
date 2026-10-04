@@ -6,10 +6,11 @@
 {% if member.caption %}<p class="caption">{{ member.caption }}</p>{% endif %}
 <section class="panel">
   <p>{% if role %}{{ role.name|capfirst }}{% endif %}{% if member.status == "read_only" %} · read-only (lapsed){% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
-  {% if may_message or may_block or may_report or may_act %}<div class="actions">
+  {% if may_message or may_block or may_report or may_act or may_vouch %}<div class="actions">
     {% if may_report %}<a href="{% url 'report_member' member.slug %}">Report</a>{% endif %}
     {% if may_act %}<a href="{% url 'take_action' member.slug %}">Moderate</a><a href="{% url 'staff_member' member.slug %}">Staff view</a>{% endif %}
     {% if may_message %}<a class="button" href="{% url 'new_conversation' %}?to={{ member.slug }}">Message</a>{% endif %}
+    {% if may_vouch %}<a href="{% url 'vouch' member.slug %}">Offer to vouch</a>{% endif %}
     {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
   </div>{% endif %}
   {% if may_customise %}<p><a href="{% url 'customise' %}">Change your avatar and caption</a></p>{% elif own %}<p><a href="{% url 'extras' %}">Extras</a></p>{% endif %}

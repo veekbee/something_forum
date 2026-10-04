@@ -7,13 +7,14 @@ from django.contrib.auth import logout
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
 from accounts import roles
 from accounts.models import User
 from core.permissions import can
 from sponsorship import capacity, onboarding
-from sponsorship.models import Invitation
+from sponsorship.models import Invitation, SponsorshipOffer, SponsorshipTransfer
 
 
 def _errors(exc):
@@ -51,6 +52,8 @@ def invitations(request):
             else:
                 return redirect(f"{reverse('invitations')}?sent={'slot' if holds_slot else 'wait'}")
     sent = list(Invitation.objects.filter(sponsor=request.user).select_related("invitee").order_by("-created_at"))
+    offers = SponsorshipOffer.objects.filter(offerer=request.user, status=SponsorshipOffer.Status.OPEN).select_related(
+        "transfer__member")
     for invitation in sent:
         invitation.may_gift = invitation.invitee is not None and bool(can(request.user, "billing.gift", invitation.invitee))
     return render(request, "sponsorship/invitations.html", {
@@ -62,6 +65,8 @@ def invitations(request):
         "sent": sent,
         "just_sent": request.GET.get("sent"),
         "live": Invitation.LIVE,
+        "offers": offers,
+        "error": request.GET.get("error", ""),
     })
 
 
@@ -210,3 +215,82 @@ def review_decline(request, pk):
 def comp_guest(request, user_pk):
     onboarding.comp(request.user, get_object_or_404(User, pk=user_pk))
     return redirect("review_queue")
+
+
+# --- sponsorship transfer (rules 51 to 53) -------------------------------------------------
+
+
+class OfferForm(forms.Form):
+    vouching_notes = forms.CharField(
+        label="How do you know them, and for how long?", widget=forms.Textarea(attrs={"rows": 4})
+    )
+
+
+def transfer_status(request):
+    """The waiting sponsee's page: why they are read-only, and the offers to vouch for them."""
+    from sponsorship import transfers
+
+    transfer = transfers.open_transfer(request.user)
+    offers = transfer.offers.filter(status=SponsorshipOffer.Status.OPEN).select_related("offerer") if transfer else []
+    return render(request, "sponsorship/transfer.html", {
+        "transfer": transfer, "offers": offers, "error": request.GET.get("error", ""),
+    })
+
+
+def vouch(request, slug):
+    from sponsorship import transfers
+
+    member = get_object_or_404(User, slug=slug)
+    decision = can(request.user, "sponsorship.offer", member)
+    if not decision:
+        raise PermissionDenied(decision.reason)
+    form = OfferForm(request.POST or None)
+    errors = []
+    if request.method == "POST" and form.is_valid():
+        try:
+            transfers.make_offer(request.user, member, form.cleaned_data["vouching_notes"])
+        except (ValidationError, PermissionDenied) as exc:
+            errors = _errors(exc)
+        else:
+            return redirect(f"{reverse('invitations')}?sent=offer")
+    return render(request, "sponsorship/vouch.html", {"member": member, "form": form, "errors": errors})
+
+
+@require_POST
+def offer_action(request, pk, step):
+    from sponsorship import transfers
+
+    offer = get_object_or_404(SponsorshipOffer.objects.select_related("transfer", "offerer"), pk=pk)
+    act = {"accept": transfers.accept_offer, "decline": transfers.decline_offer,
+           "withdraw": transfers.withdraw_offer}.get(step)
+    if act is None:
+        raise PermissionDenied("unknown step")
+    back = "invitations" if step == "withdraw" else "transfer_status"
+    try:
+        act(request.user, offer)
+    except (ValidationError, PermissionDenied) as exc:
+        return redirect(f"{reverse(back)}?{urlencode({'error': ' '.join(_errors(exc))})}")
+    return redirect("home" if step == "accept" else back)
+
+
+@require_POST
+def transfer_decide(request, pk, step):
+    """Admins and Owners: step in as sponsor, extend the deadline, or (past it) remove the member."""
+    from sponsorship import transfers
+
+    transfer = get_object_or_404(SponsorshipTransfer, pk=pk)
+    notes = request.POST.get("notes", "")
+    try:
+        if step == "step_in":
+            transfers.step_in(request.user, transfer, notes)
+        elif step == "extend":
+            days = request.POST.get("days", "")
+            transfers.extend(request.user, transfer, int(days) if days.isdigit() else 0, notes)
+        elif step == "remove":
+            transfers.remove_member(request.user, transfer, notes)
+        else:
+            raise PermissionDenied("unknown step")
+    except (ValidationError, PermissionDenied) as exc:
+        target = reverse("staff_member", args=[transfer.member.slug])
+        return redirect(f"{target}?{urlencode({'error': ' '.join(_errors(exc))})}")
+    return redirect("staff_member", transfer.member.slug)

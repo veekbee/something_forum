@@ -93,6 +93,80 @@ class Sponsorship(HistoryRowMixin, models.Model):
         ]
 
 
+class SponsorshipTransfer(models.Model):
+    """A pre-Tenure member who needs a new sponsor (docs/DESIGN.md, Sponsorship transfer; rules 51
+    to 53). The old Sponsorship row stays active while this is open, so resuming needs no new row."""
+
+    class Cause(models.TextChoices):
+        SPONSOR_LEFT = "sponsor_left"
+        SPONSOR_BANNED = "sponsor_banned"
+        SPONSOR_ROLE_LOST = "sponsor_role_lost"
+        SPONSOR_LAPSE_RESTRICTED = "sponsor_lapse_restricted"
+        SPONSOR_REVIEW = "sponsor_review"
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        COMPLETED = "completed"
+        RESUMED = "resumed"
+        DECIDED = "decided"
+
+    class Decision(models.TextChoices):
+        ADMIN_SPONSORED = "admin_sponsored"
+        EXTENDED = "extended"
+        REMOVED = "removed"
+
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sponsorship_transfers")
+    sponsorship = models.ForeignKey(Sponsorship, on_delete=models.PROTECT, related_name="transfers")
+    cause = models.CharField(max_length=24, choices=Cause.choices)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    started_at = models.DateTimeField(default=timezone.now)
+    deadline_at = models.DateTimeField()
+    # When the wait ended, however it ended: the Provisional clock is paused until then.
+    ended_at = models.DateTimeField(null=True, blank=True)
+    new_sponsorship = models.OneToOneField(
+        Sponsorship, null=True, blank=True, on_delete=models.PROTECT, related_name="transfer_into"
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    decision = models.CharField(max_length=16, choices=Decision.choices, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["member"], condition=Q(status="open"), name="one_open_transfer_per_member")
+        ]
+
+    @property
+    def past_deadline(self):
+        return self.status == self.Status.OPEN and self.deadline_at <= timezone.now()
+
+
+class SponsorshipOffer(models.Model):
+    """A member offering to vouch for someone whose transfer is open."""
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        ACCEPTED = "accepted"
+        DECLINED = "declined"
+        WITHDRAWN = "withdrawn"
+        LAPSED = "lapsed"
+
+    transfer = models.ForeignKey(SponsorshipTransfer, on_delete=models.PROTECT, related_name="offers")
+    offerer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sponsorship_offers")
+    vouching_notes = models.TextField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(default=timezone.now)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["transfer", "offerer"], condition=Q(status="open"), name="one_open_offer_per_offerer"
+            )
+        ]
+
+
 class PromotionQuerySet(models.QuerySet):
     def open(self):
         return self.filter(status__in=[Promotion.Status.RECOMMENDED, Promotion.Status.REVIEWED])

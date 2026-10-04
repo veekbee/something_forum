@@ -24,6 +24,8 @@ ACCOUNT_KINDS = {
     # Billing problems and changes (docs/DESIGN.md, Billing emails).
     "billing.renewal_reminder", "billing.payment_failed", "billing.read_only_soon", "billing.read_only",
     "billing.restored", "billing.founding_comp_ending",
+    # Sponsorship transfer: the member's account is read-only until it ends (rule 51).
+    "sponsorship.transfer_opened", "sponsorship.offer", "sponsorship.transfer_ended",
 }
 OPTIONAL_KINDS = {
     "dm": "New direct messages",
@@ -63,6 +65,14 @@ def describe(notification):
         "invitation.invitee_declined": ("Someone declined your invitation", reverse("invitations")),
         "invitation.approved": ("Your invitee was approved", reverse("invitations")),
         "invitation.declined": ("Your invitee was not approved", reverse("invitations")),
+        "sponsorship.transfer_opened": ("You need a new sponsor", reverse("transfer_status")),
+        "sponsorship.offer": ("Someone has offered to vouch for you", reverse("transfer_status")),
+        "sponsorship.transfer_ended": ({"resumed": "Your sponsor is back; your account is no longer read-only",
+                                        "admin_sponsored": "Staff have become your sponsor"}.get(
+                                           data.get("outcome"), "You have a sponsor again"), None),
+        "sponsorship.offer_accepted": ("Your offer to vouch was accepted; you are now their sponsor",
+                                       reverse("invitations")),
+        "sponsorship.offer_declined": ("Your offer to vouch was declined", reverse("invitations")),
     }
     return lines.get(kind, ("Something new", None))
 

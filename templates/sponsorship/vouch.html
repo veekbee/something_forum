@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Vouch for {{ member.display_name }}{% endblock %}
+{% block content %}
+<h1>Vouch for {{ member.display_name }}</h1>
+<p>{{ member.display_name }} needs a new sponsor. If they accept your offer you become their sponsor, and they take one of your sponsorship places.</p>
+{% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>Offer to vouch</button></form>
+{% endblock %}

@@ -78,6 +78,10 @@
       <p><input type="text" name="public_summary" placeholder="Public summary" aria-label="Public summary"> <input type="text" name="notes" placeholder="Private notes" aria-label="Private notes"></p>
       <button>Decide</button>
     </form>
+
+  {% elif item.type == "transfer" %}
+    <p><a href="{% url 'staff_member' o.member.slug %}">{{ o.member.display_name }}</a> has had no new sponsor since {{ o.started_at|date:"j M Y" }} ({{ o.get_cause_display|lower }}; sponsor {{ o.sponsorship.sponsor.display_name }}). The deadline was {{ o.deadline_at|date:"j M Y" }}.</p>
+    {% include "sponsorship/_transfer_decide.html" with transfer=o %}
   {% endif %}
 </article>
 {% endwith %}{% endfor %}

@@ -135,6 +135,9 @@ def promote_to_tenured(actor, member, notes=""):
         review_notes=notes,
     )
     _change_trust_role(actor, member, roles.FULL, roles.TENURED, promotion)
+    from sponsorship import transfers
+
+    transfers.close_on_tenure(member, actor)
     ended = None
     sponsorship = Sponsorship.objects.filter(member=member, ended_at__isnull=True).first()
     if sponsorship is not None:

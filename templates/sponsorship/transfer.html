@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Finding a new sponsor{% endblock %}
+{% block content %}
+<h1>Finding a new sponsor</h1>
+{% if error %}<p class="errors">{{ error }}</p>{% endif %}
+{% if transfer %}
+<section class="panel">
+  <p>Your sponsor can no longer sponsor you, so you need a member to vouch for you instead. Until then your account is read-only: you can read everything you could before, but not post. Your Provisional period, if you are in one, is paused while you wait.</p>
+  <p>This is not shown on your profile. You can still message staff{% if transfer.cause != "sponsor_banned" %} and your sponsor{% endif %}, and anyone who offers to vouch for you. Staff can help you find a sponsor.</p>
+  <p class="muted">Waiting since {{ transfer.started_at|date:"j M Y" }}.</p>
+</section>
+<h2>Offers to vouch for you</h2>
+{% if offers %}
+<ul class="list panel">
+  {% for offer in offers %}
+  <li>
+    <strong><a href="{% url 'member_profile' offer.offerer.slug %}">{{ offer.offerer.display_name }}</a></strong> <span class="muted">· {{ offer.created_at|date:"j M Y" }}</span>
+    <p>{{ offer.vouching_notes|linebreaksbr }}</p>
+    <div class="actions">
+      <form method="post" action="{% url 'offer_action' offer.pk 'accept' %}">{% csrf_token %}<button>Accept as my sponsor</button></form>
+      <form method="post" action="{% url 'offer_action' offer.pk 'decline' %}">{% csrf_token %}<button class="secondary">Decline</button></form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">No offers yet.</p>{% endif %}
+{% else %}
+<p>You have a sponsor; there is nothing to do here.</p>
+{% endif %}
+{% endblock %}

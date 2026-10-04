@@ -18,6 +18,9 @@ def grant_role(actor, user, role_name, scope_subforum=None, reason=""):
 
     if role_name in lapse.STAFF_ROLES:
         lapse.start_staff_comp(user, actor)
+    from sponsorship import transfers
+
+    transfers.resume_for_sponsor(user, actor)
     return assignment
 
 
@@ -33,4 +36,7 @@ def revoke_role(actor, assignment, reason="", keep_comped=False):
 
     if assignment.role.name in lapse.STAFF_ROLES:
         lapse.end_staff_comp(assignment.user, actor, keep_comped=keep_comped)
+    from sponsorship import transfers
+
+    transfers.sponsor_lost_role(assignment.user, actor)
     return assignment

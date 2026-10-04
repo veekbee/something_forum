@@ -7,6 +7,8 @@ A pair may message each other only if each side's rule allows the other:
   message only their own sponsor and staff. Staff means Admins, Owners, and the Moderators of any
   sub-forum the member can read.
 - A banned member messages only Admins and Owners.
+- A sponsee waiting for a new sponsor (sponsorship transfer) is limited too, and may also message
+  anyone with an open offer to vouch for them (rule 52).
 
 Blocks are separate: a block stops new conversations, additions and mention notifications, and
 stops a one-to-one conversation taking messages from the blocked side. Staff cannot be blocked.
@@ -43,6 +45,10 @@ def standing(user):
 
     if Report.objects.waiting().filter(kind=Report.Kind.FLAG_REQUEST_RATE, user=user).exists():
         return LIMITED
+    from sponsorship.transfers import awaiting_sponsor
+
+    if awaiting_sponsor(user):
+        return LIMITED
     return NORMAL
 
 
@@ -68,19 +74,28 @@ def active_sponsor(user):
     return row.sponsor if row else None
 
 
+def has_offered(offerer, member):
+    """An open offer to vouch for `member`, whose sponsorship transfer is open."""
+    from sponsorship.models import SponsorshipOffer
+
+    return SponsorshipOffer.objects.filter(
+        offerer=offerer, transfer__member=member, status=SponsorshipOffer.Status.OPEN, transfer__status="open"
+    ).exists()
+
+
 def _allows(x, y, sx, sy):
     """Does x's side of the rule permit messaging y? sx, sy are their standings."""
     if sx == BANNED:
         return roles.is_admin_or_owner(y)
     if sx == LIMITED:
         sponsor = active_sponsor(x)
-        return (sponsor is not None and sponsor.pk == y.pk) or is_staff_for(y, x)
+        return (sponsor is not None and sponsor.pk == y.pk) or is_staff_for(y, x) or has_offered(y, x)
     # x is a Full member or above in good standing.
     if sy == BANNED:
         return roles.is_admin_or_owner(x)
     if sy == LIMITED:
         sponsor = active_sponsor(y)
-        return (sponsor is not None and sponsor.pk == x.pk) or is_staff_for(x, y)
+        return (sponsor is not None and sponsor.pk == x.pk) or is_staff_for(x, y) or has_offered(x, y)
     return roles.trust_rank(y) >= roles.rank_of(roles.FULL)
 
 

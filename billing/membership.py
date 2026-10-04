@@ -69,4 +69,7 @@ def restore(user, paid_until=None, *, stripe_customer_id="", stripe_subscription
     log.record(None, "billing.restore", user, {"reason": reason, "promoted": promoted, "lapse_ended": bool(lapsed)})
     if was_read_only:
         Notification.objects.create(recipient=user, kind="billing.restored", payload={})
+    from sponsorship import transfers
+
+    transfers.resume_for_sponsor(user)
     return sub

@@ -93,7 +93,7 @@ _SETTINGS = [
     Setting("sponsorship.cap.owner", None, frozenset({SITE}), _optional(_non_negative_int), "confirmed",
             "Active sponsorships an Owner may hold; null is unlimited."),
     Setting("sponsorship.transfer_grace_days", 30, frozenset({SITE}), _positive_int, "proposed",
-            "Days an invitee has to find a new sponsor before further action."),
+            "Days before an unfinished sponsorship transfer goes to an Admin or Owner."),
     Setting("sponsorship.review_on_member_ban", True, frozenset({SITE}), _bool, "confirmed",
             "Open a sponsor review when a Guest or Provisional is banned."),
     Setting("promotion.full.min_days", 90, frozenset({SITE}), _positive_int, "confirmed",

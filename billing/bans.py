@@ -63,3 +63,6 @@ def ban_paid(user, session):
     )
     log.record(None, "moderation.lift_ban_paid", ban, {"amount_cents": charge.amount_cents, "charge": charge.pk})
     Notification.objects.create(recipient=user, kind="moderation.ban_lifted", payload={"action": ban.pk})
+    from sponsorship import transfers
+
+    transfers.resume_for_sponsor(user)

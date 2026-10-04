@@ -180,6 +180,10 @@ def _restrict(now):
         with transaction.atomic():
             LapsePeriod.objects.filter(pk=lapse.pk).update(restricted_at=now)
             log.record(None, "billing.restricted", lapse.user)
+            # Rule 44: the lapsed member now counts as a sponsor who has left.
+            from sponsorship import transfers
+
+            transfers.open_for_sponsor(lapse.user, transfers.Cause.SPONSOR_LAPSE_RESTRICTED)
             count += 1
     return count
 
@@ -200,15 +204,3 @@ def is_restricted(user):
     return user.status == User.Status.READ_ONLY and LapsePeriod.objects.filter(
         user=user, ended_at__isnull=True, restricted_at__isnull=False
     ).exists()
-
-
-def lapsed_days_since(user, since, now=None):
-    """Days lapsed between `since` and now, for pausing the Provisional clock."""
-    now = now or timezone.now()
-    total = timedelta(0)
-    for period in LapsePeriod.objects.filter(user=user).exclude(ended_at__lt=since):
-        start = max(period.started_at, since)
-        end = min(period.ended_at or now, now)
-        if end > start:
-            total += end - start
-    return total

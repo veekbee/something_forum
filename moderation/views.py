@@ -225,7 +225,7 @@ def member_view(request, slug):
     from boards.models import Thread
     from boards.views import _page
     from boards.visibility import moderated_subforums
-    from sponsorship.models import Invitation, Sponsorship
+    from sponsorship.models import Invitation, Sponsorship, SponsorshipTransfer
 
     member = get_object_or_404(User, slug=slug)
     view = can(request.user, "member.staff_view", member)
@@ -246,7 +246,17 @@ def member_view(request, slug):
         "invitees": Sponsorship.objects.filter(sponsor=member).select_related("member").order_by("started_at"),
         "invitations": Invitation.objects.filter(sponsor=member).order_by("-created_at"),
         "may_reset": bool(can(request.user, "profile.reset_extra", member)) and bool(member.avatar_id or member.caption),
+        "error": request.GET.get("error", ""),
     }
+    transfers = SponsorshipTransfer.objects.filter(member=member).select_related("decided_by").order_by("-started_at")
+    open_transfer = next((t for t in transfers if t.status == SponsorshipTransfer.Status.OPEN), None)
+    context["past_transfers"] = [t for t in transfers if t is not open_transfer]
+    if open_transfer is not None:
+        context.update({
+            "transfer": open_transfer,
+            "transfer_offers": open_transfer.offers.filter(status="open").select_related("offerer"),
+            "may_decide_transfer": bool(can(request.user, "sponsorship.decide_transfer", open_transfer)),
+        })
     if full:
         context.update({
             "conversations": Thread.objects.filter(kind=Thread.Kind.DM, participants__user=member).distinct()

@@ -118,7 +118,16 @@ def _can_write_anything(user):
         return deny("posting is suspended")
     if _request_rate_flagged(user):
         return deny("account is read-only until a Moderator reviews unusual activity")
+    if _awaiting_sponsor(user):
+        return deny("read-only until you have a new sponsor", code="transfer")
     return allow()
+
+
+def _awaiting_sponsor(user):
+    """Rule 51: a sponsee whose sponsorship transfer is open is read-only."""
+    from sponsorship.transfers import awaiting_sponsor
+
+    return awaiting_sponsor(user)
 
 
 def _request_rate_flagged(user):
@@ -1071,6 +1080,97 @@ def _member_sponsor(actor, _target):
         return deny("account is banned")
     if _in_force(actor, "sponsoring_suspension"):
         return deny("sponsoring privileges are suspended")
+    if _awaiting_sponsor(actor):
+        return deny("you are waiting for a new sponsor yourself")
+    return allow()
+
+
+# --- sponsorship transfer (rules 51 to 53) --------------------------------------------------
+
+
+@rule("sponsorship.offer")
+def _sponsorship_offer(actor, member):
+    """Only a member who may sponsor, with a free slot, offers to vouch for a waiting sponsee.
+    Admins and Owners step in as sponsor directly instead."""
+    from sponsorship import capacity, transfers
+
+    if member.pk == actor.pk:
+        return deny("you cannot vouch for yourself")
+    transfer = transfers.open_transfer(member)
+    if transfer is None:
+        return deny("this member is not looking for a sponsor")
+    if roles.is_admin_or_owner(actor):
+        return deny("Admins and Owners step in as sponsor directly")
+    if transfer.sponsorship.sponsor_id == actor.pk:
+        return deny("you are their current sponsor")
+    may = _member_sponsor(actor, None)
+    if not may:
+        return may
+    if capacity.at_capacity(actor):
+        return deny("you have no free sponsorship slot")
+    if transfer.offers.filter(offerer=actor, status="open").exists():
+        return deny("you have already offered")
+    return allow()
+
+
+@rule("sponsorship.withdraw_offer")
+def _sponsorship_withdraw_offer(actor, offer):
+    if offer.offerer_id != actor.pk:
+        return deny("not your offer")
+    if offer.status != offer.Status.OPEN:
+        return deny(f"offer is {offer.status}")
+    return allow()
+
+
+@rule("sponsorship.answer_offer")
+def _sponsorship_answer_offer(actor, offer):
+    """The waiting sponsee accepts or declines; nobody approves."""
+    if offer.transfer.member_id != actor.pk:
+        return deny("not an offer to you")
+    if actor.status in CLOSED_STATUSES:
+        return deny(f"account is {actor.status}")
+    if offer.status != offer.Status.OPEN or offer.transfer.status != offer.transfer.Status.OPEN:
+        return deny("this offer is no longer open")
+    return allow()
+
+
+@rule("sponsorship.accept_offer")
+def _sponsorship_accept_offer(actor, offer):
+    """The offerer must still be able to sponsor, with a free slot, when the offer is accepted."""
+    from sponsorship import capacity
+
+    answer = _sponsorship_answer_offer(actor, offer)
+    if not answer:
+        return answer
+    offerer = offer.offerer
+    may = _member_sponsor(offerer, None)
+    if not may:
+        return deny(f"{offerer.display_name} cannot sponsor at the moment")
+    if capacity.at_capacity(offerer):
+        return deny(f"{offerer.display_name} has no free sponsorship slot")
+    return allow()
+
+
+@rule("sponsorship.decide_transfer")
+def _sponsorship_decide_transfer(actor, transfer):
+    """Step in as sponsor or extend the deadline: Admins and Owners, while the transfer is open."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners decide transfers")
+    if transfer.status != transfer.Status.OPEN:
+        return deny(f"transfer is {transfer.status}")
+    if transfer.member_id == actor.pk:
+        return deny("cannot decide your own transfer")
+    return allow()
+
+
+@rule("sponsorship.remove_after_transfer")
+def _sponsorship_remove_after_transfer(actor, transfer):
+    """Removing the member is open only once the deadline has passed (rule 53)."""
+    base = _sponsorship_decide_transfer(actor, transfer)
+    if not base:
+        return base
+    if transfer.deadline_at > timezone.now():
+        return deny("the deadline has not passed")
     return allow()
 
 

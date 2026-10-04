@@ -20,6 +20,25 @@ def current_assignment(member, role_name):
     )
 
 
+def paused_since(member, since, now=None):
+    """Time since `since` during which the Provisional clock was paused: lapsed (rule 44) or
+    waiting for a new sponsor (rule 51). Overlapping periods count once."""
+    from billing.models import LapsePeriod
+    from sponsorship.transfers import waiting_periods
+
+    now = now or timezone.now()
+    periods = list(LapsePeriod.objects.filter(user=member).values_list("started_at", "ended_at"))
+    periods += waiting_periods(member)
+    spans = sorted((max(start, since), min(end or now, now)) for start, end in periods)
+    total, reached = timedelta(0), since
+    for start, end in spans:
+        start = max(start, reached)
+        if end > start:
+            total += end - start
+            reached = end
+    return total
+
+
 def full_promotion_eligible(member, now=None):
     """Provisional for at least promotion.full.min_days with at least promotion.full.min_posts
     counted forum posts made since becoming Provisional."""
@@ -28,10 +47,7 @@ def full_promotion_eligible(member, now=None):
     if role is None or role.name != roles.PROVISIONAL:
         return False
     since = current_assignment(member, roles.PROVISIONAL).granted_at
-    # A Provisional's clock pauses while they are lapsed (rule 44).
-    from billing.lapse import lapsed_days_since
-
-    if now - since - lapsed_days_since(member, since, now) < timedelta(days=registry.site_value("promotion.full.min_days")):
+    if now - since - paused_since(member, since, now) < timedelta(days=registry.site_value("promotion.full.min_days")):
         return False
     posts = Post.objects.counted().filter(
         author=member, thread__kind=Thread.Kind.DISCUSSION, created_at__gte=since

@@ -1,0 +1,5 @@
+<div class="actions">
+  <form method="post" action="{% url 'transfer_decide' transfer.pk 'step_in' %}">{% csrf_token %}<input type="text" name="notes" placeholder="Notes" aria-label="Notes"> <button>Become their sponsor</button></form>
+  <form method="post" action="{% url 'transfer_decide' transfer.pk 'extend' %}">{% csrf_token %}<input type="number" name="days" min="1" required placeholder="Days" aria-label="Days to extend"> <input type="text" name="notes" placeholder="Notes" aria-label="Notes"> <button class="secondary">Extend</button></form>
+  {% if transfer.past_deadline %}<form method="post" action="{% url 'transfer_decide' transfer.pk 'remove' %}">{% csrf_token %}<input type="text" name="notes" required placeholder="Reason, for staff" aria-label="Reason for removal"> <button class="secondary">Remove the member</button></form>{% endif %}
+</div>

@@ -122,6 +122,9 @@ def lift_ban(actor, ban, internal_reason):
     )
     log.record(actor, "moderation.lift_ban", ban, {"target_user": ban.target_user_id})
     Notification.objects.create(recipient_id=ban.target_user_id, kind="moderation.ban_lifted", payload={"action": ban.pk})
+    from sponsorship import transfers
+
+    transfers.resume_for_sponsor(ban.target_user, actor)
     return ban
 
 
@@ -140,6 +143,10 @@ def expire_actions(now=None):
             action.status = ModerationAction.Status.EXPIRED
             action.save(update_fields=["status"])
             log.record(None, "moderation.expire", action, {"kind": action.kind})
+            if action.kind == Kind.BAN:
+                from sponsorship import transfers
+
+                transfers.resume_for_sponsor(action.target_user)
             count += 1
     return count
 
@@ -161,6 +168,11 @@ def _activate(actor, action):
         from moderation.permanent import write_list_entry
 
         write_list_entry(action)
+    if action.kind in (Kind.BAN, Kind.PERMANENT_BAN):
+        # Rule 51: a banned sponsor's pre-Tenure sponsees need a new sponsor.
+        from sponsorship import transfers
+
+        transfers.open_for_sponsor(action.target_user, transfers.Cause.SPONSOR_BANNED, actor)
 
 
 def _open_sponsor_review(actor, ban):
@@ -219,6 +231,10 @@ def decide_sponsor_review(actor, review, outcome, *, notes="", public_summary=""
         actor, "sponsor_review.decide", review,
         {"outcome": outcome, "months": months, "invitees_transfer": invitees_transfer},
     )
+    if invitees_transfer:
+        from sponsorship import transfers
+
+        transfers.open_for_sponsor(review.sponsor, transfers.Cause.SPONSOR_REVIEW, actor)
     return review
 
 
