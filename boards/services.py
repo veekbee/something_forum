@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from accounts import roles
 from audit import log
-from boards import images
+from boards import dm, images
 from boards.limits import should_hold
 from boards.models import Post, PostQuote, PostRevision, SubForum, Thread, ThreadTitleRevision
 from boards.rendering import render_post
@@ -52,6 +52,8 @@ def notify_mentions(post, users):
             break
         if user.pk == post.author_id or not can(user, "thread.read", post.thread):
             continue
+        if dm.has_blocked(user, post.author):
+            continue
         Notification.objects.create(
             recipient=user, kind="mention", payload={"post": post.pk, "thread": post.thread_id}
         )
@@ -68,8 +70,7 @@ def _attach(post, author, files):
 
 
 def _add_post(thread, author, body_source, files):
-    if thread.subforum is not None:
-        images.check_caps(thread.subforum, files)
+    images.check_caps(thread.subforum, files)
     now = timezone.now()
     held = should_hold(author, thread.subforum)
     post = Post.objects.create(
@@ -81,6 +82,10 @@ def _add_post(thread, author, body_source, files):
     if not held:
         Thread.objects.filter(pk=thread.pk).update(post_count=F("post_count") + 1, last_post_at=now)
     notify_mentions(post, rendered.mentions)
+    if thread.kind == Thread.Kind.DM:
+        from boards.messages import notify_new_message
+
+        notify_new_message(post)
     return post
 
 
@@ -105,11 +110,13 @@ def reply(author, thread, body_source, files=()):
 
 @transaction.atomic
 def open_thread(actor, thread, ip=None):
-    """Check that `actor` may read `thread`, auditing a Moderator's read of a DM under a grant
-    (design rule 8). Returns the Decision."""
+    """Check that `actor` may read `thread`. Every DM read by someone other than a participant is
+    audited: an Admin's or Owner's, and a Moderator's under a grant (design rule 8)."""
     decision = require(actor, "thread.read", thread)
     if decision.via == "dm_grant":
         log.record(actor, "dm.read_under_grant", thread, {"grant": decision.detail.pk}, ip=ip)
+    elif decision.via == "admin" and thread.kind == Thread.Kind.DM:
+        log.record(actor, "dm.read", thread, ip=ip)
     return decision
 
 
@@ -154,7 +161,7 @@ def edit_post(actor, post, body_source, files=()):
     Posts quoting this one are re-rendered; newly added mentions are notified."""
     post = Post.objects.select_for_update(of=("self",)).select_related("thread__subforum").get(pk=post.pk)
     decision = require(actor, "post.edit", post)
-    if files and post.thread.subforum is not None:
+    if files:
         images.check_caps(post.thread.subforum, files, existing=post.attachments.count())
     now = timezone.now()
     before = render_post(post, attachments=post.attachments.order_by("pk"), validate_quotes=False)

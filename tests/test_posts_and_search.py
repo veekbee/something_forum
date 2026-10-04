@@ -76,14 +76,21 @@ def test_archived_thread_cannot_be_changed_by_anyone(make_user, general):
         assert not can(owner_like, action, post)
 
 
-def test_deleted_rejected_and_dm_posts_cannot_be_edited(make_user, general):
+def test_deleted_and_rejected_posts_cannot_be_edited(make_user, general):
     author = make_user("full")
     thread = make_thread(general, author)
     admin = make_user("admin")
     assert not can(admin, "post.edit", make_post(thread, author, deleted_at=timezone.now()))
     assert not can(admin, "post.edit", make_post(thread, author, rejected_at=timezone.now()))
-    dm = make_dm(author, make_user("full"))
-    assert not can(author, "post.edit", make_post(dm, author))
+
+
+def test_dm_messages_are_edited_only_by_their_author_within_the_window(make_user):
+    author, other = make_user("full"), make_user("full")
+    dm = make_dm(author, other)
+    assert can(author, "post.edit", make_post(dm, author))
+    assert not can(author, "post.edit", make_post(dm, author, ago=timedelta(minutes=31)))
+    assert not can(other, "post.edit", make_post(dm, author))
+    assert not can(make_user("admin"), "post.edit", make_post(dm, author))
 
 
 def test_author_may_edit_own_held_post(make_user, general):

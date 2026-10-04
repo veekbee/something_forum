@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from accounts import roles
 from accounts.models import User
+from core import registry
 
 READABLE_STATUSES = {User.Status.GUEST, User.Status.ACTIVE, User.Status.READ_ONLY, User.Status.SUSPENDED}
 WRITABLE_STATUSES = {User.Status.GUEST, User.Status.ACTIVE}
@@ -177,14 +178,23 @@ def _thread_read(actor, thread):
     return _subforum_read(actor, thread.subforum)
 
 
+CLOSED_STATUSES = {User.Status.INVITED, User.Status.REMOVED, User.Status.TOMBSTONE}
+
+
 def _dm_read(actor, thread):
+    """Participants, including those who left (they read up to when they left) and banned members,
+    who keep their conversations. Admins and Owners; Moderators under a grant. Reads by anyone but a
+    participant are audited by boards.services.open_thread (design rule 8)."""
     from moderation.models import DMAccessGrant
 
+    if actor.status in CLOSED_STATUSES:
+        return deny(f"account is {actor.status}")
+    periods = list(thread.participants.filter(user=actor))
+    if periods:
+        return allow(via="participant", detail=periods)
     base = _can_read_anything(actor)
     if not base:
         return base
-    if thread.participants.filter(user=actor).exists():
-        return allow(via="participant")
     if roles.is_admin_or_owner(actor):
         return allow(via="admin")
     if roles.is_moderator(actor):
@@ -207,12 +217,7 @@ def _thread_reply(actor, thread):
     from boards import limits
 
     if thread.kind == thread.Kind.DM:
-        writable = _can_write_anything(actor)
-        if not writable:
-            return writable
-        if not thread.participants.filter(user=actor).exists():
-            return deny("not a participant in this conversation")
-        return allow()
+        return _dm_send(actor, thread)
     readable = _thread_read(actor, thread)
     if not readable:
         return readable
@@ -231,11 +236,36 @@ def _thread_reply(actor, thread):
     return allow()
 
 
+def _dm_send(actor, thread):
+    """Rule 30: a participant sends only while they may still message every other participant; a
+    one-to-one conversation stops taking messages from the side the other has blocked."""
+    from boards import dm
+
+    me = thread.participants.filter(user=actor, left_at__isnull=True).first()
+    if me is None:
+        return deny("not in this conversation")
+    others = [p.user for p in thread.participants.filter(left_at__isnull=True).exclude(user=actor).select_related("user")]
+    if not others:
+        return deny("nobody else is in this conversation")
+    for other in others:
+        if not dm.may_message(actor, other):
+            return deny(f"you can no longer message {other.display_name}")
+    if len(others) == 1 and dm.has_blocked(others[0], actor):
+        return deny("this conversation is not taking messages from you")
+    return allow()
+
+
 @rule("post.read")
 def _post_read(actor, post):
     readable = _thread_read(actor, post.thread)
     if not readable:
         return readable
+    if post.thread.kind == post.thread.Kind.DM and readable.via == "participant":
+        if not any(
+            p.joined_at <= post.created_at and (p.left_at is None or post.created_at <= p.left_at)
+            for p in readable.detail
+        ):
+            return deny("sent while you were not in the conversation")
     if post.deleted_at is not None and not roles.is_admin_or_owner(actor):
         return deny("post was deleted")
     if post.rejected_at is not None and not roles.moderates(actor, post.thread.subforum):
@@ -277,10 +307,24 @@ def _within_edit_window(post):
     return window is None or timezone.now() - post.created_at <= timedelta(minutes=window)
 
 
+def _dm_change(actor, post):
+    """DM messages: their author, still in the conversation, within dm.edit_window_minutes."""
+    if post.deleted_at is not None:
+        return deny("message was deleted")
+    if post.author_id != actor.pk:
+        return deny("not your message")
+    if not post.thread.participants.filter(user=actor, left_at__isnull=True).exists():
+        return deny("not in this conversation")
+    window = registry.site_value("dm.edit_window_minutes")
+    if window is not None and timezone.now() - post.created_at > timedelta(minutes=window):
+        return deny("edit window has closed")
+    return allow(via="author")
+
+
 def _post_change(actor, post, allow_redaction):
     thread = post.thread
     if thread.kind == thread.Kind.DM:
-        return deny("direct messages cannot be changed")
+        return _dm_change(actor, post)
     if post.deleted_at is not None:
         return deny("post was deleted")
     if post.rejected_at is not None:
@@ -451,6 +495,95 @@ def _thread_restore(actor, thread):
         return deny("thread is not archived")
     if actor.status != User.Status.ACTIVE or not roles.is_owner(actor):
         return deny("only Owners restore threads")
+    return allow()
+
+
+# --- direct messages -------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Conversation:
+    """Target for dm.start: the people to message, without the starter."""
+
+    others: tuple
+
+
+@dataclass(frozen=True)
+class Membership:
+    """Target for dm.add and dm.remove."""
+
+    thread: Any
+    user: Any
+
+
+def _group_ok(members):
+    from boards import dm
+
+    if len(members) > registry.site_value("dm.max_participants"):
+        return deny(f"a conversation holds at most {registry.site_value('dm.max_participants')} people")
+    for i, a in enumerate(members):
+        for b in members[i + 1:]:
+            if not dm.may_message(a, b):
+                return deny(f"{a.display_name} and {b.display_name} cannot message each other")
+            if dm.blocked_either_way(a, b):
+                return deny("someone in this conversation has blocked another")
+    return allow()
+
+
+@rule("dm.start")
+def _dm_start(actor, conversation):
+    from boards.models import Thread
+
+    others = [u for u in conversation.others if u.pk != actor.pk]
+    if not others:
+        return deny("choose someone to message")
+    since = timezone.now() - timedelta(hours=24)
+    started = Thread.objects.filter(kind=Thread.Kind.DM, author=actor, created_at__gt=since).count()
+    if started >= registry.site_value("dm.max_new_conversations_per_day"):
+        return deny("you have started as many conversations as allowed today")
+    return _group_ok([actor, *others])
+
+
+@rule("dm.add")
+def _dm_add(actor, membership):
+    thread, newcomer = membership.thread, membership.user
+    if thread.kind != thread.Kind.DM:
+        return deny("not a conversation")
+    if not thread.participants.filter(user=actor, left_at__isnull=True).exists():
+        return deny("not in this conversation")
+    current = [p.user for p in thread.participants.filter(left_at__isnull=True).select_related("user")]
+    if any(u.pk == newcomer.pk for u in current):
+        return deny(f"{newcomer.display_name} is already here")
+    return _group_ok([*current, newcomer])
+
+
+@rule("dm.leave")
+def _dm_leave(actor, thread):
+    if thread.kind != thread.Kind.DM or not thread.participants.filter(user=actor, left_at__isnull=True).exists():
+        return deny("not in this conversation")
+    return allow()
+
+
+@rule("dm.remove")
+def _dm_remove(actor, membership):
+    """Members cannot remove each other; Admins and Owners can."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners remove people from a conversation")
+    if not membership.thread.participants.filter(user=membership.user, left_at__isnull=True).exists():
+        return deny("not in this conversation")
+    return allow()
+
+
+@rule("member.block")
+def _member_block(actor, target):
+    from boards import dm
+
+    if actor.status in CLOSED_STATUSES or target.pk == actor.pk:
+        return deny("cannot block")
+    if dm.is_staff_role(target):
+        return deny("staff cannot be blocked")
+    if target.status in CLOSED_STATUSES:
+        return deny("no such member")
     return allow()
 
 

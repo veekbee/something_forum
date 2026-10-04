@@ -67,7 +67,13 @@ def is_internal(href):
 
 
 def _setting(subforum, key):
-    return subforum.setting(key) if subforum is not None else registry.get(key).default
+    """A sub-forum's value, or for a DM (no sub-forum) the dm.* site setting where one exists."""
+    if subforum is not None:
+        return subforum.setting(key)
+    dm_key = "dm." + key.split(".", 1)[1]
+    if dm_key in registry.REGISTRY:
+        return registry.site_value(dm_key)
+    return registry.get(key).default
 
 
 class _Context:

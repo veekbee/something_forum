@@ -85,8 +85,11 @@ def test_hold_off(make_user, general):
 
 
 def test_dm_posts_are_never_held_and_do_not_count(make_user, general):
+    from tests.factories import sponsor as record_sponsorship
+
     member = make_user("provisional")
     sponsor = make_user("full")
+    record_sponsorship(sponsor, member)
     dm = make_dm(member, sponsor)
     for _ in range(5):
         assert not services.reply(member, dm, "hello").is_held

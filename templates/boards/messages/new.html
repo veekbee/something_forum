@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}New message{% endblock %}
+{% block content %}
+<h1>New message</h1>
+<form class="panel" method="post" enctype="multipart/form-data">{% csrf_token %}
+  {% include "boards/_editor.html" %}
+  <p class="helptext">{{ notice }}</p>
+  <button>Send</button>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/mentions.js' %}" defer></script>{% endblock %}

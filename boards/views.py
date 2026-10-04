@@ -219,6 +219,14 @@ def post_link(request, pk):
     post = get_object_or_404(Post.objects.select_related("thread"), pk=pk)
     if not can(request.user, "post.read", post):
         raise Http404
+    if post.thread.kind == Thread.Kind.DM:
+        from boards import messages
+
+        earlier = messages.messages(request.user, post.thread).filter(
+            Q(created_at__lt=post.created_at) | Q(created_at=post.created_at, pk__lt=post.pk)
+        ).count()
+        page = earlier // registry.site_value("pagination.posts_per_thread_page") + 1
+        return HttpResponseRedirect(f"{reverse('conversation', args=[post.thread_id])}?page={page}#post-{post.pk}")
     earlier = visibility.thread_posts(request.user, post.thread).filter(
         Q(created_at__lt=post.created_at) | Q(created_at=post.created_at, pk__lt=post.pk)
     ).count()
@@ -257,6 +265,8 @@ def delete_post(request, pk):
         except ValidationError as exc:
             errors = _errors(exc)
         else:
+            if post.thread.kind == Thread.Kind.DM:
+                return redirect("conversation", pk=post.thread_id)
             return redirect("thread", pk=post.thread_id)
     return render(request, "boards/confirm.html", {
         "heading": "Delete this post?", "errors": errors, "reason_field": needs_reason, "reason_required": needs_reason,
@@ -412,6 +422,13 @@ def member_profile(request, slug):
         ).select_related("initiated_by", "approved_by").order_by("-starts_at")
     if can(request.user, "member.private_stats", member):
         context["private"] = _private_stats(member, role)
+    if member.pk != request.user.pk:
+        from accounts.models import Block
+        from boards import dm
+
+        context["may_message"] = dm.may_message(request.user, member)
+        context["may_block"] = bool(can(request.user, "member.block", member))
+        context["blocked"] = Block.objects.filter(blocker=request.user, blocked=member).exists()
     return render(request, "boards/profile.html", context)
 
 

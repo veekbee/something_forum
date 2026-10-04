@@ -20,15 +20,27 @@ MAX_PIXELS = 40_000_000
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
 
 
+def _setting(subforum, key):
+    from core import registry
+
+    if subforum is not None:
+        return subforum.setting(key)
+    # Direct messages: dm.images for the mode, the sub-forum defaults for the caps.
+    if key == "subforum.images":
+        return registry.site_value("dm.images")
+    return registry.get(key).default
+
+
 def check_caps(subforum, files, existing=0):
-    """Refuse the whole upload if it breaks the sub-forum's per-post caps."""
-    mode = subforum.setting("subforum.images")
+    """Refuse the whole upload if it breaks the per-post caps (a sub-forum's, or for a DM the
+    defaults)."""
+    mode = _setting(subforum, "subforum.images")
     if files and mode == "off":
-        raise ValidationError("Images are not allowed in this sub-forum.")
-    limit = subforum.setting("subforum.max_images_per_post")
+        raise ValidationError("Images are not allowed here.")
+    limit = _setting(subforum, "subforum.max_images_per_post")
     if existing + len(files) > limit:
         raise ValidationError(f"A post can have at most {limit} images.")
-    max_mb = subforum.setting("subforum.max_image_mb")
+    max_mb = _setting(subforum, "subforum.max_image_mb")
     for upload in files:
         if upload.size > max_mb * 1024 * 1024:
             raise ValidationError(f"{upload.name} is larger than {max_mb} MB.")

@@ -100,15 +100,30 @@ class ThreadTitleRevision(models.Model):
 
 
 class ThreadParticipant(models.Model):
-    """DM membership, per-user read position, and thread subscriptions."""
+    """DM membership, per-user read position, and thread subscriptions. In a DM a participant reads
+    messages from joined_at up to left_at (design rule 31); last_read_at is shown to nobody else."""
 
     thread = models.ForeignKey(Thread, on_delete=models.PROTECT, related_name="participants")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="thread_participations")
     joined_at = models.DateTimeField(default=timezone.now)
     last_read_at = models.DateTimeField(null=True, blank=True)
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    left_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def is_active(self):
+        return self.left_at is None
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["thread", "user"], name="one_participation_per_thread")]
+        # A member who leaves and is added back gets a new row, so each period they were in the
+        # conversation stays readable to them and the gap does not.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["thread", "user"], condition=Q(left_at__isnull=True), name="one_active_participation"
+            )
+        ]
 
 
 class PostQuerySet(models.QuerySet):

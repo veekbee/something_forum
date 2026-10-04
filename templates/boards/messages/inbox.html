@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<h1>Messages</h1>
+<p><a class="button" href="{% url 'new_conversation' %}">New message</a></p>
+{% if page.object_list %}
+<ul class="list panel">
+  {% for thread in page.object_list %}
+  <li>{% if thread.unread %}<span class="status pending">New</span>{% endif %}
+    <a class="thread-title" href="{% url 'conversation' thread.pk %}">{{ thread.title }}</a>
+    <div class="meta muted">last message {{ thread.last_post_at|timesince }} ago</div></li>
+  {% endfor %}
+</ul>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">No conversations yet.</p>{% endif %}
+{% endblock %}

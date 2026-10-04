@@ -1,6 +1,6 @@
 from django.urls import path
 
-from boards import views
+from boards import message_views, views
 
 urlpatterns = [
     path("", views.forum_index, name="home"),
@@ -20,6 +20,14 @@ urlpatterns = [
     path("p/<int:pk>/<str:decision>/", views.moderate_post, name="moderate_post"),
     path("members/autocomplete/", views.mention_autocomplete, name="mention_autocomplete"),
     path("members/<slug:slug>/", views.member_profile, name="member_profile"),
+    path("members/<slug:slug>/block/", message_views.block, name="member_block"),
+    path("messages/", message_views.inbox, name="inbox"),
+    path("messages/new/", message_views.new_conversation, name="new_conversation"),
+    path("messages/<int:pk>/", message_views.conversation, name="conversation"),
+    path("messages/<int:pk>/send/", message_views.send, name="dm_send"),
+    path("messages/<int:pk>/add/", message_views.add, name="dm_add"),
+    path("messages/<int:pk>/leave/", message_views.leave, name="dm_leave"),
+    path("messages/<int:pk>/remove/<int:user_pk>/", message_views.remove, name="dm_remove"),
     path("search/", views.search, name="search"),
     path("attachments/<int:pk>/", views.attachment, name="attachment"),
 ]

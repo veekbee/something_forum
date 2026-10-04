@@ -27,10 +27,10 @@ Seven roles, ordered by trust. Promotion is a human decision (or a time-plus-con
 | --- | --- | --- | --- | --- | --- | --- |
 | Owner | Founder; transferable only by an Owner | All, incl. DMs and deleted content | Anywhere | Yes, unlimited; exempt from sponsorship rules | Yes | Everything an Admin can, plus appoint and remove Admins, change site settings, billing account and data-destroying operations |
 | Admin | Appointed by Owner | All, incl. DMs and deleted content | Anywhere | Yes, unlimited; exempt from sponsorship rules | Yes | Full moderation and user admin; may act alone on any action |
-| Moderator | Appointed by Admin from Tenured | All member sub-forums, mod queue | Anywhere | Yes, cap 7 active sponsorships | Yes | Edit, hide, lock, warn, suspend within assigned sub-forums; actions need a second approver |
+| Moderator | Appointed by Admin from Tenured | All member sub-forums, mod queue; DMs only under an Admin grant | Anywhere | Yes, cap 7 active sponsorships | Yes | Edit, hide, lock, warn, suspend within assigned sub-forums; actions need a second approver |
 | Tenured | Full for 3 months in good standing, promoted by Admin or Mod | All member sub-forums | Anywhere, rate-limited only where the sub-forum says so | Yes, cap 3 active sponsorships | Yes | None |
-| Full | Provisional promoted after 3 months and 25 posts, on a Full+ recommendation, Moderator review and Admin approval | All member sub-forums | Anywhere, rate-limited only where the sub-forum says so | Yes, cap 1 active sponsorship (assumed; not yet confirmed) | Yes | None |
-| Provisional | Sponsored, identity check passed, paid or comped; in probation | All member sub-forums except those marked Full+ | Limited sub-forums, stricter rate limits, first 5 posts held for review | No | Only with sponsor and staff | None |
+| Full | Provisional promoted after 3 months and 25 posts, on a Full+ recommendation, Moderator review and Admin approval | All member sub-forums | Anywhere, rate-limited only where the sub-forum says so | Yes, cap 1 active sponsorship (assumed; not yet confirmed) | With Full and above; with Guests and Provisionals only as their sponsor or staff | None |
+| Provisional | Sponsored, identity check passed, paid or comped; in the Provisional period | All member sub-forums except those marked Full+ | Limited sub-forums, stricter rate limits, first 5 posts held for review | No | Only with sponsor and staff | None |
 | Guest | Sponsored and identity-checked; has not paid | Guest Lobby and Introductions only | Guest Lobby and Introductions only, posts held for review | No | Only with sponsor and staff | None |
 
 Design notes:
@@ -40,11 +40,11 @@ Design notes:
 - Owner exists so that later Admins can run the forum day to day without being able to remove the founder, alter site-wide settings, touch the billing account or destroy data. There may be more than one Owner, but only an Owner can create one.
 - Admins and Owners are exempt from sponsorship rules (caps, transfer, and the sponsor review for a banned invitee) and may initiate and approve any moderation action alone. The record still shows that one person acted.
 - Lapsed payment demotes to a read-only state rather than deleting the account, so the pedigree stays intact.
-- Sponsorship caps, probation thresholds and grace periods are tunable settings, not code constants; defaults are in the Implementation brief.
+- Sponsorship caps, Provisional-period thresholds and grace periods are tunable settings, not code constants; defaults are in the Implementation brief.
 
 ## Sponsorship, pedigree and onboarding
 
-Nobody creates their own account. A sponsor (Full or above, or the Admin) issues an invitation; the invitee passes an identity check; payment, or a complimentary membership granted by an Admin or Owner, then moves them from Guest into probation. Every step is logged against both the sponsor and the new member.
+Nobody creates their own account. A sponsor (Full or above, or the Admin) issues an invitation; the invitee passes an identity check; payment, or a complimentary membership granted by an Admin or Owner, then moves them from Guest into the Provisional period. Every step is logged against both the sponsor and the new member.
 
 Onboarding flow (confirmed 3 Oct 2026). The path is invitation, identity check, Guest, Provisional, Full, Tenured. The one check is the Admin's manual review. The account is created when the invitee accepts, not when they are approved (decided 3 Oct 2026), so every onboarding page after acceptance sits behind a signed-in, TOTP-verified session.
 
@@ -68,7 +68,7 @@ Every ending before approval (declined, invitee-declined, rescinded, expired) fr
 
 The complimentary path (decided 3 Oct 2026) lets an Admin or Owner move a Guest to Provisional without payment, recorded as a comped subscription. It exists before billing is built and stays afterwards for founding members, Moderators and anyone else leadership chooses to comp.
 
-A Provisional who fails probation is removed and the sponsor's record carries the outcome.
+A Provisional who fails the Provisional period is removed and the sponsor's record carries the outcome.
 
 Promotion from Provisional to Full (decided 2 Oct 2026):
 
@@ -113,7 +113,7 @@ Per-sub-forum settings to support from day one:
 | Post rate limit | N posts per hour / day / week, per user | Applies to new posts; editing is separate |
 | Thread rate limit | N new threads per period, per user | Prevents one member flooding a sub-forum |
 | Images | Off / inline / attachments | Inline places uploaded images within the post; attachments shows them as thumbnails beneath it. Sets the per-post image cap |
-| Links | Off / full\_and\_above / on | Governs outside links only; links within the forum always work. Off reduces spam risk in probation areas |
+| Links | Off / full\_and\_above / on | Governs outside links only; links within the forum always work. Off reduces spam risk in areas for newcomers |
 | Edit window | Minutes, or unlimited | Edits keep a history visible to staff |
 | Posts held for review | Off / first N posts of a Provisional (default 5) / all | Feeds the moderation queue |
 | Moderators | Set of users | Scope of the Moderator role |
@@ -149,7 +149,7 @@ Images (decided 3 Oct 2026): images from other websites are never loaded, becaus
 
 Mentions (decided 3 Oct 2026): `@` followed by the member's slug, with autocomplete. A mention notifies the member only if they can read the thread; otherwise it links to their profile and sends nothing. Held posts notify on release, rejected posts never, and invited accounts cannot be mentioned. At most 10 mentions in a post send notifications (proposed).
 
-Quotes (decided 3 Oct 2026): a quote carries the author, a link to the original post and the quoted excerpt, and may only come from the same thread or DM, so copied text never crosses a permission boundary. If the original is edited, the quote keeps the words replied to and shows an "edited since" note. If the original is deleted, the quoted text is replaced by "quoted post deleted" for everyone but staff. Held and rejected posts cannot be quoted.
+Quotes (decided 3 Oct 2026): a quote carries the author, a link to the original post and the quoted excerpt, and may only come from the same thread or DM, so copied text never crosses a permission boundary. If the original is edited, the quote keeps the words replied to and shows an "edited since" note. If the original is deleted, the quoted text is replaced by "quoted post deleted" for everyone. Staff read the original words in the quoting post's source and revision history, because a post's rendered text is shared by every reader (corrected 3 Oct 2026). Held and rejected posts cannot be quoted.
 
 Editing and deleting (confirmed 3 Oct 2026): authors edit and delete their own posts only within the edit window and never in a locked thread. Staff edit and delete any post in sub-forums they moderate, at any time and without a second approver; deleting someone else's post needs a reason, and a post edited by staff shows an "edited by staff" note. A thread's starter may edit its title within the edit window of their first post, staff at any time, and earlier titles are kept for staff. Moderators move threads between sub-forums they moderate; Admins and Owners move them anywhere. A held post does not count as new thread activity until it is released.
 
@@ -169,23 +169,73 @@ Page sizes (confirmed 3 Oct 2026): 20 posts per thread page, 30 threads per sub-
 
 Direct messages are modelled as a private thread type between two or more members, so they reuse the same storage, search and retention machinery. Admin visibility of DMs is covered in the next section.
 
+Direct messages (decided 3 Oct 2026):
+
+| Topic | Rule |
+| --- | --- |
+| Who may message whom | Full and above message any member at Full or above. Guests and Provisionals message, and are messaged by, only their own sponsor and staff; a Full member who is not their sponsor cannot reach them. Staff means Admins, Owners, and the Moderators of any sub-forum the member can read |
+| Restricted members | A read-only member (lapsed payment or Probation) or a suspended member messages only their sponsor and staff. A banned member messages only Admins and Owners, which is how a ban is appealed. Existing conversations with anyone else stay readable but take no new messages |
+| Group conversations | At most 8 participants (proposed). Every pair in a conversation must be allowed to message each other. Any participant can add someone, and the conversation shows who added whom. A newcomer sees only messages from when they joined. Any participant can leave and keeps read-only access to what was said until then; they can be added back. Members cannot remove each other; staff can |
+| Content | Outside links follow `full_and_above`. Images as in forum posts, with the same caps. Edit and delete within a 30-minute window, every version kept; deletion is soft, so Admins still see the message. No reply limit; at most 10 new conversations per member per day (proposed). DM messages are never held |
+| Counting | DM messages are not posts for any count: not the 25 posts for promotion, not the first held posts, not any sub-forum rate limit |
+| Blocking | A member can block another member, who then cannot start a DM with them, add them to a group, or notify them with a mention; an existing one-to-one conversation stops taking messages from the blocked side. Groups are unaffected, and the blocker may leave. The blocked member is not told. Staff cannot be blocked. Admins and Owners can see blocks. Blocking hides nobody's forum posts |
+| Read position | last\_read\_at drives the member's own unread count only; nobody sees when others have read a message |
+| Visibility notice | At the top of every conversation: "Direct messages are private from other members, but not from the forum's Admins. Admins can read and search every message, including edited and deleted ones. Moderators can read messages only with an Admin's permission, which is recorded. There is no end-to-end encryption." Under every compose box, linking to that text: "Admins can read all messages." |
+| Reporting | A participant can report a DM message. DM reports go to Admins and Owners only; an Admin who wants a Moderator to handle one grants access in the usual way |
+
+Notifications (decided 3 Oct 2026): a notifications page, with an unread count in the header. Email is only a pointer: it never carries post text, DM text or who wrote, only that something is waiting. Account emails always go out (invitation and onboarding steps, approval or decline, actions taken on the member's account, billing problems). Emails for new DMs, mentions, replies in followed threads and promotion news are each off by default and chosen by the member; several are combined into at most one email a day.
+
 ## Moderation and admin visibility
 
 Moderation is done by people, so the tooling's job is to make human review fast and auditable, not to automate decisions.
 
 Tools staff need:
 
-- A moderation queue: held posts, member reports, and automatic flags (rate-limit hits, rapid deletions, new-member link posting) in one list, oldest first, with one-click approve, edit, hide or escalate.
-- Per-member view: all posts, DMs, warnings, sponsor, invitees, payment status, and sessions on one page.
-- Graduated actions: staff note (private), warning, post hold, posting suspension for a period, read-only, ban. An action by a Moderator is initiated by one staff member and approved by a second, and a ban's approver must be an Admin. An Admin or Owner may initiate and approve any action alone (confirmed 3 Oct 2026); the record shows a single actor in that case. A staff note needs no approver: it takes effect at once, notifies every Admin and Owner, and appears in the Mod feedback feed (decided 3 Oct 2026). Staff act only on members ranked below them: a Moderator cannot act on another Moderator, and only an Owner can act on an Admin (decided 3 Oct 2026).
-- Full-text search across everything, including DMs and soft-deleted content, for Admins. Moderators search only sub-forums in their scope and no DMs unless the Admin grants it.
-- An immutable audit log of every staff action. Admins can read it; nobody can edit it.
+- A moderation queue: one list of everything waiting on staff, oldest first, with approve, edit, hide or escalate. Detailed below.
+- Per-member view: posts, DMs, moderation history, sponsor, invitees, blocks, payment status and sessions on one page, in two tiers detailed below.
+- Graduated actions: staff note (private), warning, post hold, posting suspension for a period, Probation (site-wide read-only, the disciplinary status), ban. An action by a Moderator is initiated by one staff member and approved by a second, and a ban's approver must be an Admin. An Admin or Owner may initiate and approve any action alone (confirmed 3 Oct 2026); the record shows a single actor in that case. A staff note needs no approver: it takes effect at once, notifies every Admin and Owner, and appears in the Mod feedback feed (decided 3 Oct 2026). Staff act only on members ranked below them: a Moderator cannot act on another Moderator, and only an Owner can act on an Admin (decided 3 Oct 2026).
+- Full-text search across everything, including DMs and soft-deleted content, for Admins and Owners. Moderators search only sub-forums in their scope, and the DMs of members covered by a grant they hold.
+- An immutable audit log of every staff action. Admins and Owners can read it; nobody can edit it.
 
-Disciplinary record (decided 2 Oct 2026): every action except the private staff note is published to a record visible to all members at Provisional and above. Each entry shows the member, the action, the Mod or Admin who initiated it, the Mod or Admin who approved it, and the date. Reasons are shown in summary form chosen by the approver. The public record is a view over the audit log, not a separate store, so the two cannot drift apart.
+Disciplinary record (decided 2 Oct 2026): every action except the private staff note is published to a record visible to all members at Provisional and above. Each entry shows the member, the action, the Mod or Admin who initiated it, the Mod or Admin who approved it, and the date. Reasons are shown as a short public summary: the initiator drafts it, the approver may edit it before approving, and both versions are kept (decided 3 Oct 2026). The public record is a query over the moderation actions marked public, and every change to one is audited in the same transaction, so the record and the audit log cannot drift apart (corrected 3 Oct 2026). Declined and withdrawn actions never appear on it.
 
-Admin visibility of DMs is a stated term of membership, shown at signup and in the member agreement, and repeated in the DM interface. The forum does not offer end-to-end encryption, and the UI must never imply it. Moderators read DMs only under an Admin grant (decided 3 Oct 2026): each grant names the Moderator, the members or case it covers, and an expiry, and both the grant and every DM a Moderator opens under it are written to the audit log.
+Admin visibility of DMs is a stated term of membership, shown at signup and in the member agreement, and repeated in the DM interface. The forum does not offer end-to-end encryption, and the UI must never imply it. Moderators read DMs only under an Admin grant (decided 3 Oct 2026): each grant names the Moderator, the members or case it covers, and an expiry, and both the grant and every DM a Moderator opens under it are written to the audit log. Admin and Owner DM reads are audited the same way, and a search whose results show DM text counts as a read, writing one entry that lists the conversations shown (decided 3 Oct 2026). Members are not told when their DMs were read; the notice already says they can be.
 
 Sponsor accountability lives here too. Warnings and removals of a member are visible on the sponsor's record. A banned Guest or Provisional opens a sponsor review in the moderation queue for an Admin or Owner to decide (see Sponsorship). A ban is lifted only through the reversal payment or an Admin decision. Every ban, sponsor review decision, suspension of sponsoring privileges, transfer of sponsorship and reversal is written to the audit log.
+
+The moderation queue (decided 3 Oct 2026) holds every item waiting on staff, with filters by type and each item's waiting time:
+
+| Item | Who sees it |
+| --- | --- |
+| Held posts | Moderators of that sub-forum, Admins, Owners |
+| Reports about a post | Moderators of that sub-forum, Admins, Owners |
+| Automatic flags on a post | Moderators of that sub-forum, Admins, Owners |
+| Reports about a member, with no post involved | Global Moderators, Admins, Owners |
+| Moderator actions awaiting a second approver | Staff who may approve them; for a ban, Admins and Owners |
+| Promotions awaiting Moderator review | Moderators, Admins, Owners |
+| Sponsor reviews | Admins and Owners |
+| DM reports | Admins and Owners |
+| Request-rate flags | Moderators, Admins, Owners |
+
+A global Moderator is one whose Moderator role is not limited to particular sub-forums. Hiding a post is a soft delete with a reason chosen from a preset list (off-topic, personal attack, spam, private information, or other with a sentence); the author is notified with the reason, and the post stays in their history marked as removed. A Moderator can escalate any item to Admins and Owners with a note; it stays in the queue marked escalated, Moderators can still see it and add notes, only an Admin or Owner can resolve it, and the escalating Moderator hears the outcome. Items are not claimed: whoever acts first wins, and each action checks the item is still open, so a second Moderator sees "already handled" and nothing changes.
+
+Reports (decided 3 Oct 2026): every member, Guests included, can report posts, DM messages they take part in, and members (for a pattern rather than one post), with a reason from the same preset list and an optional note. The reported member never learns who reported them; staff see the reporter. The reporter hears the outcome in one line, "action taken" or "no action needed". Each member may make at most 10 reports a day (proposed), and reporting the same thing twice adds nothing.
+
+Automatic flags (decided 3 Oct 2026) go into the same queue: 3 posts refused by rate limits within 24 hours; 5 of a member's own posts deleted by them within 60 minutes; and any trip of the request-rate limit, which also makes the account read-only until a Moderator clears it. All thresholds are proposed. A flag for new members posting outside links is not used, since those links already show as plain text.
+
+Moderation actions (decided 3 Oct 2026):
+
+- An approver may decline a pending action, with a short reason sent to the initiator; the initiator may withdraw their own action before approval. Neither appears on the public record.
+- A Moderator's suspension or post hold covers only the sub-forums they moderate. The same action site-wide, and Probation, which is always site-wide, need an Admin or Owner as initiator or approver, as a ban does. Warnings and staff notes attach to the member. The public record shows where a limited action applies.
+- A time-limited action stops applying at its end time whenever permissions are checked; a daily job then marks it expired so the record reads correctly.
+- When a ban is lifted, by payment or by an Admin, the member returns to the status and role they held before it, since bans do not touch role assignments. The public record keeps the ban, marked lifted with the date, and does not say how. A sponsor banned after a sponsor review is treated the same way.
+- "Probation" names only this disciplinary status. Read-only because of a lapsed payment is shown as "read-only (lapsed)".
+
+Staff views (decided 3 Oct 2026):
+
+- The per-member view has two tiers. Admins and Owners see everything. Moderators see the member's posts in sub-forums they moderate (held and rejected included), moderation history, sponsor, invitees and blocks, but not DMs, payment, sessions or the real name. For Admins and Owners the real name sits behind a "show identity details" control, and each use is audited; opening the view itself is not.
+- The audit log view is for Admins and Owners, filtered by actor, member concerned, action and date range, newest first, with payloads shown in full. An audit entry never contains a real name or DM text; it refers to them by id.
+- The Mod feedback feed is shared awareness among staff, distinct from the audit log (the complete record, Admins and Owners) and notifications (personal). It shows staff notes, escalations and how they were resolved, declined and withdrawn actions with their reasons, and sponsor review decisions, each linked to its source. All staff read it; Moderators see only items about sub-forums they moderate or about members, and anything involving a DM is for Admins and Owners. Routine approvals and releases are left out.
 
 ## Access control and anti-scraping
 
@@ -202,7 +252,7 @@ Baseline:
 Against members scraping or sharing credentials:
 
 - Session binding: sessions tied to device fingerprint and rough geography; a second concurrent location prompts re-authentication and alerts staff.
-- Per-member request rate limits well above human reading speed but below bulk download. Trip the limit and the account is read-only until a Moderator clears it.
+- Per-member request rate limits well above human reading speed but below bulk download. Trip the limit and the account is read-only until a Moderator clears it, with a flag in the moderation queue.
 - Pagination with no "show all" view; thread and search results capped per page.
 - Optional light watermarking: each member's rendered pages carry an invisible per-session marker (zero-width characters or spacing) so a leaked copy identifies its source. Cheap and effective at small scale.
 
@@ -251,7 +301,7 @@ Billing is a recurring subscription managed by a payment provider (Stripe or Pad
 How billing meets the trust ladder:
 
 - Payment is a precondition for Provisional, not for Guest. A Guest can read and post in the Guest Lobby and Introductions before paying.
-- Lapsed payment sets the account to read-only after a grace period (14 days, confirmed) and demotes nothing else; role and pedigree are kept. Renewal restores the previous role.
+- Lapsed payment sets the account to read-only after a grace period (14 days, confirmed) and demotes nothing else. The member sees it as "read-only (lapsed)", never as Probation; role and pedigree are kept. Renewal restores the previous role.
 - Admin can comp or discount individual members (founding members, Moderators) without touching the role system.
 - Pricing, trial periods and whether a sponsor can gift a first month are product decisions for a later session.
 
@@ -326,20 +376,22 @@ Design choices, each made for extensibility: roles are rows and assignments, not
 | SubForum | parent (self FK, nullable), name, slug, description, position, is\_archived, kind (regular, graveyard, classics), settings (JSONB) | settings validated against the registry below; missing keys fall back to site defaults. Exactly one graveyard and one classics sub-forum exist, created by seed, read-only, readable by Provisional and above |
 | Thread | subforum (nullable for DMs), kind (discussion, dm), title, author, state (open, locked, archived), is\_pinned, created\_at, last\_post\_at, post\_count, origin\_subforum (nullable), ended\_by, ended\_at, end\_reason | DM threads have no subforum and are visible only to participants, Admins, Owners, and Moderators under a grant. A thread in the Graveyard or the Classics is archived and keeps origin\_subforum. last\_post\_at ignores held posts until release |
 | ThreadTitleRevision | thread, title, edited\_by, edited\_at | Written on every title change; visible to staff |
-| ThreadParticipant | thread, user, joined\_at, last\_read\_at | DM membership and per-user read position. Also used for thread subscriptions |
+| ThreadParticipant | thread, user, joined\_at, last\_read\_at, added\_by, left\_at | DM membership and per-user read position. Also used for thread subscriptions. In a DM, a participant sees messages from joined\_at up to left\_at; last\_read\_at is shown to nobody else |
+| Block | blocker, blocked, created\_at | One row per block; unique on the pair. Staff cannot be blocked |
 | Post | thread, author, body\_source, body\_html, created\_at, edited\_at, is\_held, released\_by, released\_at, rejected\_by, rejected\_at, deleted\_at, deleted\_by, delete\_reason | Index on (author, created\_at) serves the rolling-window rate limits, which are computed from this table rather than stored. Rejected posts are excluded from rate-limit and held-post counts; deleted posts are not. body\_html is rendered server-side through a strict allow-list and never re-rendered on read |
 | PostRevision | post, body\_source, edited\_by, edited\_at, is\_redaction, purged\_by, purged\_at | Written on every edit; visible to staff. An edit by anyone other than the author drives the "edited by staff" note, and a Graveyard redaction the "redacted by staff" note. An Owner purge clears body\_source on earlier revisions and records who purged them |
 | PostQuote | quoting\_post, quoted\_post | One row per quote. When a quoted post is edited, deleted or anonymised, the posts quoting it are re-rendered |
 | Attachment | post, uploader, storage\_key, filename, mime, size\_bytes, width, height, created\_at | Images only, stored after server-side re-encoding. Served only via signed URL after a permission check on the post |
-| Report | post (nullable), user (nullable), reporter, reason, created\_at, status, handled\_by, handled\_at | Feeds the moderation queue alongside held posts and automatic flags |
-| ModerationAction | target\_user, kind (note, warning, hold, suspension, read\_only, ban, ban\_reversal, sponsorship\_transfer, sponsoring\_suspension), initiated\_by, approved\_by (nullable), status (pending, active, expired, reversed), starts\_at, ends\_at, internal\_reason, public\_summary, is\_public, related\_post, related\_action | sponsoring\_suspension removes the right to sponsor until ends\_at. is\_public false only for kind note. A note is active on creation with no approver. Public record = query over is\_public rows |
+| Report | source (member, system), kind (post, member, dm, flag\_rate\_limit, flag\_rapid\_deletion, flag\_request\_rate), post (nullable), user (nullable), reporter (nullable for system flags), reason (preset), note, details (JSONB), status (open, escalated, resolved), escalated\_by, escalation\_note, outcome (action\_taken, no\_action), handled\_by, handled\_at, created\_at | Member reports and automatic flags in one table, so the queue reads one list. A dm report has post set to a DM message and is visible only to Admins and Owners |
+| ModerationAction | target\_user, kind (note, warning, hold, suspension, probation, ban, ban\_reversal, sponsorship\_transfer, sponsoring\_suspension), scope\_subforum (nullable; set only for a limited suspension or hold), initiated\_by, approved\_by (nullable), declined\_by, decline\_reason, status (pending, active, expired, reversed, declined, withdrawn), starts\_at, ends\_at, internal\_reason, public\_summary\_draft, public\_summary, is\_public, related\_post, related\_action | Kind probation was read\_only before 3 Oct 2026. A reversed ban shows on the public record as lifted. Declined and withdrawn actions are never public. public\_summary\_draft is the initiator's text and public\_summary the published one | sponsoring\_suspension removes the right to sponsor until ends\_at. is\_public false only for kind note. A note is active on creation with no approver. Public record = query over is\_public rows |
 | SponsorReview | banned\_member, sponsor, triggering\_action, status (pending, decided), outcome (no\_action, warning, sponsoring\_suspension, ban), suspension\_months, invitees\_transfer (bool), resulting\_action, decided\_by, decided\_at, notes, created\_at | Opened in the same transaction as an approved ban on a Guest or Provisional whose active sponsor is not Admin or Owner. Decided only by Admin or Owner |
 | DMAccessGrant | moderator, granted\_by, subject\_users (M2M), case\_note, expires\_at, revoked\_at | Every DM read under a grant writes an AuditEntry |
 | Subscription | user (1:1), stripe\_customer\_id, stripe\_subscription\_id, status (none, active, past\_due, lapsed, comped), current\_period\_end, read\_only\_at, comped\_by, comped\_at | read\_only\_at = period end + lapse grace. A job flips status to read\_only when it passes. A comped subscription has no Stripe ids and never lapses; comped\_by and comped\_at record the Admin or Owner who granted it |
 | Charge | user, kind (subscription, ban\_reversal), stripe\_payment\_intent\_id, amount\_cents, currency, status, related\_action, created\_at | A successful ban\_reversal charge sets the related ModerationAction to reversed |
 | UserSession | user, session\_key, device\_fingerprint, ip\_prefix, approx\_location, user\_agent, created\_at, last\_seen\_at, revoked\_at, watermark\_seed | Session binding and the per-session watermark both key off this row |
-| Notification | recipient, kind, payload (JSONB), created\_at, read\_at | In-app first; email only as a pointer back to the forum |
-| AuditEntry | actor, action, target\_type, target\_id, payload (JSONB), ip, created\_at | Append-only: a PostgreSQL rule or trigger rejects UPDATE and DELETE, and the Django model has no save path for existing rows |
+| Notification | recipient, kind, payload (JSONB), created\_at, read\_at, emailed\_at | In-app first; email only as a pointer back to the forum, carrying no content or sender |
+| NotificationPreference | user, kind, email (bool) | One row per member and optional kind; missing rows mean off. Account kinds always email and have no row |
+| AuditEntry | actor, action, target\_type, target\_id, payload (JSONB), ip, created\_at | Payloads never contain a real name or DM text, only ids. Append-only: a PostgreSQL rule or trigger rejects UPDATE and DELETE, and the Django model has no save path for existing rows |
 | SiteSetting | key, value (JSONB), updated\_by, updated\_at | Only Owners write. Keys and defaults come from the registry in code |
 | DataRequest | user, kind (export, erasure), requested\_at, status, file\_key, completed\_at, handled\_by | Export produces a zip via signed URL; erasure runs the anonymisation described in the Privacy section |
 
@@ -366,6 +418,17 @@ Every number below is a registry entry with a default; Owners change site-wide v
 | auth.require\_totp | true | site | Confirmed |
 | retention.audit\_years\_after\_departure | 2 | site | Proposed |
 | scraping.requests\_per\_10\_min | 600 | site | Proposed; tune from real traffic |
+| dm.max\_participants | 8 | site | Proposed |
+| dm.max\_new\_conversations\_per\_day | 10 | site | Proposed; per member |
+| dm.links | full\_and\_above | site | Confirmed 3 Oct 2026 |
+| dm.images | inline | site | Confirmed 3 Oct 2026; caps as subforum.max\_images\_per\_post and subforum.max\_image\_mb defaults |
+| dm.edit\_window\_minutes | 30 | site | Proposed, matching the sub-forum default |
+| reports.max\_per\_member\_per\_day | 10 | site | Proposed |
+| flags.rate\_limit\_refusals | 3 | site | Proposed; refusals within flags.rate\_limit\_window\_hours |
+| flags.rate\_limit\_window\_hours | 24 | site | Proposed |
+| flags.rapid\_deletions | 5 | site | Proposed; own-post deletions within flags.rapid\_deletion\_window\_minutes |
+| flags.rapid\_deletion\_window\_minutes | 60 | site | Proposed |
+| notifications.max\_emails\_per\_day | 1 | site | Confirmed 3 Oct 2026; optional kinds only |
 | subforum.min\_read\_role | provisional | sub-forum | Guest Lobby sets guest |
 | subforum.min\_thread\_role | provisional | sub-forum | Guest Lobby sets guest |
 | subforum.min\_reply\_role | provisional | sub-forum | Guest Lobby sets guest |
@@ -393,7 +456,7 @@ Every number below is a registry entry with a default; Owners change site-wide v
 5. Role changes are new RoleAssignment rows, never updates. Sponsorship changes are new Sponsorship rows, never updates.
 6. Rate limits are computed from Post timestamps over a rolling window; thread starts count as posts, held posts count, rejected posts do not. A per-role limit in the sub-forum replaces the general limit for that role.
 7. A Provisional's first N posts site-wide (per provisional.held\_posts, excluding rejected posts) are created with is\_held true and, until released, are visible only to their author and to staff who can release them. Guest posts in the Guest Lobby follow the same path.
-8. Admin and Owner can read any thread including DMs; Moderators read a DM only under an unexpired DMAccessGrant covering a participant, and each read is audited.
+8. Admin and Owner can read any thread including DMs; Moderators read a DM only under an unexpired DMAccessGrant covering a participant. Every DM read is audited, whoever reads it, and a search that shows DM text counts as a read.
 9. Every request from an unauthenticated session is refused except login, password reset, invitation acceptance, Stripe webhooks, legal pages, and the web app manifest, its icons and the service worker script, which carry no member content. No TOTP, no session. Password reset mail goes only to verified addresses.
 10. AuditEntry rows are written inside the same database transaction as the action they record, and the table rejects updates and deletes.
 11. Posts are soft-deleted only. Erasure anonymises per the Privacy section and is the one path that clears personal fields.
@@ -409,12 +472,22 @@ Every number below is a registry entry with a default; Owners change site-wide v
 21. Post bodies are rendered once, server-side, through the Markdown allow-list; raw HTML is escaped, never rendered. Whether an outside link is clickable depends on the sub-forum's links setting and the author's role when the post is rendered.
 22. No image is ever loaded from another site. Uploads are images of the allowed types only, re-encoded by the server before storage, within the sub-forum's per-post caps.
 23. A mention notifies only a member who can read the thread, and only once the post is visible (released, if held). Invited accounts cannot be mentioned. No more than mentions.max\_notified\_per\_post notifications go out per post.
-24. A quote may only reference a visible post in the same thread or DM. Editing, deleting or anonymising a quoted post re-renders every post that quotes it; a deleted original's text is shown only to staff.
+24. A quote may only reference a visible post in the same thread or DM. Editing, deleting or anonymising a quoted post re-renders every post that quotes it; a deleted original's text no longer appears in the quoting post, and staff read it in that post's source and history.
 25. Authors edit and delete their own posts within the edit window and never in a locked thread. Staff edit and delete any post in sub-forums they moderate; deleting another member's post requires a reason; a staff edit is marked as one. Earlier post bodies and thread titles are kept as revisions.
 26. Sending a thread to the Graveyard is open to Moderators in their sub-forums, Admins and Owners, with a reason; sending one to the Classics, and archiving in place, to Admins and Owners; unarchiving or bringing a thread back, to Owners only. Only Admins edit Graveyard threads, and only Owners purge earlier revisions. DM threads cannot be sent to either area. When an action widens a thread's audience, the confirmation says so.
 27. Pinning is for Admins and Owners; locking and unlocking also for Moderators in their sub-forums. Moderators move threads only between sub-forums they moderate.
 28. Profiles show no post count to anyone but the member themselves.
-29. Moderators' search covers held and rejected posts in sub-forums they moderate. Search covers no DMs until DM search is designed.
+29. Moderators' search covers held and rejected posts in sub-forums they moderate. Admins and Owners search all DMs; a Moderator searches only the DMs of members covered by a grant they hold, while it lasts; nobody else's search includes DMs.
+30. A DM can be started or added to only when every pair of participants may message each other under the Direct messages table, neither has blocked the other, the conversation stays within dm.max\_participants, and the starter is within dm.max\_new\_conversations\_per\_day. A member who may no longer message someone keeps reading the conversation but cannot send to it.
+31. A DM participant reads messages from their joined\_at to their left\_at. Members cannot remove each other; staff can. DM messages are never held and never count toward promotion, held-post or rate-limit counts.
+32. last\_read\_at is never shown to anyone but its owner. The visibility notice appears at the top of every conversation and under every compose box.
+33. Reports of DM messages are visible only to Admins and Owners. The reported member never sees who reported them. A member's reports beyond reports.max\_per\_member\_per\_day are refused, and a repeat report of the same thing by the same member creates nothing.
+34. Queue items are visible as the queue table says. Every queue action rechecks, inside its transaction, that the item is still open. Only Admins and Owners resolve escalated items, sponsor reviews and DM reports.
+35. Hiding a post is a soft delete with a preset reason, and notifies the author.
+36. A pending moderation action can be declined by an eligible approver or withdrawn by its initiator; neither is public. A Moderator's suspension or hold is limited to their sub-forums unless an Admin or Owner initiates or approves it; Probation and bans always need an Admin or Owner. Actions stop applying at ends\_at when permissions are checked, whatever the expiry job has done. Lifting a ban restores the member's previous status.
+37. Moderators' per-member view excludes DMs, payment, sessions and identity details. Revealing identity details is audited. Only Admins and Owners read the audit log, and no audit payload contains a real name or DM text.
+38. Feed items involving a DM are visible only to Admins and Owners; Moderators see feed items about their sub-forums or about members.
+39. Emails carry no post text, DM text or sender. Optional email kinds are off unless the member turns them on, and they are combined into at most notifications.max\_emails\_per\_day emails.
 
 ### First Claude Code session: milestone 1
 
@@ -456,6 +529,21 @@ Definition of done:
 - Thread-ending tests for every actor and action in rule 26, including the audience warning and Owner purge.
 - Pages show 20, 30, 20 and 20 items as the registry says, with no "show all".
 
+### Build step 4: moderation and direct messages
+
+Scope: DMs (starting, group membership, replies, editing and deleting, blocking, the visibility notice, reporting), the moderation queue with hide, escalate, decline and withdraw, reports and the three automatic flags, scoped suspensions and holds, Probation, expiry and ban lifting, the two-tier per-member view, the audit log view, audited DM reads and DM search, the Mod feedback feed, and notifications with their page, unread count and pointer-only emails.
+
+Definition of done:
+
+- Migrations: ThreadParticipant added\_by and left\_at; Block; the reshaped Report; ModerationAction scope\_subforum, declined\_by, decline\_reason, public\_summary\_draft and the declined and withdrawn statuses; the read\_only kind renamed probation, with a data migration; Notification emailed\_at; NotificationPreference. Registry rows for every new setting.
+- DM tests for every row of the Direct messages table: each pairing allowed and refused, restricted and banned members, the group cap and pairwise rule, joining and leaving visibility, blocking (including that staff cannot be blocked), the new-conversation cap, and that DM messages count toward nothing.
+- Queue tests: each item type is visible to exactly the staff the table names; a second action on a handled item changes nothing; escalated items resolve only for Admins and Owners; hiding requires a preset reason and notifies the author.
+- Report tests: the daily limit, duplicate reports, reporter anonymity towards the reported member, and DM reports invisible to Moderators.
+- Flag tests at each threshold, including that a request-rate trip makes the account read-only and queues a flag.
+- Moderation tests: decline and withdraw stay off the public record; a Moderator's suspension applies only in their sub-forums; site-wide actions and Probation refuse a Moderator-only pair; an action past ends\_at stops applying before the expiry job runs; lifting a ban restores the previous status and shows as lifted without the means.
+- Audit tests: an Admin's DM read, a DM-bearing search and an identity reveal each write one entry; no entry's payload contains a real name or DM text.
+- Feed and notification tests: Moderators never see DM-related feed items; emails contain no content or sender; optional kinds are off by default and batched to one a day.
+
 Later milestones follow the build order in Recommended direction.
 
 ### Repository
@@ -466,21 +554,20 @@ Change workflow (decided 3 Oct 2026): this file is the single authority for the 
 
 ## Open questions for later sessions
 
-Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, probation thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen), onboarding flow and invitation states, account created at acceptance, invitee decline and sponsor rescind, email-only identity check at launch, complimentary Guest-to-Provisional path, invitation expiry, Markdown allow-list, outside links, images, mentions, quotes, page sizes, post and thread editing and deletion, Thread Graveyard and Thread Classics, profiles without post counts, plain pages with the look decided later.
+Decided on 2 and 3 Oct 2026 and written into the sections above: platform (Django), sponsorship caps and transfer, Provisional-period thresholds, identity-check depth, Moderator DM access, payment provider (Stripe), hosting and jurisdiction (US, GDPR as an ideal), initial sub-forums, authentication, repository visibility, Guest Lobby posting and rate limit, per-role rate limits, held-post counting, sponsor caps for scoped Moderators, sponsor review in place of the automatic sponsor ban, held-post visibility, staff notes without approval, staff acting only on lower ranks, invitation waitlist, replies in locked threads, archived threads, rejected-post visibility, password reset, code licence (MIT), platforms (browser only, installable to the home screen), onboarding flow and invitation states, account created at acceptance, invitee decline and sponsor rescind, email-only identity check at launch, complimentary Guest-to-Provisional path, invitation expiry, Markdown allow-list, outside links, images, mentions, quotes, page sizes, post and thread editing and deletion, Thread Graveyard and Thread Classics, profiles without post counts, plain pages with the look decided later, deleted-quote display, direct messages (who may message whom, groups, content, blocking, read position, notice, reporting), the moderation queue, hiding, escalation, reports, automatic flags, declining and withdrawing actions, scoped suspensions and holds, Probation as the disciplinary status, public summaries, expiry and ban lifting, staff views, audited DM reads and DM search, the Mod feedback feed, notifications and email.
 
 Still open:
 
 - [ ] Pricing, trial period, and whether a sponsor can gift a first month.
 - [ ] Sponsorship cap for Full members (default 1 is assumed).
 - [ ] Whether a member may voluntarily change sponsor, outside the forced transfer when a sponsor leaves.
-- [ ] What fails probation, beyond a ban: for example a warning count or a Moderator recommendation.
+- [ ] What fails the Provisional period, beyond a ban: for example a warning count or a Moderator recommendation.
 - [ ] Proposed defaults awaiting confirmation: transfer grace period 30 days, edit window 30 minutes, audit retention 2 years, scraping threshold 600 requests per 10 minutes, deletion of ended invited accounts after 30 days.
 - [ ] Whether someone whose invitation was declined by an Admin can be invited again, and by whom.
 - [ ] The forum's visual look, in a design pass once the plain pages exist.
 - [ ] Non-image attachments (for example PDFs for Seminars), if a need appears.
-- [ ] Proposed caps awaiting confirmation: 4 images and 5 MB per image per post, 10 notified mentions per post.
-- [ ] What the Mod feedback feed shows, and who reads it.
-- [ ] How a locked-out member sends an appeal to Admins: a public form adds an unauthenticated page; an email address does not.
+- [ ] Proposed caps awaiting confirmation: 4 images and 5 MB per image per post, 10 notified mentions per post, 8 DM participants, 10 new DM conversations and 10 reports per member per day, and the automatic flag thresholds.
+- [ ] How a member who cannot sign in at all sends an appeal to Admins: a public form adds an unauthenticated page; an email address does not. Banned members can sign in and appeal by DM to Admins and Owners (decided 3 Oct 2026).
 - [ ] Deleting audit entries at the end of the retention period, given the append-only trigger (deferred 3 Oct 2026).
 - [ ] Web push notifications: whether to offer them, for which events, and what a notification may contain (a push message passes through Apple's or Google's servers, so no post content).
 - [ ] Legal review of the member agreement and privacy notice before any member joins.

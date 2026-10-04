@@ -105,6 +105,21 @@ class RoleAssignment(HistoryRowMixin, models.Model):
         return f"{self.user} {self.role}{scope}"
 
 
+class Block(models.Model):
+    """One member blocking another from DMs and mention notifications (docs/DESIGN.md, Direct
+    messages). The blocked member is not told. Staff cannot be blocked."""
+
+    blocker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="blocks_made")
+    blocked = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="blocks_received")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["blocker", "blocked"], name="one_block_per_pair"),
+            models.CheckConstraint(condition=~Q(blocker=models.F("blocked")), name="no_self_block"),
+        ]
+
+
 class IdentityRecord(models.Model):
     """The identity check. Kept apart from the profile, encrypted, and readable only through
     its own permission check (identity.read)."""

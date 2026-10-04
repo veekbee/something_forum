@@ -12,7 +12,9 @@
     <a class="brand" href="{% url 'home' %}">Forum</a>
     {% if user.is_authenticated %}
     <nav>
-      {% if nav_forum %}<a href="{% url 'search' %}">Search</a><a href="{% url 'member_profile' user.slug %}">Profile</a>{% endif %}
+      {% if nav_forum %}<a href="{% url 'search' %}">Search</a>{% endif %}
+      <a href="{% url 'inbox' %}">Messages{% if nav_unread_messages %} ({{ nav_unread_messages }}){% endif %}</a>
+      {% if nav_forum %}<a href="{% url 'member_profile' user.slug %}">Profile</a>{% endif %}
       {% if nav_invite %}<a href="{% url 'invitations' %}">Invitations</a>{% endif %}
       {% if nav_review %}<a href="{% url 'review_queue' %}">Review queue</a>{% endif %}
       <form class="inline-form" method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button class="secondary">Sign out</button></form>
