@@ -78,14 +78,17 @@ def count_request(user):
 
 
 class RequestRateMiddleware:
-    """Counts each signed-in member's requests (design: anti-scraping). Runs after access control,
-    so only sessions that passed TOTP are counted."""
+    """Counts each signed-in member's page loads and HTMX fragments (rule 60): HTML responses only,
+    never CSS, JavaScript, icons, images or emoji. Runs after access control, so only sessions that
+    passed TOTP are counted."""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        response = self.get_response(request)
         user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated:
+        if (user is not None and user.is_authenticated
+                and response.get("Content-Type", "").startswith("text/html")):
             count_request(user)
-        return self.get_response(request)
+        return response

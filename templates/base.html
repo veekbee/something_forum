@@ -4,12 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>{% block title %}Forum{% endblock %}</title>
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <link rel="apple-touch-icon" href="{% url 'icon' 'apple-touch-icon' %}">
+  <meta name="theme-color" content="#2f5d8a">
 </head>
 <body>
   <header class="site"><div class="inner">
-    <a class="brand" href="{% url 'home' %}">Forum</a>
+    <a class="brand" href="{% url 'home' %}">{{ site_name }}</a>
     {% if user.is_authenticated %}
     <nav>
       {% if nav_forum %}<a href="{% url 'search' %}">Search</a>{% endif %}
@@ -29,6 +32,12 @@
   <main>
   {% if nav_transfer %}<p class="notice warn">You need a new sponsor, and your account is read-only until you have one. <a href="{% url 'transfer_status' %}">What this means</a></p>{% endif %}
   {% block content %}{% endblock %}</main>
+  <footer class="site"><div class="inner">
+    {% if user.is_authenticated %}<a href="{% url 'install_help' %}">Add to your home screen</a>{% endif %}
+    <a href="{% url 'legal' 'member-agreement' %}">Member agreement</a>
+    <a href="{% url 'legal' 'privacy' %}">Privacy notice</a>
+  </div></footer>
+  <script src="{% static 'js/sw-register.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

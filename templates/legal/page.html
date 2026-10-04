@@ -1,0 +1,18 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ title }}: {{ site_name }}</title>
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+</head>
+<body>
+  <main>
+    <h1>{{ title }}</h1>
+    <p class="notice warn"><strong>Draft.</strong> This text is a placeholder awaiting legal review. Nobody joins {{ site_name }} until the reviewed text replaces it.</p>
+    {% for paragraph in body %}<p>{{ paragraph }}</p>{% endfor %}
+    <p><a href="{% url 'legal' 'member-agreement' %}">Member agreement</a> · <a href="{% url 'legal' 'privacy' %}">Privacy notice</a></p>
+  </main>
+</body>
+</html>

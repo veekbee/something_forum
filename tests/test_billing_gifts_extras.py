@@ -126,7 +126,7 @@ def test_avatars_show_to_members_and_default_to_initials(client, make_user):
 
     member, viewer = make_user("provisional"), make_user("full")
     html = Template("{% load forum %}{% avatar m %}").render(Context({"m": member}))
-    assert "<span class=\"avatar\"" in html
+    assert "<span class=\"avatar avatar-c" in html and "style=" not in html
     _completed(member, "extra", 1000, extra="avatar_caption")
     extras.set_avatar_and_caption(member, _image(), "")
     member.refresh_from_db()

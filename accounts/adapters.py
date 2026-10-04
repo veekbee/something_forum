@@ -1,4 +1,5 @@
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.mfa.adapter import DefaultMFAAdapter
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -15,3 +16,11 @@ class AccountAdapter(DefaultAccountAdapter):
         if is_permanently_banned(user):
             return render(request, "account/permanently_banned.html", status=403)
         return super().pre_login(request, user, **kwargs)
+
+
+class MFAAdapter(DefaultMFAAdapter):
+    def get_totp_issuer(self):
+        """Authenticator apps show the forum's name from the site.name setting."""
+        from core import registry
+
+        return registry.site_value("site.name")

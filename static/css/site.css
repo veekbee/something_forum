@@ -73,3 +73,19 @@ select { font: inherit; padding: .5rem; width: 100%; color: inherit; background:
 .mention-list button { width: 100%; text-align: left; background: transparent; color: var(--text); border: 0; border-radius: 0; }
 .avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 600; font-size: .85rem; vertical-align: middle; object-fit: cover; margin-right: .4rem; }
 .caption { display: block; color: var(--muted); font-size: .85rem; }
+
+/* Generated avatars: colour and size as classes, since inline styles are not allowed (rule 64). */
+.avatar-c0 { background: #2f5d8a; }
+.avatar-c1 { background: #8a4b0f; }
+.avatar-c2 { background: #2e6b3a; }
+.avatar-c3 { background: #6b2e5f; }
+.avatar-c4 { background: #5f5a1e; }
+.avatar-c5 { background: #1e5f5a; }
+.avatar-c6 { background: #7a2e2e; }
+.avatar-c7 { background: #3e3e7a; }
+.avatar-s32 { width: 32px; height: 32px; }
+.avatar-s40 { width: 40px; height: 40px; }
+.avatar-s56 { width: 56px; height: 56px; }
+
+footer.site { border-top: 1px solid var(--line); margin-top: calc(var(--space) * 2); padding: var(--space) 0; font-size: .9rem; }
+footer.site .inner { max-width: 46rem; margin: 0 auto; padding: 0 var(--space); display: flex; flex-wrap: wrap; gap: .5rem 1rem; }

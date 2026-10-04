@@ -20,6 +20,25 @@ class NoIndexMiddleware:
         return response
 
 
+class ContentSecurityPolicyMiddleware:
+    """Rule 64: scripts and styles only from the site itself, no inline script or style, so a
+    rendering bug cannot run injected script. Images may also come from the object store, where
+    attachments are served by signed URL (settings.CSP_EXTRA_IMG_SRC)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        img = " ".join(["'self'", *settings.CSP_EXTRA_IMG_SRC])
+        self.policy = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; "
+            f"img-src {img}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        )
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response.setdefault("Content-Security-Policy", self.policy)
+        return response
+
+
 def _matches(path, prefixes):
     return any(path.startswith(prefix) for prefix in prefixes)
 

@@ -53,3 +53,41 @@ def site_settings(request):
              "description": s.description} for s in registry.REGISTRY.values() if registry.SITE in s.scopes]
     launch = AuditEntry.objects.filter(action="billing.launch").order_by("created_at").first()
     return render(request, "core/site_settings.html", {"rows": rows, "launch": launch})
+
+
+# --- public pages: legal notices and the offline page -------------------------------------------
+
+LEGAL_PAGES = {
+    "member-agreement": ("Member agreement", [
+        "This page will hold the agreement every member accepts on joining: membership by sponsorship, "
+        "the annual fee and its automatic renewal, conduct, moderation and the Rap Sheet, and what "
+        "happens to an account that lapses or is banned.",
+    ]),
+    "privacy": ("Privacy notice", [
+        "This page will describe what the forum keeps about members and why: account and identity "
+        "details, posts and direct messages, sessions and the shortened addresses they record, "
+        "payments through Stripe, and the permanent-ban list, which survives erasure.",
+    ]),
+}
+
+
+@require_GET
+def legal(request, slug):
+    """Rule 65: the legal pages exist, public, with placeholder text marked as a draft."""
+    from django.http import Http404
+
+    if slug not in LEGAL_PAGES:
+        raise Http404
+    title, body = LEGAL_PAGES[slug]
+    return render(request, "legal/page.html", {"title": title, "body": body})
+
+
+@require_GET
+def offline(request):
+    """Shown by the service worker when an installed copy has no connection. No member content."""
+    return render(request, "offline.html")
+
+
+@require_GET
+def install_help(request):
+    return render(request, "help/install.html")

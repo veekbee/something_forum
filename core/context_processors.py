@@ -1,6 +1,13 @@
 from core.permissions import can
 
 
+def site(request):
+    """The forum's name, from the site.name setting, on every page including public ones."""
+    from core import registry
+
+    return {"site_name": registry.site_value("site.name")}
+
+
 def nav(request):
     """Navigation links, decided by the permission service rather than by role checks in templates."""
     user = getattr(request, "user", None)

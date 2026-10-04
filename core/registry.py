@@ -50,6 +50,11 @@ def _choice(*choices):
     return validate
 
 
+def _text(value):
+    if not isinstance(value, str) or not value.strip():
+        raise ValidationError("must be some text")
+
+
 def _role(value):
     _choice(*ROLE_NAMES)(value)
 
@@ -131,7 +136,31 @@ _SETTINGS = [
     Setting("retention.audit_years_after_departure", 2, frozenset({SITE}), _positive_int, "proposed",
             "Years audit and moderation records are kept after a member leaves."),
     Setting("scraping.requests_per_10_min", 600, frozenset({SITE}), _positive_int, "proposed",
-            "Per-member request limit before the account is made read-only."),
+            "Per-member page and fragment requests per 10 minutes before the account is made read-only."),
+    Setting("session.concurrency_window_minutes", 30, frozenset({SITE}), _positive_int, "proposed",
+            "Two devices active within this many minutes in different countries count as concurrent."),
+    Setting("session.member_lifetime_days", 30, frozenset({SITE}), _positive_int, "proposed",
+            "Longest a member's session lasts."),
+    Setting("session.member_idle_days", 14, frozenset({SITE}), _positive_int, "proposed",
+            "A member's session ends after this many days unused."),
+    Setting("session.staff_lifetime_days", 7, frozenset({SITE}), _positive_int, "proposed",
+            "Longest an Admin's or Owner's session lasts."),
+    Setting("session.staff_idle_days", 1, frozenset({SITE}), _positive_int, "proposed",
+            "An Admin's or Owner's session ends after this many days unused."),
+    Setting("session.retention_days", 90, frozenset({SITE}), _positive_int, "proposed",
+            "Days a session record is kept after the session ends."),
+    Setting("watermark.enabled", True, frozenset({SITE}), _bool, "confirmed",
+            "Mark post bodies and DM messages per session. Characters and positions are configuration."),
+    Setting("emoji.max_height_px", 128, frozenset({SITE}), _positive_int, "proposed",
+            "Tallest custom emoji upload, in pixels."),
+    Setting("emoji.max_aspect_ratio", 3, frozenset({SITE}), _positive_int, "confirmed",
+            "A custom emoji may be up to this many times as wide as it is tall."),
+    Setting("emoji.max_kb", 512, frozenset({SITE}), _positive_int, "proposed",
+            "Largest custom emoji upload, in kilobytes."),
+    Setting("emoji.allow_animated", True, frozenset({SITE}), _bool, "confirmed",
+            "Whether animated GIF emoji are accepted."),
+    Setting("site.name", "Something Forum", frozenset({SITE}), _text, "confirmed",
+            "The forum's name: page titles, the home-screen manifest and authenticator apps. A working title."),
     Setting("dm.max_participants", 8, frozenset({SITE}), _positive_int, "proposed",
             "People in one direct-message conversation."),
     Setting("dm.max_new_conversations_per_day", 10, frozenset({SITE}), _positive_int, "proposed",

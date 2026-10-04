@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "core.middleware.NoIndexMiddleware",
+    "core.middleware.ContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -61,6 +62,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "core.context_processors.site",
                 "core.context_processors.nav",
             ],
         },
@@ -95,15 +97,24 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = True
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
-MFA_TOTP_ISSUER = env("SITE_NAME", default="Something Forum")
+MFA_ADAPTER = "accounts.adapters.MFAAdapter"  # issuer from the site.name setting
 
 # Paths reachable without a session (design rule 9). Prefix match.
+# Origins besides the site itself that images may load from: the object store's address when
+# attachments are served from a bucket by signed URL. Space-separated.
+CSP_EXTRA_IMG_SRC = env("CSP_EXTRA_IMG_SRC", default="").split()
+
 PUBLIC_PATH_PREFIXES = [
     "/accounts/login/",
     "/accounts/2fa/authenticate/",  # second step of login, before the session is complete
     "/accounts/password/reset/",  # reset by link to a verified address; TOTP still applies at login
     "/robots.txt",
     "/legal/",
+    # Installability (rule 14): no member content in any of these.
+    "/manifest.webmanifest",
+    "/sw.js",
+    "/icons/",
+    "/offline/",
     "/invitations/accept/",
     "/billing/stripe/webhook/",
 ]
