@@ -2,43 +2,37 @@
 {% load forum %}
 {% block title %}{{ member.display_name }}{% endblock %}
 {% block content %}
-<h1>{% avatar member 56 %}{{ member.display_name }}</h1>
-{% if member.caption %}<p class="caption">{{ member.caption }}</p>{% endif %}
-<section class="panel">
-  <p>{% if member.removed_at %}Membership ended {{ member.removed_at|date:"j M Y" }}{% else %}{% if role %}{{ role.name|capfirst }}{% endif %}{% if member.status == "read_only" %} · read-only (lapsed){% endif %}{% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
-  {% if may_message or may_block or may_report or may_act or may_vouch %}<div class="actions">
-    {% if may_report %}<a href="{% url 'report_member' member.slug %}">Report</a>{% endif %}
-    {% if may_act %}<a href="{% url 'take_action' member.slug %}">Moderate</a><a href="{% url 'staff_member' member.slug %}">Staff view</a>{% endif %}
-    {% if may_message %}<a class="button" href="{% url 'new_conversation' %}?to={{ member.slug }}">Message</a>{% endif %}
-    {% if may_vouch %}<a href="{% url 'vouch' member.slug %}">Offer to vouch</a>{% endif %}
-    {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
-  </div>{% endif %}
-  {% if may_customise %}<p><a href="{% url 'customise' %}">Change your avatar and caption</a></p>{% elif own %}<p><a href="{% url 'extras' %}">Extras</a></p>{% endif %}
-  {% if own %}<p><a href="{% url 'leave' %}">Leave the forum</a></p>{% endif %}
-  {% if own %}<p><a href="{% url 'sessions' %}">Your sessions</a> · <a href="{% url 'display_settings' %}">How emoji show</a> · <a href="{% url 'emoji_list' %}">Custom emoji</a></p>{% endif %}
-  {% if private %}
-  <p class="muted">Only you see this: {{ private.post_count }} post{{ private.post_count|pluralize }}.
-    {% if private.progress %}Toward {{ private.progress.toward }}: {{ private.progress.days }} of {{ private.progress.days_needed }} days{% if private.progress.posts_needed %}, {{ private.progress.posts }} of {{ private.progress.posts_needed }} posts{% endif %}{% if private.progress.in_progress %}; a promotion is in progress{% endif %}.{% endif %}</p>
-  {% endif %}
-</section>
-{% if classics %}
-<h2>Thread Classics</h2>
-<ul class="list panel">{% for t in classics %}<li><a href="{% url 'thread' t.pk %}">{{ t.title }}</a></li>{% endfor %}</ul>
-{% endif %}
-{% if record_count is not None %}
-<p><a href="{% url 'rap_sheet' member.slug %}">Rap Sheet</a> <span class="muted">· {{ record_count }} entr{{ record_count|pluralize:"y,ies" }}</span></p>
-{% endif %}
-<h2>Posts</h2>
+<div class="profile-head">{% avatar member 56 %}
+  <div><h1>{{ member.display_name }}</h1>
+    {% if member.caption %}<div class="cap caption">{{ member.caption }}</div>{% endif %}
+    <div class="muted small">{% if member.removed_at %}Membership ended {{ member.removed_at|date:"j M Y" }}{% else %}{% if role %}{{ role.name|capfirst }}{% endif %}{% if member.status == "read_only" %} · read-only (lapsed){% endif %}{% endif %} · joined {{ member.joined_at|date:"j M Y" }}</div>
+  </div>
+</div>
+{% if may_message or may_block or may_report or may_act or may_vouch %}<div class="actions">
+  {% if may_message %}<a class="button" href="{% url 'new_conversation' %}?to={{ member.slug }}">Message</a>{% endif %}
+  {% if may_vouch %}<a href="{% url 'vouch' member.slug %}">Offer to vouch</a>{% endif %}
+  {% if may_report %}<a href="{% url 'report_member' member.slug %}">Report</a>{% endif %}
+  {% if may_act %}<a href="{% url 'take_action' member.slug %}">Moderate</a><a href="{% url 'staff_member' member.slug %}">Staff view</a>{% endif %}
+  {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
+</div>{% endif %}
+<dl class="facts">
+  {% if classics %}<dt>Thread Classics</dt><dd>{% for t in classics %}<a href="{% url 'thread' t.pk %}">{{ t.title }}</a>{% if not forloop.last %}<br>{% endif %}{% endfor %}</dd>{% endif %}
+  {% if record_count is not None %}<dt>Rap Sheet</dt><dd><a href="{% url 'rap_sheet' member.slug %}">Rap Sheet</a> <span class="muted">· {{ record_count }} entr{{ record_count|pluralize:"y,ies" }}</span></dd>{% endif %}
+  {% if private %}<dt>Only you see this</dt><dd>{{ private.post_count }} post{{ private.post_count|pluralize }}{% if private.progress %}. Toward {{ private.progress.toward }}: {{ private.progress.days }} of {{ private.progress.days_needed }} days{% if private.progress.posts_needed %}, {{ private.progress.posts }} of {{ private.progress.posts_needed }} posts{% endif %}{% if private.progress.in_progress %}; a promotion is in progress{% endif %}{% endif %}.</dd>{% endif %}
+</dl>
+{% if own %}<p class="small">{% if may_customise %}<a href="{% url 'customise' %}">Change your avatar and caption</a>{% else %}<a href="{% url 'extras' %}">Extras</a>{% endif %} · <a href="{% url 'sessions' %}">Your sessions</a> · <a href="{% url 'display_settings' %}">How emoji show</a> · <a href="{% url 'emoji_list' %}">Custom emoji</a> · <a href="{% url 'leave' %}">Leave the forum</a></p>{% endif %}
+<div class="section-head">Posts</div>
 {% if page.object_list %}
-<ul class="list panel">
+<table class="list"><tbody>
   {% for post in page.object_list %}
-  <li><a href="{% url 'thread' post.thread_id %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.created_at|date:"j M Y" }}</span>
-    {% if post.is_held %}<span class="status pending">Held for review</span>{% endif %}
-    {% if post.rejected_at %}<span class="status">Rejected</span>{% endif %}
-    {% if post.deleted_at %}<span class="status">{% if post.deleted_by_id == post.author_id %}Deleted{% else %}Removed by staff: {{ post.delete_reason }}{% endif %}</span>{% endif %}
-    <div class="excerpt">{{ post.body_source|truncatechars:200 }}</div></li>
+  <tr><td><a class="title{% if post.deleted_at or post.rejected_at %} muted{% endif %}" href="{% url 'thread' post.thread_id %}">{{ post.thread.title }}</a>
+    {% if post.is_held %}<span class="tag pending">Held for review</span>{% endif %}
+    {% if post.rejected_at %}<span class="tag">Rejected</span>{% endif %}
+    {% if post.deleted_at %}<span class="tag">{% if post.deleted_by_id == post.author_id %}Deleted{% else %}Removed by staff: {{ post.delete_reason }}{% endif %}</span>{% endif %}
+    <span class="sub">{% if post.thread.subforum %}{{ post.thread.subforum.name }} · {% endif %}{{ post.created_at|date:"j M Y" }}</span>
+    <span class="sub excerpt">{{ post.body_source|truncatechars:200 }}</span></td></tr>
   {% endfor %}
-</ul>
+</tbody></table>
 {% include "boards/_pagination.html" %}
 {% else %}<p class="muted">No posts to show.</p>{% endif %}
 {% endblock %}

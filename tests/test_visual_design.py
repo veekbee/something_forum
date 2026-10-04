@@ -167,3 +167,70 @@ def test_a_supplied_logo_replaces_wordmark_and_icons(client, make_user, settings
     assert icon.getpixel((256, 256)) == (0x12, 0x34, 0x56)
     finders.get_finder.cache_clear()
     cache.clear()
+
+
+# --- forum, thread, DM and profile pages -------------------------------------------------------
+
+
+def test_index_is_a_table_that_collapses(make_user):
+    page = signed_in(make_user("full")).get("/").content.decode()
+    assert '<table class="list forums">' in page and '<th class="n">Threads</th>' in page
+    assert 'data-label="threads"' in page and 'class="section-head">Where threads end' in page
+
+
+def test_thread_page_author_column_and_notes(make_user, general):
+    from boards import services
+    from tests.factories import make_thread
+
+    author = make_user("full")
+    author.caption = "slow reader"
+    author.save(update_fields=["caption"])
+    thread = make_thread(general, author)
+    post = services.reply(author, thread, "a slur here")
+    mod = make_user("moderator")
+    services.edit_post(mod, post, "[removed]", redact=True, redaction_reason="personal_attack")
+    page = signed_in(make_user("full")).get(f"/t/{thread.pk}/").content.decode()
+    column = page[page.index('<div class="author">'):]
+    column = column[:column.index("</div>")]
+    assert "slow reader" in column and "Full · joined" in column and "avatar-s56" in column
+    assert '<span class="red">redacted by staff: personal attack</span>' in page
+    assert f'<p class="crumbs"><a href="/">Forum</a> › <a href="/f/{general.slug}/">' in page
+
+
+def test_reply_form_states_the_limit_and_the_next_time(make_user, serious):
+    from boards import services
+    from tests.factories import make_thread
+
+    member = make_user("full")
+    thread = make_thread(serious, make_user("full"))
+    client = signed_in(member)
+    page = client.get(f"/t/{thread.pk}/").content.decode()
+    assert "Serious Discussion allows 1 post per member per day." in page and "You can post here again" not in page
+    services.reply(member, thread, "my one post today")
+    page = client.get(f"/t/{thread.pk}/").content.decode()
+    assert "You can post here again at" in page and "You can't reply until then." in page
+    assert "Post reply" not in page
+
+
+def test_no_limit_line_where_posting_is_unlimited(make_user, general):
+    from tests.factories import make_thread
+
+    page = signed_in(make_user("full")).get(f"/t/{make_thread(general, make_user('full')).pk}/").content.decode()
+    assert 'class="limit"' not in page and "Post reply" in page
+
+
+def test_conversation_layout(make_user):
+    from boards import messages
+
+    a, b = make_user("full"), make_user("full")
+    conversation, _ = messages.start(a, [b], "Plans", "see you there")
+    page = signed_in(b).get(f"/messages/{conversation.pk}/").content.decode()
+    assert '<p class="dm-notice" id="notice">' in page and '<div class="msg' in page
+    assert '<span class="compose-note"><a href="#notice">' in page
+
+
+def test_profile_head_and_facts(make_user):
+    member = make_user("full")
+    page = signed_in(member).get(f"/members/{member.slug}/").content.decode()
+    assert '<div class="profile-head">' in page and '<dl class="facts">' in page
+    assert 'class="section-head">Posts' in page

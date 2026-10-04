@@ -2,46 +2,41 @@
 {% load static forum %}
 {% block title %}{{ thread.title }}{% endblock %}
 {% block content %}
-<p class="crumbs"><a href="{% url 'inbox' %}">Messages</a></p>
-<h1>{{ thread.title }}</h1>
-<p class="notice" id="notice">{{ notice }}</p>
-<section class="panel">
-  <h2>People</h2>
-  <ul class="list">
-    {% for p in participants %}
-    <li><a href="{% url 'member_profile' p.user.slug %}">{{ p.user.display_name }}</a>
-      <span class="muted">{% if p.added_by %}added by {{ p.added_by.display_name }} {% endif %}{{ p.joined_at|date:"j M Y" }}{% if p.left_at %} · left {{ p.left_at|date:"j M Y" }}{% endif %}</span>
-      {% if p.user in removable %}<form class="inline-form" method="post" action="{% url 'dm_remove' thread.pk p.user.pk %}">{% csrf_token %}<button class="secondary">Remove</button></form>{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  <div class="actions">
-    {% if may_add %}<form method="post" action="{% url 'dm_add' thread.pk %}">{% csrf_token %}<input type="text" name="who" placeholder="Add someone" aria-label="Add someone"> <button class="secondary">Add</button></form>{% endif %}
-    {% if may_leave %}<form method="post" action="{% url 'dm_leave' thread.pk %}">{% csrf_token %}<button class="secondary">Leave</button></form>{% endif %}
-  </div>
-</section>
+<p class="crumbs"><a href="{% url 'inbox' %}">Messages</a> › {{ thread.title }}</p>
+<div class="titlebar"><h1>{{ thread.title }}</h1>
+  <div class="actions">{% if may_leave %}<form method="post" action="{% url 'dm_leave' thread.pk %}">{% csrf_token %}<button class="secondary">Leave</button></form>{% endif %}</div></div>
+<p class="dm-notice" id="notice">{{ notice }}</p>
 
 {% for entry in entries %}{% with post=entry.post %}
-<article class="panel post{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}">
-  <header class="meta"><a href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a>
-    <span class="muted">· {{ post.created_at|date:"j M Y, H:i" }}{% if post.edited_at %} · edited{% endif %}</span>
-    {% if post.deleted_at %}<span class="status">Deleted</span>{% endif %}</header>
+<div class="msg{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}">
+  <div class="who">{% avatar post.author 32 %}<a class="name" href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a><span>{{ post.created_at|date:"j M Y, H:i" }}{% if post.edited_at %} · edited{% endif %}</span>
+    {% if post.deleted_at %}<span class="tag">Deleted</span>{% endif %}</div>
   <div class="body">{% watermarked post.body_html %}</div>
-  <div class="actions">
+  {% if entry.may_edit or entry.may_delete or entry.may_report %}<div class="actions small">
     {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
     {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}
     {% if entry.may_report %}<a href="{% url 'report_post' post.pk %}">Report</a>{% endif %}
-  </div>
-</article>
+  </div>{% endif %}
+</div>
 {% endwith %}{% endfor %}
 {% include "boards/_pagination.html" %}
 
 {% if form %}
-<form class="panel" id="reply" method="post" action="{% url 'dm_send' thread.pk %}" enctype="multipart/form-data">{% csrf_token %}
+<form class="reply" id="reply" method="post" action="{% url 'dm_send' thread.pk %}" enctype="multipart/form-data">{% csrf_token %}
   {% include "boards/_editor.html" %}
-  <p class="helptext"><a href="#notice">{{ short_notice }}</a></p>
-  <button>Send</button>
+  <div class="formrow"><span class="compose-note"><a href="#notice">{{ short_notice }}</a></span><button>Send</button></div>
 </form>
 {% elif cannot_send %}<p class="notice">You can read this conversation but not send to it: {{ cannot_send }}.</p>{% endif %}
+
+<div class="section-head">People</div>
+<ul class="list small">
+  {% for p in participants %}
+  <li><a href="{% url 'member_profile' p.user.slug %}">{{ p.user.display_name }}</a>
+    <span class="muted">{% if p.added_by %}added by {{ p.added_by.display_name }} {% endif %}{{ p.joined_at|date:"j M Y" }}{% if p.left_at %} · left {{ p.left_at|date:"j M Y" }}{% endif %}</span>
+    {% if p.user in removable %}<form class="inline-form" method="post" action="{% url 'dm_remove' thread.pk p.user.pk %}">{% csrf_token %}<button class="secondary">Remove</button></form>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% if may_add %}<form class="inline-form" method="post" action="{% url 'dm_add' thread.pk %}">{% csrf_token %}<input type="text" name="who" placeholder="Add someone" aria-label="Add someone"> <button class="secondary">Add</button></form>{% endif %}
 {% endblock %}
 {% block scripts %}<script src="{% static 'js/mentions.js' %}" defer></script>{% endblock %}

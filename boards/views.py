@@ -133,15 +133,17 @@ def _thread_or_404(user, pk):
 def _post_notes(posts):
     """Per post: shown as edited by staff, or redacted by staff (design: editing and deleting)."""
     revisions = PostRevision.objects.filter(post__in=posts).order_by("edited_at", "pk")
-    latest, redacted = {}, set()
+    latest, redacted = {}, {}
     for revision in revisions:
         latest[revision.post_id] = revision
         if revision.is_redaction:
-            redacted.add(revision.post_id)
+            redacted[revision.post_id] = revision.redaction_reason
     notes = {}
     for post in posts:
         if post.pk in redacted:
-            notes[post.pk] = "redacted by staff"
+            # The redaction's reason shows beside the note (docs/DESIGN.md, Visual design).
+            reason = redacted[post.pk]
+            notes[post.pk] = f"redacted by staff: {reason[0].lower()}{reason[1:]}" if reason else "redacted by staff"
         elif post.pk in latest and latest[post.pk].edited_by_id != post.author_id:
             notes[post.pk] = "edited by staff"
     return notes
@@ -178,11 +180,28 @@ def thread_page(request, pk):
     subforum = thread.subforum
     destinations = [sf for sf in SubForum.objects.filter(kind=SubForum.Kind.REGULAR)
                     if can(user, "thread.move", MoveRequest(thread, sf))]
+    # The author column shows each author's role (docs/DESIGN.md, Visual design).
+    author_roles = {}
+    for entry in entries:
+        author = entry["post"].author
+        if author.pk not in author_roles:
+            role = roles.trust_role(author)
+            author_roles[author.pk] = role.name.capitalize() if role else ""
+        entry["role"] = author_roles[author.pk]
+    # The reply form states the sub-forum's limit and when the member may next post.
+    from boards import limits
+
+    limit = limits.post_limit_for(user, subforum) if subforum else None
+    next_at = limits.next_post_at(user, subforum) if subforum else None
+    limited = not may_reply and getattr(may_reply, "code", "") == "rate_limit"
     return render(request, "boards/thread.html", {
         "thread": thread,
         "page": page,
         "entries": entries,
-        "form": PostForm(initial={"body": initial}) if may_reply else None,
+        "form": PostForm(initial={"body": initial}) if may_reply or limited else None,
+        "limited": limited,
+        "limit_text": limits.describe_limit(limit),
+        "next_post_at": next_at,
         "images": subforum.setting("subforum.images") if subforum else "off",
         "may": {
             "reply": may_reply,

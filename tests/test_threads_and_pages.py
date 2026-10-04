@@ -275,7 +275,7 @@ def test_post_count_only_for_the_member(client, make_user, general):
     _thread(make_user, general, member)
     enrol_totp(member)
     client.force_login(member)
-    assert b"Only you see this: 1 post" in client.get(f"/members/{member.slug}/").content
+    assert b"<dt>Only you see this</dt><dd>1 post." in client.get(f"/members/{member.slug}/").content
     other = make_user("full")
     enrol_totp(other)
     client.force_login(other)

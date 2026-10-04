@@ -31,8 +31,8 @@ def test_deleted_posts_leave_a_placeholder_naming_who(client, reader, make_user,
     mod = make_user("moderator")
     services.delete_post(mod, hidden, "personal_attack")
     page = client.get(f"/t/{thread.pk}/").content.decode()
-    assert "Deleted by the author." in page
-    assert f"Deleted by {mod.display_name}." in page
+    assert "Deleted by the author ·" in page
+    assert f"Deleted by {mod.display_name} ·" in page
     assert "my own words" not in page and "something nasty" not in page
 
 
