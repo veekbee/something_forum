@@ -490,6 +490,15 @@ def search(request):
     page = None
     if query:
         page = _page(request, visibility.search_posts(request.user, query), "pagination.search_results_per_page")
+        shown = sorted({p.thread_id for p in page.object_list if p.thread.kind == Thread.Kind.DM})
+        if shown:
+            # Rule 8: a search whose results show DM text counts as a read, one entry per page shown.
+            from django.db import transaction
+
+            from audit import log
+
+            with transaction.atomic():
+                log.record(request.user, "dm.search_read", request.user, {"threads": shown}, ip=request.META.get("REMOTE_ADDR"))
     return render(request, "boards/search.html", {"query": query, "page": page})
 
 

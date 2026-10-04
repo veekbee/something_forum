@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ member.display_name }}: staff view{% endblock %}
+{% block content %}
+<h1>{{ member.display_name }} <span class="muted">· staff view</span></h1>
+<p class="actions"><a href="{% url 'member_profile' member.slug %}">Public profile</a><a href="{% url 'take_action' member.slug %}">Moderate</a></p>
+
+{% if full %}
+<section class="panel"><h2>Identity details</h2>
+  {% if identity %}<p>Real name: <strong>{{ identity.real_name }}</strong>{% if identity.reviewed_at %} · checked {{ identity.reviewed_at|date:"j M Y" }}{% endif %}</p>
+  {% elif has_identity %}<form method="post">{% csrf_token %}<input type="hidden" name="reveal" value="1"><button class="secondary">Show identity details</button> <span class="helptext">Each use is recorded in the audit log.</span></form>
+  {% else %}<p class="muted">No identity record.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel"><h2>Sponsorship</h2>
+  {% for s in sponsorships %}<p>Sponsored by <a href="{% url 'staff_member' s.sponsor.slug %}">{{ s.sponsor.display_name }}</a> from {{ s.started_at|date:"j M Y" }}{% if s.ended_at %} to {{ s.ended_at|date:"j M Y" }} ({{ s.end_reason }}){% endif %}</p>{% empty %}<p class="muted">No sponsor on record.</p>{% endfor %}
+  <h3>Invitees</h3>
+  <ul class="list">{% for s in invitees %}<li><a href="{% url 'staff_member' s.member.slug %}">{{ s.member.display_name }}</a> <span class="muted">{{ s.started_at|date:"j M Y" }}{% if s.ended_at %} · ended ({{ s.end_reason }}){% endif %}</span></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+  <h3>Invitations</h3>
+  <ul class="list">{% for i in invitations %}<li>{{ i.invitee_email }} <span class="status {{ i.status }}">{{ i.get_status_display }}</span></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+
+<section class="panel"><h2>Moderation history</h2>
+  <ul class="list">{% for a in actions %}<li>{{ a.get_kind_display|capfirst }}{% if a.scope_subforum %} in {{ a.scope_subforum.name }}{% endif %} <span class="status">{{ a.get_status_display }}</span>
+    <div class="meta muted">{{ a.created_at|date:"j M Y" }} · {{ a.initiated_by.display_name }}{% if a.approved_by %} / {{ a.approved_by.display_name }}{% endif %}{% if a.declined_by %} · declined by {{ a.declined_by.display_name }}: {{ a.decline_reason }}{% endif %}</div>
+    <div class="muted">{{ a.internal_reason }}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+
+{% if full %}
+<section class="panel"><h2>Payment</h2>
+  {% if subscription %}<p>{{ subscription.get_status_display }}{% if subscription.comped_by %} (comped by {{ subscription.comped_by.display_name }}){% endif %}{% if subscription.current_period_end %} · paid to {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>{% else %}<p class="muted">No subscription.</p>{% endif %}
+</section>
+<section class="panel"><h2>Direct messages</h2>
+  <p class="helptext">Opening a conversation is recorded in the audit log.</p>
+  <ul class="list">{% for t in conversations %}<li><a href="{% url 'conversation' t.pk %}">{{ t.title }}</a> <span class="muted">{{ t.last_post_at|date:"j M Y" }}</span></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+<section class="panel"><h2>Blocks</h2>
+  <ul class="list">{% for b in blocks_made %}<li>Blocked {{ b.blocked.display_name }} <span class="muted">{{ b.created_at|date:"j M Y" }}</span></li>{% endfor %}
+  {% for b in blocks_received %}<li>Blocked by {{ b.blocker.display_name }} <span class="muted">{{ b.created_at|date:"j M Y" }}</span></li>{% endfor %}
+  {% if not blocks_made and not blocks_received %}<li class="muted">None.</li>{% endif %}</ul>
+</section>
+<section class="panel"><h2>Sessions</h2>
+  <ul class="list">{% for s in sessions %}<li>{{ s.approx_location|default:"Unknown place" }} · {{ s.user_agent|truncatechars:60 }} <span class="muted">last seen {{ s.last_seen_at|timesince }} ago{% if s.revoked_at %} · revoked{% endif %}</span></li>{% empty %}<li class="muted">No sessions recorded yet.</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<h2>Posts</h2>
+{% if page.object_list %}
+<ul class="list panel">{% for post in page.object_list %}<li><a href="{% url 'post_link' post.pk %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.thread.subforum.name }}, {{ post.created_at|date:"j M Y" }}</span>
+  {% if post.is_held %}<span class="status pending">Held</span>{% endif %}{% if post.rejected_at %}<span class="status">Rejected</span>{% endif %}{% if post.deleted_at %}<span class="status">Deleted</span>{% endif %}
+  <div class="excerpt">{{ post.body_source|truncatechars:200 }}</div></li>{% endfor %}</ul>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">No posts to show.</p>{% endif %}
+{% endblock %}

@@ -8,7 +8,7 @@
 {% if page.object_list %}
 <ul class="list panel">
   {% for post in page.object_list %}
-  <li><a href="{% url 'post_link' post.pk %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.author.display_name }}, {{ post.created_at|date:"j M Y" }}</span>
+  <li>{% if post.thread.kind == "dm" %}<span class="status">Direct message</span> {% endif %}<a href="{% url 'post_link' post.pk %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.author.display_name }}, {{ post.created_at|date:"j M Y" }}{% if post.deleted_at %} · deleted{% endif %}</span>
     <div class="excerpt">{{ post.body_source|truncatechars:200 }}</div></li>
   {% endfor %}
 </ul>

@@ -720,6 +720,40 @@ def _report_create(actor, target):
     return _member_view_profile(actor, target)
 
 
+# --- staff views ---------------------------------------------------------------------------
+
+
+@rule("member.staff_view")
+def _member_staff_view(actor, member):
+    """The per-member view (rule 37). Moderators get the limited tier; see member.staff_view_full."""
+    if not _staff_active(actor):
+        return deny("the per-member view is for staff")
+    if member.status in CLOSED_STATUSES - {User.Status.REMOVED}:
+        return deny("no such member")
+    return allow(via="full" if roles.is_admin_or_owner(actor) else "limited")
+
+
+@rule("member.staff_view_full")
+def _member_staff_view_full(actor, member):
+    """DMs, payment, sessions, blocks and the identity control: Admins and Owners only."""
+    base = _member_staff_view(actor, member)
+    if not base:
+        return base
+    return allow() if base.via == "full" else deny("Admins and Owners only")
+
+
+@rule("audit.view")
+def _audit_view(actor, _target):
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("the audit log is for Admins and Owners")
+    return allow()
+
+
+@rule("feed.view")
+def _feed_view(actor, _target):
+    return allow() if _staff_active(actor) else deny("the feed is for staff")
+
+
 # --- members ---------------------------------------------------------------------------------
 
 HIDDEN_STATUSES = {User.Status.INVITED, User.Status.REMOVED, User.Status.TOMBSTONE}

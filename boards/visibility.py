@@ -10,6 +10,11 @@ from boards.models import Post, SubForum, Thread
 from core.permissions import can
 
 
+def moderated_subforums(actor):
+    """Sub-forums `actor` moderates: every one for Admins and Owners and global Moderators."""
+    return [sf for sf in SubForum.objects.select_related("parent") if roles.moderates(actor, sf)]
+
+
 def readable_subforums(actor):
     return [sf for sf in SubForum.objects.select_related("parent") if can(actor, "subforum.read", sf)]
 
@@ -67,15 +72,38 @@ def post_history(viewer, member):
     return visible_posts(viewer).filter(author=member).order_by("-created_at")
 
 
+def searchable_dm_posts(actor):
+    """Rule 29: Admins and Owners search all DMs, deleted messages included; a Moderator searches
+    the DMs of members covered by an unexpired grant they hold; nobody else's search includes DMs.
+    Showing DM text in results counts as a read (see boards.views.search)."""
+    from django.utils import timezone
+
+    from accounts.models import User
+    from boards.models import ThreadParticipant
+    from moderation.models import DMAccessGrant
+
+    dms = Post.objects.filter(thread__kind=Thread.Kind.DM)
+    if actor.status != User.Status.ACTIVE:
+        return Post.objects.none()
+    if roles.is_admin_or_owner(actor):
+        return dms
+    if roles.is_moderator(actor):
+        grants = DMAccessGrant.objects.filter(moderator=actor, revoked_at__isnull=True, expires_at__gt=timezone.now())
+        subjects = User.objects.filter(pk__in=grants.values("subject_users")).values("pk")
+        threads = ThreadParticipant.objects.filter(user__in=subjects).values("thread_id")
+        return dms.filter(thread_id__in=threads, deleted_at__isnull=True)
+    return Post.objects.none()
+
+
 def search_posts(actor, text):
-    """PostgreSQL full-text search over post bodies and thread titles, limited to visible posts,
-    best match first."""
+    """PostgreSQL full-text search over post bodies and thread titles, limited to what the searcher
+    may read in the forum plus the DMs rule 29 opens to them, best match first."""
     query = SearchQuery(text, config="english", search_type="websearch")
     vector = SearchVector("thread__title", weight="A", config="english") + SearchVector(
         "body_source", weight="B", config="english"
     )
     return (
-        visible_posts(actor)
+        (visible_posts(actor) | searchable_dm_posts(actor))
         .annotate(search=vector)
         .filter(search=query)
         .annotate(rank=SearchRank(vector, query))

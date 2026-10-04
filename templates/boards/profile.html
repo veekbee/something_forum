@@ -6,7 +6,7 @@
   <p>{% if role %}{{ role.name|capfirst }}{% endif %}{% if member.status == "read_only" %} · read-only (lapsed){% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
   {% if may_message or may_block or may_report or may_act %}<div class="actions">
     {% if may_report %}<a href="{% url 'report_member' member.slug %}">Report</a>{% endif %}
-    {% if may_act %}<a href="{% url 'take_action' member.slug %}">Moderate</a>{% endif %}
+    {% if may_act %}<a href="{% url 'take_action' member.slug %}">Moderate</a><a href="{% url 'staff_member' member.slug %}">Staff view</a>{% endif %}
     {% if may_message %}<a class="button" href="{% url 'new_conversation' %}?to={{ member.slug }}">Message</a>{% endif %}
     {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
   </div>{% endif %}

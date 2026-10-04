@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<form class="panel" method="get">
+  <p><label for="actor">Actor (profile name)</label><input id="actor" type="text" name="actor" value="{{ params.actor }}"></p>
+  <p><label for="member">Member concerned</label><input id="member" type="text" name="member" value="{{ params.member }}"></p>
+  <p><label for="action">Action (or its start, e.g. "moderation.")</label><input id="action" type="text" name="action" value="{{ params.action }}"></p>
+  <p><label for="from">From</label><input id="from" type="date" name="from" value="{{ params.from }}"> <label for="to">To</label><input id="to" type="date" name="to" value="{{ params.to }}"></p>
+  <button>Filter</button>
+</form>
+<ul class="list panel">
+  {% for e in page.object_list %}
+  <li><strong>{{ e.action }}</strong> <span class="muted">· {{ e.created_at|date:"j M Y, H:i:s" }} · {{ e.actor.display_name|default:"system or invitee" }} · {{ e.target_type }} #{{ e.target_id }}</span>
+    {% if e.payload %}<pre class="source">{{ e.payload }}</pre>{% endif %}</li>
+  {% empty %}<li class="muted">No entries.</li>
+  {% endfor %}
+</ul>
+{% include "boards/_pagination.html" %}
+{% endblock %}

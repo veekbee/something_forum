@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Mod feedback feed{% endblock %}
+{% block content %}
+<h1>Mod feedback feed</h1>
+<p class="muted">Notes, escalations and their outcomes, declined and withdrawn actions, and sponsor review decisions.</p>
+<ul class="list panel">
+  {% for item in items %}<li><span class="status">{{ item.kind }}</span> {{ item.text }} <span class="muted">· {{ item.when|timesince }} ago</span></li>
+  {% empty %}<li class="muted">Nothing yet.</li>{% endfor %}
+</ul>
+{% endblock %}
