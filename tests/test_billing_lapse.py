@@ -15,7 +15,7 @@ from billing.models import LapsePeriod, Subscription
 from boards import messages
 from core.models import Notification
 from core.permissions import can
-from tests.factories import make_post, make_thread, sponsor
+from tests.factories import enrol_totp, make_post, make_thread, sponsor
 from tests.test_billing_webhooks import invoice_paid
 
 NOW = timezone.now()
@@ -246,3 +246,26 @@ def test_staff_never_lapse(make_user):
     lapse.run_daily(now=NOW + 30 * DAY)
     admin.refresh_from_db()
     assert admin.status == User.Status.ACTIVE
+
+
+def test_launch_date_shows_on_the_owners_settings_page(client, make_user, owner):
+    page = "/staff/settings/"
+    enrol_totp(owner)
+    client.force_login(owner)
+    assert b"Billing has not launched" in client.get(page).content
+    lapse.launch()
+    assert b"Billing launched on" in client.get(page).content
+    admin = make_user("admin")
+    enrol_totp(admin)
+    client.force_login(admin)
+    assert client.get(page).status_code == 403
+
+
+def test_comps_granted_after_launch_stay_ordinary(make_user, owner):
+    from sponsorship import onboarding
+
+    lapse.launch(now=NOW)
+    guest = make_user("guest")
+    onboarding.comp(owner, guest)
+    assert lapse.launch(now=NOW) == 0
+    assert Subscription.objects.get(user=guest).comp_reason == "other"

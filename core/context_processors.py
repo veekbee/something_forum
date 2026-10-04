@@ -17,5 +17,6 @@ def nav(request):
         "nav_review": bool(can(user, "invitation.review_queue")),
         "nav_queue": bool(can(user, "queue.view")),
         "nav_audit": bool(can(user, "audit.view")),
+        "nav_settings": bool(can(user, "site_setting.write")),
         "nav_transfer": awaiting_sponsor(user),
     }

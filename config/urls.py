@@ -8,6 +8,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("notifications/", views.notifications_page, name="notifications"),
     path("notifications/settings/", views.notification_settings, name="notification_settings"),
+    path("staff/settings/", views.site_settings, name="site_settings"),
     # Same path as allauth's logout, listed first so this view handles it.
     path("accounts/logout/", LogoutView.as_view()),
     path("accounts/", include("allauth.urls")),

@@ -70,7 +70,8 @@
     {% endif %}
 
   {% elif item.type == "sponsor_review" %}
-    <p>{{ o.banned_member.display_name }} was banned; their sponsor is <a href="{% url 'member_profile' o.sponsor.slug %}">{{ o.sponsor.display_name }}</a>.</p>
+    {% if o.opened_by %}<p>{{ o.opened_by.display_name }} opened a review of <a href="{% url 'member_profile' o.sponsor.slug %}">{{ o.sponsor.display_name }}</a> as a sponsor: {{ o.open_reason }}</p>
+    {% else %}<p>{{ o.banned_member.display_name }} was banned; their sponsor is <a href="{% url 'member_profile' o.sponsor.slug %}">{{ o.sponsor.display_name }}</a>.</p>{% endif %}
     <form method="post" action="{% url 'sponsor_review_action' o.pk %}">{% csrf_token %}
       <p><select name="outcome" required aria-label="Outcome"><option value="">Decide…</option><option value="no_action">No action</option><option value="warning">Warning</option><option value="sponsoring_suspension">Suspend sponsoring</option><option value="ban">Ban</option></select>
         <input type="number" name="months" min="1" placeholder="Months" aria-label="Months of suspension">

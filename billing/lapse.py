@@ -97,7 +97,9 @@ def launch(actor=None, now=None):
     count = comps.update(comp_reason=Subscription.CompReason.FOUNDING, comped_until=until)
     anchor = actor or User.objects.order_by("pk").first()
     if anchor is not None:
-        log.record(actor, "billing.launch", anchor, {"founding_comps": count, "until": until.isoformat()})
+        log.record(actor, "billing.launch", anchor, {
+            "launched_at": now.isoformat(), "founding_comps": count, "until": until.isoformat(),
+        })
     return count
 
 

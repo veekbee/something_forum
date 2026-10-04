@@ -172,6 +172,16 @@ def promotion_action(request, pk, step):
 
 
 @require_POST
+def open_sponsor_review(request, slug):
+    member = get_object_or_404(User, slug=slug)
+    try:
+        services.open_sponsor_review(request.user, member, request.POST.get("reason", ""))
+    except (ValidationError, PermissionDenied) as exc:
+        return redirect(f"{reverse('staff_member', args=[slug])}?{urlencode({'error': ' '.join(_errors(exc))})}")
+    return redirect("staff_member", slug)
+
+
+@require_POST
 def sponsor_review_action(request, pk):
     review = get_object_or_404(SponsorReview, pk=pk)
     post = request.POST
@@ -247,6 +257,7 @@ def member_view(request, slug):
         "invitations": Invitation.objects.filter(sponsor=member).order_by("-created_at"),
         "may_reset": bool(can(request.user, "profile.reset_extra", member)) and bool(member.avatar_id or member.caption),
         "error": request.GET.get("error", ""),
+        "may_open_review": bool(can(request.user, "sponsor_review.open", member)),
     }
     transfers = SponsorshipTransfer.objects.filter(member=member).select_related("decided_by").order_by("-started_at")
     open_transfer = next((t for t in transfers if t.status == SponsorshipTransfer.Status.OPEN), None)

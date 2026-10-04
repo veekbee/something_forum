@@ -1254,6 +1254,23 @@ def _subscription_comp(actor, member):
     return allow()
 
 
+@rule("sponsor_review.open")
+def _sponsor_review_open(actor, sponsor):
+    """Admins and Owners open a review by hand on anyone who has sponsored, except Admins and
+    Owners, who get no review (rule 54)."""
+    from sponsorship.models import Sponsorship
+
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners open sponsor reviews")
+    if sponsor.pk == actor.pk:
+        return deny("cannot open a review of yourself")
+    if roles.is_admin_or_owner(sponsor):
+        return deny("Admins and Owners get no sponsor review")
+    if not Sponsorship.objects.filter(sponsor=sponsor).exists():
+        return deny("this member has never sponsored anyone")
+    return allow()
+
+
 @rule("sponsor_review.decide")
 def _sponsor_review_decide(actor, review):
     if not roles.is_admin_or_owner(actor):

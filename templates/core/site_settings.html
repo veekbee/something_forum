@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Site settings{% endblock %}
+{% block content %}
+<h1>Site settings</h1>
+<section class="panel"><h2>Billing</h2>
+  {% if launch %}<p>Billing launched on {{ launch.created_at|date:"j M Y" }}. {{ launch.payload.founding_comps }} comp{{ launch.payload.founding_comps|pluralize }} became founding comps, ending {{ launch.payload.until|slice:":10" }}.</p>
+  {% else %}<p>Billing has not launched. An Owner launches it once, with the <code>launch_billing</code> command.</p>{% endif %}
+</section>
+<section class="panel"><h2>Settings</h2>
+  <ul class="list">{% for r in rows %}
+    <li><strong>{{ r.key }}</strong>: {{ r.value|default_if_none:"no limit" }}{% if r.value != r.default %} <span class="muted">(default {{ r.default|default_if_none:"no limit" }})</span>{% endif %} <span class="status">{{ r.status }}</span><br><span class="muted">{{ r.description }}</span></li>
+  {% endfor %}</ul>
+</section>
+{% endblock %}

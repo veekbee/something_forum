@@ -72,7 +72,7 @@ def _promotions(actor):
 
 
 def _sponsor_reviews(actor):
-    pending = SponsorReview.objects.filter(status=SponsorReview.Status.PENDING).select_related("sponsor", "banned_member")
+    pending = SponsorReview.objects.filter(status=SponsorReview.Status.PENDING).select_related("sponsor", "banned_member", "opened_by")
     return [Item("sponsor_review", r, r.created_at) for r in pending if can(actor, "sponsor_review.decide", r)]
 
 

@@ -197,8 +197,9 @@ class ModerationAction(models.Model):
 
 
 class SponsorReview(models.Model):
-    """Opened when a Guest or Provisional is banned, so an Admin or Owner can decide whether
-    their sponsor should face consequences. Nothing happens to the sponsor until it is decided."""
+    """Opened when a Guest or Provisional is banned, or by hand by an Admin or Owner with a reason,
+    so an Admin or Owner can decide whether the sponsor should face consequences. Nothing happens
+    to the sponsor until it is decided."""
 
     class Status(models.TextChoices):
         PENDING = "pending"
@@ -210,11 +211,18 @@ class SponsorReview(models.Model):
         SPONSORING_SUSPENSION = "sponsoring_suspension"
         BAN = "ban"
 
-    banned_member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    banned_member = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     sponsor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sponsor_reviews")
     triggering_action = models.OneToOneField(
-        ModerationAction, on_delete=models.PROTECT, related_name="sponsor_review"
+        ModerationAction, null=True, blank=True, on_delete=models.PROTECT, related_name="sponsor_review"
     )
+    # Set when an Admin or Owner opened the review by hand (decided 3 Oct 2026).
+    opened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    open_reason = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     outcome = models.CharField(max_length=24, choices=Outcome.choices, blank=True)
     suspension_months = models.PositiveSmallIntegerField(null=True, blank=True)

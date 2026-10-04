@@ -35,3 +35,21 @@ def notification_settings(request):
             user=request.user, kind=kind, defaults={"email": request.POST.get(kind) == "on"}
         )
     return redirect("notifications")
+
+
+@require_GET
+def site_settings(request):
+    """The Owner's settings page: every site-wide setting with its current value, and the date
+    billing launched (rule 55). Read-only for now."""
+    from django.core.exceptions import PermissionDenied
+
+    from audit.models import AuditEntry
+    from core.permissions import can
+
+    decision = can(request.user, "site_setting.write")
+    if not decision:
+        raise PermissionDenied(decision.reason)
+    rows = [{"key": s.key, "value": registry.site_value(s.key), "default": s.default, "status": s.status,
+             "description": s.description} for s in registry.REGISTRY.values() if registry.SITE in s.scopes]
+    launch = AuditEntry.objects.filter(action="billing.launch").order_by("created_at").first()
+    return render(request, "core/site_settings.html", {"rows": rows, "launch": launch})

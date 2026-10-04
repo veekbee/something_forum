@@ -25,6 +25,7 @@
   {% endif %}
   {% for t in past_transfers %}<p class="muted">Transfer from {{ t.started_at|date:"j M Y" }} ({{ t.get_cause_display|lower }}): {{ t.get_status_display|lower }}{% if t.decision %}, {{ t.get_decision_display|lower }}{% endif %}{% if t.ended_at %}, {{ t.ended_at|date:"j M Y" }}{% endif %}.</p>{% endfor %}
   <h3>Invitees</h3>
+  {% if may_open_review %}<form method="post" action="{% url 'open_sponsor_review' member.slug %}">{% csrf_token %}<input type="text" name="reason" required placeholder="Why review this sponsor?" aria-label="Reason for a sponsor review"> <button class="secondary">Open a sponsor review</button></form>{% endif %}
   <ul class="list">{% for s in invitees %}<li><a href="{% url 'staff_member' s.member.slug %}">{{ s.member.display_name }}</a> <span class="muted">{{ s.started_at|date:"j M Y" }}{% if s.ended_at %} · ended ({{ s.end_reason }}){% endif %}</span></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
   <h3>Invitations</h3>
   <ul class="list">{% for i in invitations %}<li>{{ i.invitee_email }} <span class="status {{ i.status }}">{{ i.get_status_display }}</span></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>

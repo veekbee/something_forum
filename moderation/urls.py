@@ -19,6 +19,7 @@ urlpatterns = [
     path("staff/entitlements/<int:pk>/revoke/", views.revoke_extra, name="revoke_extra"),
     path("staff/promotions/<int:pk>/<str:step>/", views.promotion_action, name="promotion_action"),
     path("staff/sponsor-reviews/<int:pk>/", views.sponsor_review_action, name="sponsor_review_action"),
+    path("staff/members/<slug:slug>/sponsor-review/", views.open_sponsor_review, name="open_sponsor_review"),
     path("report/post/<int:pk>/", views.report_post, name="report_post"),
     path("report/member/<slug:slug>/", views.report_member, name="report_member"),
 ]

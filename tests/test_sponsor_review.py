@@ -127,3 +127,70 @@ def test_review_decided_once(make_user):
     services.decide_sponsor_review(make_user("admin"), review, "warning")
     with pytest.raises(PermissionDenied):
         services.decide_sponsor_review(make_user("admin"), review, "ban")
+
+
+# --- opened by hand (rule 54) ----------------------------------------------------------------
+
+
+@pytest.fixture
+def known_sponsor(make_user):
+    sponsor_user = make_user("full")
+    sponsor(sponsor_user, make_user("provisional"))
+    return sponsor_user
+
+
+def test_admin_opens_a_review_by_hand_and_it_runs_like_an_automatic_one(known_sponsor, make_user):
+    from moderation import queue
+
+    admin = make_user("admin")
+    review = services.open_sponsor_review(admin, known_sponsor, "brought back a banned person knowingly")
+    assert (review.opened_by, review.banned_member, review.triggering_action) == (admin, None, None)
+    assert [i.obj for i in queue.items(make_user("owner")) if i.type == "sponsor_review"] == [review]
+    services.decide_sponsor_review(admin, review, "warning", notes="knew", public_summary="Sponsor warning")
+    assert ModerationAction.objects.get(target_user=known_sponsor).kind == "warning"
+
+
+def test_hand_opened_review_can_order_transfer(known_sponsor, make_user):
+    from sponsorship.transfers import awaiting_sponsor
+
+    admin = make_user("admin")
+    review = services.open_sponsor_review(admin, known_sponsor, "invitees keep drawing warnings")
+    services.decide_sponsor_review(admin, review, "sponsoring_suspension", months=2, invitees_transfer=True)
+    sponsee = known_sponsor.sponsorships_given.get().member
+    assert awaiting_sponsor(sponsee)
+
+
+def test_hand_opened_review_needs_a_reason(known_sponsor, make_user):
+    with pytest.raises(ValidationError):
+        services.open_sponsor_review(make_user("admin"), known_sponsor, "  ")
+
+
+@pytest.mark.parametrize("case", ["moderator", "admin_target", "never_sponsored", "self"])
+def test_hand_opened_review_refused(known_sponsor, make_user, case):
+    admin = make_user("admin")
+    actor, target = admin, known_sponsor
+    if case == "moderator":
+        actor = make_user("moderator")
+    elif case == "admin_target":
+        target = make_user("admin")
+        sponsor(target, make_user("provisional"))
+    elif case == "never_sponsored":
+        target = make_user("full")
+    else:
+        sponsor(admin, make_user("provisional"))
+        target = admin
+    with pytest.raises(PermissionDenied):
+        services.open_sponsor_review(actor, target, "reason")
+    assert not SponsorReview.objects.exists()
+
+
+def test_open_review_from_the_staff_view(client, known_sponsor, make_user):
+    from tests.factories import enrol_totp
+
+    admin = make_user("admin")
+    enrol_totp(admin)
+    client.force_login(admin)
+    page = client.get(f"/staff/members/{known_sponsor.slug}/").content
+    assert b"Open a sponsor review" in page
+    client.post(f"/staff/members/{known_sponsor.slug}/sponsor-review/", {"reason": "pattern of warnings"})
+    assert SponsorReview.objects.get().open_reason == "pattern of warnings"

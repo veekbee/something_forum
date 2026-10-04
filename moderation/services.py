@@ -194,6 +194,19 @@ def _open_sponsor_review(actor, ban):
 
 
 @transaction.atomic
+def open_sponsor_review(actor, sponsor, reason):
+    """An Admin or Owner opens a review of any sponsor by hand, with a written reason, for example
+    when a sponsor knowingly brought back a Permanently Banned person (rule 54). It then runs
+    exactly like an automatic one."""
+    require(actor, "sponsor_review.open", sponsor)
+    if not reason.strip():
+        raise ValidationError("Say why this sponsor's conduct needs review.")
+    review = SponsorReview.objects.create(sponsor=sponsor, opened_by=actor, open_reason=reason.strip())
+    log.record(actor, "sponsor_review.open", review, {"sponsor": sponsor.pk, "by_hand": True})
+    return review
+
+
+@transaction.atomic
 def decide_sponsor_review(actor, review, outcome, *, notes="", public_summary="", months=None, invitees_transfer=False):
     """Record the Admin's or Owner's decision. A suspension of sponsoring privileges lasts
     `months` and the reviewer decides whether the sponsor's pre-Tenure invitees must transfer."""
