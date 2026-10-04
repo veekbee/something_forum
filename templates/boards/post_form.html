@@ -5,6 +5,19 @@
 <h1>{{ heading }}</h1>
 <form class="panel" method="post" enctype="multipart/form-data">{% csrf_token %}
   {% include "boards/_editor.html" %}
+  {% if may_redact %}
+  <fieldset class="panel"><legend>{% if must_redact %}Redaction{% else %}Edit or redaction{% endif %}</legend>
+    {% if not must_redact %}
+    <p><label class="inline"><input type="radio" name="mode" value="edit" checked> Edit: housekeeping such as a broken link or formatting. Shows “edited by staff”.</label><br>
+      <label class="inline"><input type="radio" name="mode" value="redact"> Redaction: removing offending content. Shows “redacted by staff” and needs a reason.</label></p>
+    {% endif %}
+    <p><label for="id_reason_key">Reason for a redaction</label>
+      <select id="id_reason_key" name="reason_key"><option value="">Choose…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+      <input type="text" name="note" placeholder="A sentence, needed for Other" aria-label="Reason in a sentence"></p>
+    {% if rap_sheet_entries %}<p><label for="id_rap_sheet_action">Link from a Rap Sheet entry (optional)</label>
+      <select id="id_rap_sheet_action" name="rap_sheet_action"><option value="">None</option>{% for a in rap_sheet_entries %}<option value="{{ a.pk }}">{{ a.get_kind_display }}, {{ a.created_at|date:"j M Y" }}: {{ a.public_summary|truncatechars:60 }}</option>{% endfor %}</select></p>{% endif %}
+  </fieldset>
+  {% endif %}
   <button>Post</button>
 </form>
 {% endblock %}

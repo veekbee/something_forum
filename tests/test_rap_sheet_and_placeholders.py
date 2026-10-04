@@ -64,7 +64,7 @@ def test_moderators_redact_graveyard_threads_from_their_sub_forums(make_user, ge
     services.send_to_graveyard(make_user("admin"), thread, "doxxing")
     mod = make_user("tenured")
     grant(mod, "moderator", scope_subforum=general)
-    services.edit_post(mod, post, "[address removed]")
+    services.edit_post(mod, post, "[address removed]", redaction_reason="private_information")
     assert post.revisions.filter(is_redaction=True, edited_by=mod).exists()
     assert AuditEntry.objects.filter(action="post.redact", actor=mod).exists()
 

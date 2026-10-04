@@ -166,7 +166,7 @@ def test_admin_redacts_in_the_graveyard(make_user, general):
     assert can(general_mod, "post.edit", post)            # the thread came from theirs
     assert not can(general_mod, "thread.edit_title", thread)  # titles stay with Admins
     admin = make_user("admin")
-    services.edit_post(admin, post, "[removed]")
+    services.edit_post(admin, post, "[removed]", redaction_reason="private_information")
     services.edit_title(admin, thread, "Removed thread")
     assert post.revisions.filter(is_redaction=True).exists()
     assert AuditEntry.objects.filter(action="post.redact", actor=admin).exists()
@@ -177,21 +177,21 @@ def test_redacted_note_shows_in_the_thread(client, make_user, general):
     author = make_user("full")
     thread = _thread(make_user, general, author)
     services.send_to_graveyard(make_user("admin"), thread, "x")
-    services.edit_post(make_user("admin"), thread.posts.get(), "[removed]")
+    services.edit_post(make_user("admin"), thread.posts.get(), "[removed]", redaction_reason="private_information")
     reader = make_user("provisional")
     enrol_totp(reader)
     client.force_login(reader)
     assert b"redacted by staff" in client.get(f"/t/{thread.pk}/").content
 
 
-def test_owner_purges_earlier_revisions_of_graveyard_posts_only(make_user, general):
+def test_owner_purges_earlier_revisions_of_redacted_and_graveyard_posts(make_user, general):
     author = make_user("full")
     thread = _thread(make_user, general, author)
     post = thread.posts.get()
     services.edit_post(author, post, "second version")
     assert not can(make_user("owner"), "post.purge_revisions", post)
     post.thread = services.send_to_graveyard(make_user("admin"), thread, "x")
-    services.edit_post(make_user("admin"), post, "[removed]")
+    services.edit_post(make_user("admin"), post, "[removed]", redaction_reason="spam")
     with pytest.raises(PermissionDenied):
         services.purge_revisions(make_user("admin"), post)
     assert services.purge_revisions(make_user("owner"), post) == 2

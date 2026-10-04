@@ -206,12 +206,24 @@ def reject_post(actor, post, reason):
 
 
 @transaction.atomic
-def edit_post(actor, post, body_source, files=()):
+def edit_post(actor, post, body_source, files=(), *, redact=False, redaction_reason="", redaction_note="",
+              rap_sheet_action=None):
     """Every edit is kept as a PostRevision, visible to staff; the first edit also records the
-    original. A staff edit shows as one, and an Admin's edit in the Graveyard is a redaction.
+    original. Staff choose between an edit (housekeeping, "edited by staff") and a redaction
+    (offending content removed, "redacted by staff"), which needs a preset reason and may be linked
+    from a Rap Sheet entry (rule 56). In the Graveyard every change is a redaction.
     Posts quoting this one are re-rendered; newly added mentions are notified."""
+    from moderation.models import reason_text
+
     post = Post.objects.select_for_update(of=("self",)).select_related("thread__subforum").get(pk=post.pk)
     decision = require(actor, "post.edit", post)
+    redaction = decision.via == "redaction" or redact
+    reason = ""
+    if redaction:
+        require(actor, "post.redact", post)
+        reason = reason_text(redaction_reason, redaction_note)
+    elif rap_sheet_action is not None:
+        raise ValidationError("Only a redaction is linked from the Rap Sheet.")
     if files:
         images.check_caps(post.thread.subforum, files, existing=post.attachments.count())
     now = timezone.now()
@@ -220,20 +232,40 @@ def edit_post(actor, post, body_source, files=()):
         PostRevision.objects.create(
             post=post, body_source=post.body_source, edited_by_id=post.author_id, edited_at=post.created_at
         )
-    redaction = decision.via == "redaction"
-    PostRevision.objects.create(post=post, body_source=body_source, edited_by=actor, edited_at=now, is_redaction=redaction)
+    PostRevision.objects.create(post=post, body_source=body_source, edited_by=actor, edited_at=now,
+                                is_redaction=redaction, redaction_reason=reason)
     post.body_source, post.edited_at = body_source, now
     post.save(update_fields=["body_source", "edited_at"])
     _attach(post, actor, files)
     rendered = _render(post, validate_quotes=not redaction)
     rerender_quoting(post)
     if redaction:
-        log.record(actor, "post.redact", post, {"author": post.author_id})
+        log.record(actor, "post.redact", post, {"author": post.author_id, "reason": reason})
+        if rap_sheet_action is not None:
+            _link_rap_sheet_entry(actor, post, rap_sheet_action)
     elif decision.via == "staff" and post.author_id != actor.pk:
         log.record(actor, "post.edit", post, {"author": post.author_id})
     already = {u.pk for u in before.mentions}
     notify_mentions(post, [u for u in rendered.mentions if u.pk not in already])
     return post
+
+
+def rap_sheet_entries_for(post):
+    """The author's public record entries a redaction of `post` may be linked from: those with no
+    offending post linked yet."""
+    from moderation.models import ModerationAction
+
+    return ModerationAction.objects.filter(
+        target_user_id=post.author_id, is_public=True, status__in=ModerationAction.RECORD_STATUSES,
+        related_post__isnull=True,
+    ).order_by("-created_at")
+
+
+def _link_rap_sheet_entry(actor, post, action):
+    if not rap_sheet_entries_for(post).filter(pk=action.pk).exists():
+        raise ValidationError("Choose one of the author's Rap Sheet entries that has no linked post.")
+    type(action).objects.filter(pk=action.pk).update(related_post=post)
+    log.record(actor, "post.redaction_linked", post, {"action": action.pk})
 
 
 @transaction.atomic

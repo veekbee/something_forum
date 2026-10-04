@@ -416,8 +416,21 @@ def _post_change(actor, post, allow_redaction):
 @rule("post.edit")
 def _post_edit(actor, post):
     """Rule 25: staff edit any post in sub-forums they moderate; authors their own within the edit
-    window and never in a locked thread. Admins and Owners may also redact in the Graveyard."""
+    window and never in a locked thread. In the Graveyard the only change is a redaction."""
     return _post_change(actor, post, allow_redaction=True)
+
+
+@rule("post.redact")
+def _post_redact(actor, post):
+    """Rules 26 and 56: Moderators redact posts in sub-forums they moderate, including Graveyard
+    threads that came from them; Admins and Owners anywhere. Never one's own post."""
+    if post.author_id == actor.pk:
+        return deny("you edit your own posts; a redaction is of someone else's")
+    change = _post_change(actor, post, allow_redaction=True)
+    if not change:
+        return change
+    # Anyone else _post_change allows is staff: it lets authors change only their own posts.
+    return allow(via="redaction")
 
 
 @rule("post.delete")
@@ -440,8 +453,10 @@ def _post_read_revisions(actor, post):
 def _post_purge_revisions(actor, post):
     if not (actor.status == User.Status.ACTIVE and roles.is_owner(actor)):
         return deny("only Owners purge revisions")
-    if not _in_graveyard(post.thread):
-        return deny("revisions are purged only for Graveyard threads")
+    if post.thread.kind == post.thread.Kind.DM:
+        return deny("direct messages have no staff revisions to purge")
+    if not (_in_graveyard(post.thread) or post.revisions.filter(is_redaction=True).exists()):
+        return deny("revisions are purged only for redacted posts and Graveyard threads")
     return allow()
 
 

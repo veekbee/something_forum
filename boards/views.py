@@ -239,22 +239,37 @@ def post_link(request, pk):
 
 
 def edit_post(request, pk):
+    """Staff choose whether this is an edit or a redaction when they open the editor (rule 56)."""
+    from moderation.models import REASONS
+
     post = get_object_or_404(Post.objects.select_related("thread__subforum"), pk=pk)
-    _require(request.user, "post.edit", post)
+    decision = _require(request.user, "post.edit", post)
+    must_redact = decision.via == "redaction"
+    may_redact = bool(can(request.user, "post.redact", post))
     form = PostForm(request.POST or None, request.FILES or None, initial={"body": post.body_source})
     errors = []
     if request.method == "POST" and form.is_valid():
+        redacting = must_redact or (may_redact and request.POST.get("mode") == "redact")
+        entry = None
+        if redacting and request.POST.get("rap_sheet_action", "").isdigit():
+            entry = services.rap_sheet_entries_for(post).filter(pk=int(request.POST["rap_sheet_action"])).first()
         try:
-            services.edit_post(request.user, post, form.cleaned_data["body"], _files(request))
+            services.edit_post(
+                request.user, post, form.cleaned_data["body"], _files(request),
+                redact=redacting, redaction_reason=request.POST.get("reason_key", ""),
+                redaction_note=request.POST.get("note", ""), rap_sheet_action=entry,
+            )
         except (ValidationError, PermissionDenied) as exc:
             errors = _errors(exc)
         else:
             return redirect("post_link", pk=post.pk)
     subforum = post.thread.subforum
     return render(request, "boards/post_form.html", {
-        "form": form, "errors": errors, "heading": "Edit post", "thread": post.thread,
+        "form": form, "errors": errors, "heading": "Redact post" if must_redact else "Edit post", "thread": post.thread,
         "images": subforum.setting("subforum.images") if subforum else "off",
         "existing_images": post.attachments.count(),
+        "may_redact": may_redact, "must_redact": must_redact, "reasons": REASONS,
+        "rap_sheet_entries": services.rap_sheet_entries_for(post) if may_redact else [],
     })
 
 

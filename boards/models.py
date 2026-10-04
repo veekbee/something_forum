@@ -176,8 +176,11 @@ class PostRevision(models.Model):
     body_source = models.TextField(blank=True)
     edited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     edited_at = models.DateTimeField(default=timezone.now)
-    # An Admin's edit of a Graveyard thread, shown as "redacted by staff".
+    # A redaction removes offending content and shows "redacted by staff"; a staff edit is
+    # housekeeping and shows "edited by staff" (rule 56). A redaction needs a preset reason, stored
+    # in words as hiding stores its reason.
     is_redaction = models.BooleanField(default=False)
+    redaction_reason = models.TextField(blank=True)
     # An Owner purge empties body_source on earlier revisions so removed text survives nowhere.
     purged_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
