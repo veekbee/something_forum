@@ -32,7 +32,7 @@
 <ul class="list small">
   {% for p in participants %}
   <li><a href="{% url 'member_profile' p.user.slug %}">{{ p.user.display_name }}</a>
-    <span class="muted">{% if p.added_by %}added by {{ p.added_by.display_name }} {% endif %}{{ p.joined_at|date:"j M Y" }}{% if p.left_at %} · left {{ p.left_at|date:"j M Y" }}{% endif %}</span>
+    <span class="sub">{% if p.added_by %}added by {{ p.added_by.display_name }} {% endif %}{{ p.joined_at|date:"j M Y" }}{% if p.left_at %} · left {{ p.left_at|date:"j M Y" }}{% endif %}</span>
     {% if p.user in removable %}<form class="inline-form" method="post" action="{% url 'dm_remove' thread.pk p.user.pk %}">{% csrf_token %}<button class="secondary">Remove</button></form>{% endif %}
   </li>
   {% endfor %}

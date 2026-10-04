@@ -296,3 +296,22 @@ def test_email_change_form_is_hidden_without_an_inline_style():
 @pytest.mark.parametrize("path", ["/offline/", "/legal/privacy/"])
 def test_standalone_pages_carry_the_wordmark(client, seeded, path):
     assert '<span class="brand">Something Forum</span>' in client.get(path).content.decode()
+
+
+# --- accessibility fixes found by axe during step 7 --------------------------------------------
+
+
+def test_links_in_running_text_are_underlined():
+    """WCAG 1.4.1: a link inside text never relies on colour alone."""
+    rule = CSS[CSS.index("p a, dd a"):]
+    rule = rule[:rule.index("}")]
+    assert "text-decoration: underline" in rule and ".body a" in rule
+
+
+def test_queue_action_column_has_a_label_for_screen_readers(make_user, general):
+    from boards import services
+    from tests.factories import make_thread
+
+    services.reply(make_user("provisional"), make_thread(general, make_user("full")), "held")
+    page = signed_in(make_user("admin")).get("/staff/queue/").content.decode()
+    assert '<th><span class="vh">Actions</span></th>' in page

@@ -8,7 +8,7 @@
 <nav class="filters" aria-label="Item types"><a href="?"{% if not only %} class="on"{% endif %}>All {{ total }}</a>{% for f in filters %}<a href="?type={{ f.key }}"{% if f.key == only %} class="on"{% endif %}>{{ f.label }} {{ f.count }}</a>{% endfor %}</nav>
 {% if items %}
 <table class="dense">
-  <thead><tr><th>Waiting</th><th>Item</th><th>Member</th><th>Where</th><th>By</th><th></th></tr></thead>
+  <thead><tr><th>Waiting</th><th>Item</th><th>Member</th><th>Where</th><th>By</th><th><span class="vh">Actions</span></th></tr></thead>
   <tbody>
   {% for item in items %}<tr><td class="n">{{ item.waiting_since|timesince }}</td>
     <td>{{ types|get_item:item.type|default:item.type }}{% if item.obj.status == "escalated" or item.escalated %} <span class="tag esc">escalated</span>{% endif %}</td>
@@ -46,7 +46,7 @@
   {% elif item.type == "report" or item.type == "flag" %}
     <p>{% if o.is_flag %}{{ o.get_kind_display }}{% elif o.kind == "escalation" %}Escalated {% if o.related_action %}{{ o.related_action.get_kind_display }} for {{ o.related_action.target_user.display_name }}{% elif o.related_promotion %}promotion of {{ o.related_promotion.member.display_name }}{% else %}held post{% endif %}. Resolving this hands the item back; it does not act on it.{% else %}{{ o.get_reason_display }}{% if o.note %}: {{ o.note }}{% endif %} · reported by {{ o.reporter.display_name }}{% endif %}</p>
     <p>{% if o.post %}<a href="{% url 'post_link' o.post.pk %}">{{ o.post.thread.title }}</a> · post by {{ o.post.author.display_name }}{% endif %}
-       {% if o.user %} · member <a href="{% url 'member_profile' o.user.slug %}">{{ o.user.display_name }}</a>{% endif %}
+       {% if o.user %}{% if o.post %} · {% endif %}member <a href="{% url 'member_profile' o.user.slug %}">{{ o.user.display_name }}</a>{% endif %}
        {% if o.details.refusals %} · {{ o.details.refusals }} refused posts{% endif %}{% if o.details.deletions %} · {{ o.details.deletions }} deletions{% endif %}{% if o.details.requests %} · {{ o.details.requests }} requests in 10 minutes; the account is read-only until resolved{% endif %}</p>
     {% for n in o.details.notes %}<p class="muted">Note from {{ n.name }}: {{ n.note }}</p>{% endfor %}
     <div class="actions">

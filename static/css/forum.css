@@ -42,6 +42,11 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 var(
 @media (min-width: 48rem) { body { padding-bottom: 0; } }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* A link inside running text is underlined as well as coloured, so it never relies on colour
+   alone (WCAG 1.4.1). Links in lists, navigation and tables keep the plain look. */
+p a, dd a, li > a:not(:first-child), .body a, .notice a, .band a, .crumbs a {
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .15em; }
+.masthead a, .tabs a, .menu a, footer.site a, .pagination a, a.button, a.title, a.area, a.name { text-decoration: none; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.25; margin: 0 0 .5rem; }
 h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; margin-top: 1.5rem; } h3 { font-size: 1.05rem; }
@@ -51,6 +56,7 @@ code { font-size: .9em; }
 .small { font-size: .85rem; }
 .num { font-variant-numeric: tabular-nums; }
 .skip { position: absolute; left: -999rem; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .skip:focus { left: 1rem; top: 1rem; background: var(--surface); color: var(--text); padding: .5rem .75rem; z-index: 5; }
 
 /* --- masthead and menu --- */
@@ -114,15 +120,17 @@ table.list .child { padding-left: 1.25rem; }
   table.list tr { padding: .6rem 0; border-bottom: 1px solid var(--line); }
   table.list td { padding: 0; border: 0; }
   table.list td.n, table.list td.last { display: inline; color: var(--muted); font-size: .85rem; }
-  table.list td.n::before, table.list td.last::before { content: attr(data-label) " "; }
-  table.list td.n + td.n::before, table.list td.n + td.last::before { content: " · " attr(data-label) " "; }
+  table.list td.n::before, table.list td.last[data-label]::before { content: attr(data-label) " "; }
+  table.list td.n + td.n::before, table.list td.n + td.last[data-label]::before { content: " · " attr(data-label) " "; }
+  table.list td.n + td.last:not([data-label])::before { content: " · "; }
 }
 /* Older templates' lists: ruled rows, nothing boxed. */
 ul.list { list-style: none; margin: 0 0 1rem; padding: 0; }
 ul.list > li { padding: .6rem 0; border-bottom: 1px solid var(--line); }
 ul.list > li:first-child { border-top: 1px solid var(--rule); }
-.panel ul.list > li:first-child, ul.list.panel > li:first-child { border-top: 0; }
+.panel ul.list > li:first-child, ul.list.panel > li:first-child, .section-head + ul.list > li:first-child { border-top: 0; }
 .meta { font-size: .85rem; color: var(--muted); }
+ul.list .sub { display: block; color: var(--muted); font-size: .85rem; margin-top: .1rem; }
 
 /* --- tags (status words; colour always sits beside a word) --- */
 .tag, .status { display: inline-block; font-family: var(--sans); font-size: .7rem; font-weight: 400; text-transform: uppercase; letter-spacing: .07em; border: 1px solid var(--rule); padding: 0 .35rem; color: var(--muted); vertical-align: middle; line-height: 1.6; }
@@ -182,7 +190,9 @@ label.inline { display: inline; font-weight: 400; font-size: 1rem; }
 form p { margin: 0 0 .85rem; }
 button, .button { display: inline-block; font: inherit; font-weight: 600; padding: .45rem 1rem; background: var(--accent); color: var(--accent-text); border: 1px solid var(--accent); border-radius: 0; cursor: pointer; }
 .button:hover { text-decoration: none; }
-button.secondary, .button.quiet, button.quiet { background: transparent; color: var(--link); border-color: var(--rule); font-weight: 400; }
+/* Everything but the one primary button is text (docs/DESIGN.md, Visual design). */
+button.secondary, .button.quiet, button.quiet { background: transparent; color: var(--link); border-color: transparent; font-weight: 400; padding: .45rem .1rem; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .15em; }
+.post .actions button.secondary, .titlebar button.secondary { padding: 0; }
 button:disabled { opacity: .55; cursor: default; }
 .formrow { display: flex; gap: .75rem; align-items: center; justify-content: space-between; margin-top: .5rem; font-size: .85rem; color: var(--muted); }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: .5rem 0; }
