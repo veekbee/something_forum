@@ -1533,6 +1533,14 @@ def _admin_site_view(actor, _target):
     return allow() if roles.is_admin_or_owner(actor) else deny("staff admin is for Admins only")
 
 
+@rule("watermark.trace")
+def _watermark_trace(actor, _target):
+    """Rule 61: only Admins and Owners use the tracing page."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("the tracing page is for Admins and Owners")
+    return allow()
+
+
 @rule("site_setting.write")
 def _site_setting_write(actor, _key):
     return allow() if roles.is_owner(actor) else deny("only Owners change site settings")

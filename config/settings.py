@@ -46,6 +46,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "core.middleware.SessionBindingMiddleware",
+    "core.middleware.WatermarkStripMiddleware",
     "core.middleware.AccessControlMiddleware",
     "moderation.flags.RequestRateMiddleware",
 ]
@@ -112,6 +113,12 @@ GEOIP_COUNTRY_DATABASE = env("GEOIP_COUNTRY_DATABASE", default="")
 # The long-lived cookie holding a random device identifier.
 DEVICE_COOKIE_NAME = "device"
 DEVICE_COOKIE_AGE = 2 * 365 * 24 * 3600
+
+# Watermarking (rule 61). Which characters and where are configuration, not code. Two different
+# zero-width characters with no other job, as hex code points: the first stands for 0, the second
+# for 1. Never 200C or 200D. A mark goes after the first word of a body and then every N words.
+WATERMARK_CHARS = "".join(chr(int(c, 16)) for c in env("WATERMARK_CODEPOINTS", default="200B,2060").split(","))
+WATERMARK_EVERY_WORDS = env.int("WATERMARK_EVERY_WORDS", default=12)
 
 PUBLIC_PATH_PREFIXES = [
     "/accounts/login/",

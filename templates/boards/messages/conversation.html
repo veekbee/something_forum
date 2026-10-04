@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static forum %}
 {% block title %}{{ thread.title }}{% endblock %}
 {% block content %}
 <p class="crumbs"><a href="{% url 'inbox' %}">Messages</a></p>
@@ -26,7 +26,7 @@
   <header class="meta"><a href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a>
     <span class="muted">· {{ post.created_at|date:"j M Y, H:i" }}{% if post.edited_at %} · edited{% endif %}</span>
     {% if post.deleted_at %}<span class="status">Deleted</span>{% endif %}</header>
-  <div class="body">{{ post.body_html|safe }}</div>
+  <div class="body">{% watermarked post.body_html %}</div>
   <div class="actions">
     {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
     {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}

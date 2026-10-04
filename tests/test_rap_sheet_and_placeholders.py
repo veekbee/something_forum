@@ -42,7 +42,9 @@ def test_admins_still_see_the_text(client, make_user, general):
     services.delete_post(author, services.reply(author, thread, "still here for Admins"))
     enrol_totp(admin)
     client.force_login(admin)
-    assert b"still here for Admins" in client.get(f"/t/{thread.pk}/").content
+    from core.watermark import strip
+
+    assert "still here for Admins" in strip(client.get(f"/t/{thread.pk}/").content.decode())
 
 
 def test_rejected_posts_leave_nothing(client, reader, make_user, general):

@@ -25,5 +25,6 @@ def nav(request):
         "nav_queue": bool(can(user, "queue.view")),
         "nav_audit": bool(can(user, "audit.view")),
         "nav_settings": bool(can(user, "site_setting.write")),
+        "nav_trace": bool(can(user, "watermark.trace")),
         "nav_transfer": awaiting_sponsor(user),
     }

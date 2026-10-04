@@ -32,7 +32,7 @@
     {% if post.is_held %}<span class="status pending">Held for review</span>{% endif %}
     {% if post.deleted_at %}<span class="status">Deleted by {{ post.deleted_by.display_name }}{% if post.delete_reason %}: {{ post.delete_reason }}{% endif %}</span>{% endif %}
   </header>
-  <div class="body">{{ post.body_html|safe }}</div>
+  <div class="body">{% watermarked post.body_html %}</div>
   <div class="actions">
     {% if entry.may_quote %}<a href="?quote={{ post.pk }}#reply">Quote</a>{% endif %}
     {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}

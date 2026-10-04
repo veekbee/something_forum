@@ -39,6 +39,31 @@ class ContentSecurityPolicyMiddleware:
         return response
 
 
+class WatermarkStripMiddleware:
+    """Rule 61: everything members submit has the watermark characters, and only those, removed, so
+    pasted forum text carries no one else's marks into a post, message, title or form. The tracing
+    page is the one exception: it needs the marks in the excerpt it is given."""
+
+    EXEMPT = ("/staff/trace/",)
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path_info.startswith(self.EXEMPT):
+            return self.get_response(request)
+        if request.method == "POST" and request.content_type in ("application/x-www-form-urlencoded",
+                                                                 "multipart/form-data"):
+            from core.watermark import strip
+
+            cleaned = request.POST.copy()
+            for key in cleaned:
+                cleaned.setlist(key, [strip(v) for v in cleaned.getlist(key)])
+            cleaned._mutable = False
+            request.POST = cleaned
+        return self.get_response(request)
+
+
 class SessionBindingMiddleware:
     """Rules 57 to 59: give every browser a device cookie, and sign a session out when it has been
     revoked (signed out elsewhere, a concurrent location, a factor reset) or has passed its lifetime
@@ -81,10 +106,12 @@ class SessionBindingMiddleware:
 
         record = UserSession.objects.filter(session_key=request.session.session_key).select_related("user").first()
         if record is None:
-            sessions.start(request, request.user, check=False)
+            request.user_session = sessions.start(request, request.user, check=False)
             return None
         reason = sessions.ended_reason(record, now)
         if reason is None:
+            # The per-session watermark keys off this record (rule 61).
+            request.user_session = record
             if (now - record.last_seen_at).total_seconds() >= self.TOUCH_EVERY:
                 UserSession.objects.filter(pk=record.pk).update(last_seen_at=now)
             return None

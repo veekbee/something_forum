@@ -91,3 +91,30 @@ def offline(request):
 @require_GET
 def install_help(request):
     return render(request, "help/install.html")
+
+
+def trace_watermark(request):
+    """Rule 61: Admins and Owners paste a leaked excerpt to find the session, member and day it was
+    served to. Each use is audited, with ids only."""
+    from django.core.exceptions import PermissionDenied
+    from django.db import transaction
+
+    from accounts.models import UserSession
+    from audit import log
+    from core import watermark
+    from core.permissions import can
+
+    decision = can(request.user, "watermark.trace")
+    if not decision:
+        raise PermissionDenied(decision.reason)
+    results = None
+    if request.method == "POST":
+        results = []
+        for seed, day in watermark.find(request.POST.get("excerpt", "")):
+            matches = [s for s in UserSession.objects.filter(watermark_seed=f"{seed:08x}").select_related("user")]
+            results.append({"seed": f"{seed:08x}", "date": watermark.day_date(day), "sessions": matches})
+        with transaction.atomic():
+            log.record(request.user, "watermark.trace", request.user, {
+                "marks": len(results), "sessions": [s.pk for r in results for s in r["sessions"]],
+            })
+    return render(request, "core/trace.html", {"results": results})

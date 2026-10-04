@@ -24,6 +24,7 @@
       {% if nav_queue %}<a href="{% url 'queue' %}">Moderation</a><a href="{% url 'feed' %}">Feed</a>{% endif %}
       {% if nav_audit %}<a href="{% url 'audit_log' %}">Audit log</a>{% endif %}
       {% if nav_settings %}<a href="{% url 'site_settings' %}">Site settings</a>{% endif %}
+      {% if nav_trace %}<a href="{% url 'trace_watermark' %}">Trace a leak</a>{% endif %}
       {% if nav_review %}<a href="{% url 'review_queue' %}">Invitations to review</a>{% endif %}
       <form class="inline-form" method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button class="secondary">Sign out</button></form>
     </nav>

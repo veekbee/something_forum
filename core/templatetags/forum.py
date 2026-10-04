@@ -40,3 +40,15 @@ def avatar(user, size=40):
 
 def _size_class(size):
     return min(_SIZES, key=lambda s: abs(s - int(size)))
+
+
+@register.simple_tag(takes_context=True)
+def watermarked(context, html):
+    """A post body or DM message as stored, with this session's watermark added to the response
+    (rules 21 and 61). The stored HTML is never changed."""
+    from django.utils.safestring import mark_safe
+
+    from core.watermark import for_request
+
+    request = context.get("request")
+    return mark_safe(for_request(request, html) if request is not None else html)
