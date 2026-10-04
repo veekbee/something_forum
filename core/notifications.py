@@ -21,6 +21,9 @@ from django.utils import timezone
 ACCOUNT_KINDS = {
     "invitation.accepted", "invitation.invitee_declined", "invitation.approved", "invitation.declined",
     "moderation.action", "moderation.ban_lifted",
+    # Billing problems and changes (docs/DESIGN.md, Billing emails).
+    "billing.renewal_reminder", "billing.payment_failed", "billing.read_only_soon", "billing.read_only",
+    "billing.restored", "billing.founding_comp_ending",
 }
 OPTIONAL_KINDS = {
     "dm": "New direct messages",
@@ -49,6 +52,12 @@ def describe(notification):
         "queue.escalation_resolved": ("An item you escalated was resolved", reverse("feed")),
         "report.outcome": ("Your report: " + {"action_taken": "action taken",
                                               "no_action": "no action needed"}.get(data.get("outcome"), ""), None),
+        "billing.renewal_reminder": ("Your membership renews soon", reverse("billing")),
+        "billing.payment_failed": ("A membership payment failed", reverse("billing")),
+        "billing.read_only_soon": ("Your account becomes read-only in a few days", reverse("billing")),
+        "billing.read_only": ("Your account is read-only until you renew", reverse("billing")),
+        "billing.restored": ("Your membership is active again", reverse("billing")),
+        "billing.founding_comp_ending": ("Your founding membership ends soon", reverse("billing")),
         "invitation.accepted": ("Someone accepted your invitation", reverse("invitations")),
         "invitation.invitee_declined": ("Someone declined your invitation", reverse("invitations")),
         "invitation.approved": ("Your invitee was approved", reverse("invitations")),

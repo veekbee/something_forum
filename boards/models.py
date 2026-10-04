@@ -196,9 +196,10 @@ class PostQuote(models.Model):
 
 
 class Attachment(models.Model):
-    """Served only through a short-lived signed URL after a permission check on the post."""
+    """Served only through a short-lived signed URL after a permission check on the post. An avatar
+    belongs to no post (User.avatar) and is shown to any signed-in member."""
 
-    post = models.ForeignKey(Post, on_delete=models.PROTECT, related_name="attachments")
+    post = models.ForeignKey(Post, null=True, blank=True, on_delete=models.PROTECT, related_name="attachments")
     uploader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     storage_key = models.CharField(max_length=512, unique=True)
     filename = models.CharField(max_length=255)

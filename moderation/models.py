@@ -4,6 +4,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from accounts.fields import EncryptedTextField
+
 
 REASONS = {
     "off_topic": "Off-topic",
@@ -128,6 +130,8 @@ class ModerationAction(models.Model):
         # Site-wide read-only as a disciplinary status. Called read_only before 3 Oct 2026.
         PROBATION = "probation"
         BAN = "ban"
+        # Applies to the person, not the account, and cannot be bought back. Owners only.
+        PERMANENT_BAN = "permanent_ban"
         BAN_REVERSAL = "ban_reversal"
         SPONSORSHIP_TRANSFER = "sponsorship_transfer"
         SPONSORING_SUSPENSION = "sponsoring_suspension"
@@ -139,9 +143,11 @@ class ModerationAction(models.Model):
         REVERSED = "reversed"
         DECLINED = "declined"
         WITHDRAWN = "withdrawn"
+        # A Permanent Ban an Owner annulled to correct an error.
+        ANNULLED = "annulled"
 
     # Statuses that appear on the public record; declined and withdrawn actions never do.
-    RECORD_STATUSES = (Status.ACTIVE, Status.EXPIRED, Status.REVERSED)
+    RECORD_STATUSES = (Status.ACTIVE, Status.EXPIRED, Status.REVERSED, Status.ANNULLED)
 
     target_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="moderation_actions"
@@ -232,3 +238,15 @@ class DMAccessGrant(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     expires_at = models.DateTimeField()
     revoked_at = models.DateTimeField(null=True, blank=True)
+
+
+class PermanentBanRecord(models.Model):
+    """The permanent-ban list (rule 46): a Permanently Banned person's verified email addresses and
+    real name. Visible only to Admins and Owners, checked on every invitation, kept through erasure."""
+
+    action = models.OneToOneField(ModerationAction, on_delete=models.PROTECT, related_name="permanent_ban_record")
+    # A JSON list of addresses, encrypted as one value.
+    emails = EncryptedTextField(blank=True)
+    real_name = EncryptedTextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    annulled_at = models.DateTimeField(null=True, blank=True)

@@ -39,6 +39,9 @@ class User(AbstractBaseUser):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.INVITED)
     joined_at = models.DateTimeField(default=timezone.now)
     last_seen_at = models.DateTimeField(null=True, blank=True)
+    # The avatar and caption extra (rule 49); without it a member has a generated avatar.
+    avatar = models.ForeignKey("boards.Attachment", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    caption = models.CharField(max_length=40, blank=True)
 
     objects = UserManager()
 

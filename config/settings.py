@@ -158,6 +158,11 @@ else:
 
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+# Prices live in Stripe; the forum refers to them by id (rule 40). The ban fee is computed from the
+# registry and sent as an amount.
+STRIPE_PRICE_MEMBERSHIP = env("STRIPE_PRICE_MEMBERSHIP", default="")
+STRIPE_PRICE_GIFT = env("STRIPE_PRICE_GIFT", default="")
+STRIPE_PRICE_AVATAR_CAPTION = env("STRIPE_PRICE_AVATAR_CAPTION", default="")
 
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True

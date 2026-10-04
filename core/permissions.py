@@ -789,6 +789,56 @@ def _feed_view(actor, _target):
     return allow() if _staff_active(actor) else deny("the feed is for staff")
 
 
+# --- billing -------------------------------------------------------------------------------
+
+
+def _banned(user):
+    return user.status == User.Status.BANNED or _in_force(user, "ban", "permanent_ban")
+
+
+@rule("billing.view")
+def _billing_view(actor, member):
+    """The billing page is the member's own (rule 50); a banned member reaches only the ban
+    payment page instead."""
+    if actor.pk != member.pk:
+        return deny("billing pages are private")
+    if actor.status in CLOSED_STATUSES or _banned(actor):
+        return deny("not available")
+    if roles.trust_role(actor) is None:
+        return deny("not a member")
+    return allow()
+
+
+@rule("billing.pay_membership")
+def _billing_pay_membership(actor, _target):
+    """A Guest may pay at any time after approval (rule 41); a lapsed member renews. Someone already
+    paid up, renewing automatically, or comped has nothing to pay."""
+    from billing.models import Subscription
+
+    base = _billing_view(actor, actor)
+    if not base:
+        return base
+    sub = Subscription.objects.filter(user=actor).first()
+    if sub is not None:
+        if sub.status == Subscription.Status.COMPED:
+            return deny("your membership is complimentary")
+        if sub.stripe_subscription_id and not sub.cancel_at_period_end:
+            return deny("your membership renews automatically; manage it in the billing portal")
+    return allow()
+
+
+@rule("billing.portal")
+def _billing_portal(actor, _target):
+    from billing.models import Subscription
+
+    base = _billing_view(actor, actor)
+    if not base:
+        return base
+    if not Subscription.objects.filter(user=actor).exclude(stripe_customer_id="").exists():
+        return deny("no payment account yet")
+    return allow()
+
+
 # --- members ---------------------------------------------------------------------------------
 
 HIDDEN_STATUSES = {User.Status.INVITED, User.Status.REMOVED, User.Status.TOMBSTONE}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Membership{% endblock %}
+{% block content %}
+<h1>Membership</h1>
+{% if done %}<p class="notice">Thank you. Your payment is being confirmed; this page updates in a moment.</p>{% endif %}
+<section class="panel">
+  {% if not sub or sub.status == "none" %}
+    <p>You are not a paying member yet. Membership is $25 a year, and paying makes you a Provisional member straight away.</p>
+  {% elif sub.status == "comped" %}
+    <p>Your membership is complimentary{% if sub.comped_until %} until {{ sub.comped_until|date:"j M Y" }}{% endif %}.</p>
+  {% else %}
+    <p>{% if sub.status == "past_due" %}Your last payment failed. Update your card to keep your membership.{% elif user.status == "read_only" %}Your account is read-only (lapsed) until you renew.{% else %}Your membership is active.{% endif %}</p>
+    {% if sub.current_period_end %}<p>Paid until {{ sub.current_period_end|date:"j M Y" }}{% if sub.cancel_at_period_end %}; it will not renew{% elif sub.stripe_subscription_id %}; it renews automatically{% endif %}.</p>{% endif %}
+    {% if sub.read_only_at and user.status != "read_only" %}<p class="muted">Without a renewal, the account becomes read-only on {{ sub.read_only_at|date:"j M Y" }}.</p>{% endif %}
+  {% endif %}
+  <div class="actions">
+    {% if may_pay %}<form method="post" action="{% url 'billing_pay' %}">{% csrf_token %}<button>Pay $25 for a year</button></form>{% endif %}
+    {% if may_manage %}<form method="post" action="{% url 'billing_manage' %}">{% csrf_token %}<button class="secondary">Manage card and renewal</button></form>{% endif %}
+  </div>
+  <p class="helptext">Payments are handled by Stripe. The forum never sees your card.</p>
+</section>
+{% endblock %}
