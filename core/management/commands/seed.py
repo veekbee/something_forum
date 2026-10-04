@@ -101,6 +101,23 @@ class Command(BaseCommand):
             self.stdout.write(f"{spec['name']}: {'created' if created else 'exists'}")
 
         self._seed_owner()
+        self._seed_billing()
+
+    def _seed_billing(self):
+        """The avatar and caption extra, and staff comps for anyone already on staff."""
+        from billing import lapse
+        from billing.models import Extra, Subscription
+
+        Extra.objects.get_or_create(
+            key="avatar_caption",
+            defaults={"name": "Custom avatar and caption", "stripe_price_setting": "STRIPE_PRICE_AVATAR_CAPTION",
+                      "min_role": "provisional"},
+        )
+        staff = User.objects.filter(role_assignments__revoked_at__isnull=True,
+                                    role_assignments__role__name__in=lapse.STAFF_ROLES).distinct()
+        for user in staff:
+            if not Subscription.objects.filter(user=user, comp_reason=Subscription.CompReason.STAFF).exists():
+                lapse.start_staff_comp(user)
 
     def _seed_owner(self):
         owner_role = Role.objects.get(name="owner")

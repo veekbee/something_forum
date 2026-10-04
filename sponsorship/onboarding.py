@@ -250,6 +250,8 @@ def comp(actor, member):
     now = timezone.now()
     subscription, _ = Subscription.objects.select_for_update().get_or_create(user=member)
     subscription.status, subscription.comped_by, subscription.comped_at = Subscription.Status.COMPED, actor, now
+    # Comps granted before billing launches become founding comps (billing.lapse.launch).
+    subscription.comp_reason = Subscription.CompReason.OTHER
     subscription.read_only_at = None
     subscription.save()
     for assignment in RoleAssignment.objects.filter(

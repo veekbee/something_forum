@@ -61,7 +61,7 @@ def post_history(viewer, member):
     """The list of posts on `member`'s profile. Members see all of their own posts, held, rejected
     and removed ones included; everyone else sees what they could read in the threads."""
     if viewer.pk == member.pk:
-        if not can(viewer, "search.use"):
+        if not can(viewer, "member.own_history", member):
             return Post.objects.none()
         # Their own posts, held and rejected ones included, and posts staff removed (marked as
         # such in the template); posts they deleted themselves are gone from the list.

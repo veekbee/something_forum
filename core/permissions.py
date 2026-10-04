@@ -152,6 +152,20 @@ def _effective_staff_rank(user):
 # --- reading and posting -------------------------------------------------------------------
 
 
+def _lapse_blocks_reading(actor, subforum=None):
+    """Rule 44: a read-only (lapsed) member reads only sub-forums that allow lapsed readers, and past
+    the restriction stage nothing beyond their billing page, own history and some DMs."""
+    if actor.status != User.Status.READ_ONLY:
+        return None
+    from billing.lapse import is_restricted
+
+    if is_restricted(actor):
+        return deny("your membership has lapsed; renew to read the forum again", code="lapsed")
+    if subforum is not None and not subforum.setting("subforum.readable_when_lapsed"):
+        return deny("not readable while your membership has lapsed", code="lapsed")
+    return None
+
+
 @rule("subforum.read")
 def _subforum_read(actor, subforum):
     base = _can_read_anything(actor)
@@ -159,6 +173,9 @@ def _subforum_read(actor, subforum):
         return base
     if roles.is_admin_or_owner(actor):
         return allow()
+    lapsed = _lapse_blocks_reading(actor, subforum)
+    if lapsed is not None:  # a refusal is falsy, so test for presence
+        return lapsed
     if subforum.parent is not None and not _subforum_read(actor, subforum.parent):
         return deny("cannot read the parent sub-forum")
     if not _meets(actor, subforum, "subforum.min_read_role"):
@@ -209,6 +226,16 @@ def _dm_read(actor, thread):
         return deny(f"account is {actor.status}")
     periods = list(thread.participants.filter(user=actor))
     if periods:
+        if actor.status == User.Status.READ_ONLY:
+            from billing.lapse import is_restricted
+            from boards import dm
+
+            if is_restricted(actor):
+                # Past the restriction stage: only conversations with their sponsor and staff.
+                sponsor = dm.active_sponsor(actor)
+                others = [p.user for p in thread.participants.exclude(user=actor).select_related("user")]
+                if not all((sponsor and o.pk == sponsor.pk) or dm.is_staff_for(o, actor) for o in others):
+                    return deny("your membership has lapsed; this conversation reopens when you renew")
         return allow(via="participant", detail=periods)
     base = _can_read_anything(actor)
     if not base:
@@ -827,6 +854,13 @@ def _billing_pay_membership(actor, _target):
     return allow()
 
 
+@rule("billing.extend_comp")
+def _billing_extend_comp(actor, member):
+    if actor.status != User.Status.ACTIVE or not roles.is_owner(actor):
+        return deny("only Owners extend comps")
+    return allow()
+
+
 @rule("billing.portal")
 def _billing_portal(actor, _target):
     from billing.models import Subscription
@@ -881,7 +915,19 @@ def _thread_follow(actor, thread):
 
 @rule("search.use")
 def _search_use(actor, _target):
-    return _can_read_anything(actor)
+    base = _can_read_anything(actor)
+    if not base:
+        return base
+    lapsed = _lapse_blocks_reading(actor)
+    return lapsed if lapsed is not None else allow()
+
+
+@rule("member.own_history")
+def _member_own_history(actor, member):
+    """A member's own post history stays open to them, lapsed or not."""
+    if actor.pk != member.pk or actor.status in CLOSED_STATUSES:
+        return deny("not your history")
+    return allow()
 
 
 def _escalated(**item):

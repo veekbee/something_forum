@@ -28,7 +28,10 @@ def full_promotion_eligible(member, now=None):
     if role is None or role.name != roles.PROVISIONAL:
         return False
     since = current_assignment(member, roles.PROVISIONAL).granted_at
-    if now - since < timedelta(days=registry.site_value("promotion.full.min_days")):
+    # A Provisional's clock pauses while they are lapsed (rule 44).
+    from billing.lapse import lapsed_days_since
+
+    if now - since - lapsed_days_since(member, since, now) < timedelta(days=registry.site_value("promotion.full.min_days")):
         return False
     posts = Post.objects.counted().filter(
         author=member, thread__kind=Thread.Kind.DISCUSSION, created_at__gte=since
