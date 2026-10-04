@@ -382,3 +382,51 @@ def test_a_scoped_suspension_shows_only_on_its_sub_forums(make_user, general, se
     thread = make_thread(general, make_user("full"))
     assert "General Discussion is suspended" in _band(client, f"/t/{thread.pk}/")
     assert _band(client, f"/f/{serious.slug}/") == "" and _band(client, "/") == ""
+
+
+# --- DM system lines (rendered from the participant rows) --------------------------------------
+
+
+def _between(page, first, second):
+    return page.index(first) < page.index(second)
+
+
+def test_dm_system_lines_in_time_order(make_user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from boards import messages, services
+    from boards.models import Post, ThreadParticipant
+
+    mira, tobias, anselm = make_user("full"), make_user("full"), make_user("full")
+    conversation, first = messages.start(mira, [tobias], "Plans", "first message")
+    base = timezone.now() - timedelta(hours=3)
+    Post.objects.filter(pk=first.pk).update(created_at=base)
+    ThreadParticipant.objects.filter(thread=conversation).update(joined_at=base)
+    type(conversation).objects.filter(pk=conversation.pk).update(created_at=base)
+    messages.add(mira, conversation, anselm)
+    ThreadParticipant.objects.filter(thread=conversation, user=anselm).update(joined_at=base + timedelta(hours=1))
+    later = services.reply(anselm, conversation, "hello from the newcomer")
+    Post.objects.filter(pk=later.pk).update(created_at=base + timedelta(hours=2))
+    from core.watermark import strip
+
+    page = strip(signed_in(tobias).get(f"/messages/{conversation.pk}/").content.decode())
+    line = f"{mira.display_name} added {anselm.display_name}"
+    assert f'<p class="sys">{line}' in page
+    assert _between(page, "first message", line) and _between(page, line, "hello from the newcomer")
+    assert f"{mira.display_name} added {tobias.display_name}" not in page  # the people it began with
+
+
+def test_leaving_shows_a_line_and_newcomers_see_only_their_own_time(make_user):
+    from boards import messages
+
+    mira, tobias, anselm = make_user("full"), make_user("full"), make_user("full")
+    conversation, _ = messages.start(mira, [tobias], "Plans", "first message")
+    messages.leave(tobias, conversation)
+    messages.add(mira, conversation, anselm)
+    seen_by_mira = signed_in(mira).get(f"/messages/{conversation.pk}/").content.decode()
+    assert f"{tobias.display_name} left" in seen_by_mira
+    seen_by_anselm = signed_in(anselm).get(f"/messages/{conversation.pk}/").content.decode()
+    assert f"{tobias.display_name} left" not in seen_by_anselm
+    assert f"{mira.display_name} added {anselm.display_name}" in seen_by_anselm

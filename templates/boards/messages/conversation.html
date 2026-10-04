@@ -7,7 +7,9 @@
   <div class="actions">{% if may_leave %}<form method="post" action="{% url 'dm_leave' thread.pk %}">{% csrf_token %}<button class="secondary">Leave</button></form>{% endif %}</div></div>
 <p class="dm-notice" id="notice">{{ notice }}</p>
 
-{% for entry in entries %}{% with post=entry.post %}
+{% for entry in entries %}{% if entry.system %}
+<div class="msg"><p class="sys">{{ entry.system }} · {{ entry.when|date:"j M Y, H:i" }}</p></div>
+{% else %}{% with post=entry.post %}
 <div class="msg{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}">
   <div class="who">{% avatar post.author 32 %}<a class="name" href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a><span>{{ post.created_at|date:"j M Y, H:i" }}{% if post.edited_at %} · edited{% endif %}</span>
     {% if post.deleted_at %}<span class="tag">Deleted</span>{% endif %}</div>
@@ -18,7 +20,7 @@
     {% if entry.may_report %}<a href="{% url 'report_post' post.pk %}">Report</a>{% endif %}
   </div>{% endif %}
 </div>
-{% endwith %}{% endfor %}
+{% endwith %}{% endif %}{% endfor %}
 {% include "boards/_pagination.html" %}
 
 {% if form %}

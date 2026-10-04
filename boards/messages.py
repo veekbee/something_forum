@@ -130,3 +130,24 @@ def unblock(actor, target):
 
 def unread_count(actor):
     return conversations(actor).filter(unread=True).count()
+
+
+def system_lines(viewer, thread):
+    """Who added whom and who left, as (when, text) lines among the messages, rendered from the
+    participant rows (docs/DESIGN.md, Group conversations). The people a conversation started with
+    have no line. A participant sees only lines from their own periods in the conversation, as with
+    messages; staff reading it see them all."""
+    rows = list(thread.participants.select_related("user", "added_by"))
+    periods = [(r.joined_at, r.left_at) for r in rows if r.user_id == viewer.pk]
+
+    def visible(when):
+        return not periods or any(start <= when and (end is None or when <= end) for start, end in periods)
+
+    lines = []
+    for row in rows:
+        # The people a conversation began with joined when it was created.
+        if row.added_by_id is not None and row.joined_at > thread.created_at and visible(row.joined_at):
+            lines.append((row.joined_at, f"{row.added_by.display_name} added {row.user.display_name}"))
+        if row.left_at is not None and visible(row.left_at):
+            lines.append((row.left_at, f"{row.user.display_name} left"))
+    return sorted(lines)

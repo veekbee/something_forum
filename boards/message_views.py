@@ -62,6 +62,18 @@ def new_conversation(request):
     })
 
 
+def _with_system_lines(user, thread, page, entries):
+    """Messages and system lines in time order. A line belongs to the page whose messages surround
+    it: after this page's first message (or from the start, on page 1) and before the next page's."""
+    lower = entries[0]["when"] if page.has_previous() and entries else None
+    upper = None
+    if page.has_next():
+        upper = page.paginator.page(page.next_page_number()).object_list[0].created_at
+    lines = [{"system": text, "when": when} for when, text in messages.system_lines(user, thread)
+             if (lower is None or when >= lower) and (upper is None or when < upper)]
+    return sorted(entries + lines, key=lambda e: (e["when"], "system" not in e))
+
+
 def conversation(request, pk):
     thread = _conversation_or_404(request.user, pk)
     services.open_thread(request.user, thread)
@@ -72,11 +84,13 @@ def conversation(request, pk):
     participants = list(thread.participants.select_related("user", "added_by").order_by("joined_at"))
     active = [p for p in participants if p.left_at is None]
     may_send = can(user, "thread.reply", thread)
+    entries = [{"post": p, "when": p.created_at, "may_edit": can(user, "post.edit", p),
+                "may_delete": can(user, "post.delete", p), "may_report": can(user, "report.create", p)}
+               for p in page.object_list]
     return render(request, "boards/messages/conversation.html", {
         "thread": thread,
         "page": page,
-        "entries": [{"post": p, "may_edit": can(user, "post.edit", p), "may_delete": can(user, "post.delete", p),
-                     "may_report": can(user, "report.create", p)} for p in page.object_list],
+        "entries": _with_system_lines(user, thread, page, entries),
         "participants": participants,
         "active": active,
         "removable": [p.user for p in active if can(user, "dm.remove", Membership(thread, p.user))],
