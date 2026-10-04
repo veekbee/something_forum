@@ -53,4 +53,4 @@ This repository is public.
 
 ## Current milestone
 
-Done: milestone 1 (scaffold, data model, permission service, registry, TOTP sign-in), milestone 2 (onboarding and the promotion workflow) and build step 3 (forum pages), as defined in `docs/DESIGN.md`. Next in the build order is step 4: moderation queue, audit log view, per-member view, DM threads with Admin search. Its decisions are not yet in the design doc.
+Done: milestone 1 (scaffold, data model, permission service, registry, TOTP sign-in), milestone 2 (onboarding and the promotion workflow), build step 3 (forum pages) and build step 4 (moderation and direct messages), as defined in `docs/DESIGN.md`. Step 4 used interim readings for the points in the step 4 corrections brief (blocks visible to Admins and Owners only, escalation for reports and flags only, one sub-forum per limited action, a Follow button, Admins and Owners removing DM participants); check them against the design doc when the corrective patch lands. Next in the build order is step 5: billing.

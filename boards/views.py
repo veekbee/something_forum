@@ -194,7 +194,9 @@ def thread_page(request, pk):
             "classics": can(user, "thread.classics", thread),
             "restore": can(user, "thread.restore", thread),
             "move": bool(destinations),
+            "follow": can(user, "thread.follow", thread),
         },
+        "following": thread.participants.filter(user=user).exists(),
     })
 
 
@@ -347,6 +349,8 @@ def toggle(request, pk, what):
         services.set_pinned(request.user, thread, not thread.is_pinned)
     elif what == "restore":
         services.restore_thread(request.user, thread)
+    elif what == "follow":
+        services.set_following(request.user, thread, not thread.participants.filter(user=request.user).exists())
     else:
         raise Http404
     return redirect("thread", pk=thread.pk)

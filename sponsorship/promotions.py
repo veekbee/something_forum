@@ -12,6 +12,7 @@ from django.utils import timezone
 from accounts import roles
 from accounts.models import Role, RoleAssignment, User
 from audit import log
+from core.models import Notification
 from boards.models import Post, Thread
 from core.services import require
 from moderation.models import ModerationAction
@@ -113,6 +114,8 @@ def decide(actor, promotion, approve, notes=""):
         actor, "promotion.decide", promotion,
         {"member": promotion.member_id, "approved": approve, "notes": notes},
     )
+    Notification.objects.create(recipient_id=promotion.member_id, kind="promotion",
+                                payload={"promotion": promotion.pk, "approved": approve})
     return promotion
 
 
@@ -140,4 +143,5 @@ def promote_to_tenured(actor, member, notes=""):
         ended = sponsorship.pk
         capacity.reassign_slots(sponsorship.sponsor)
     log.record(actor, "promotion.tenured", promotion, {"member": member.pk, "sponsorship_ended": ended})
+    Notification.objects.create(recipient=member, kind="promotion", payload={"promotion": promotion.pk, "approved": True})
     return promotion

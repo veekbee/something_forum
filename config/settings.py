@@ -122,6 +122,8 @@ FIELD_ENCRYPTION_KEYS = env.list("FIELD_ENCRYPTION_KEY", default=[])
 EMAIL_CONFIG = env.email("EMAIL_URL", default="consolemail://")
 vars().update(EMAIL_CONFIG)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="forum@example.com")
+# The forum's own address, for links in pointer emails.
+SITE_URL = env("SITE_URL", default="http://localhost:8000")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

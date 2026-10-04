@@ -11,6 +11,7 @@ def nav(request):
     return {
         "nav_forum": bool(can(user, "search.use")),
         "nav_unread_messages": unread_count(user),
+        "nav_unread_notifications": user.notifications.filter(read_at__isnull=True).exclude(kind="dm").count(),
         "nav_invite": bool(can(user, "member.sponsor")),
         "nav_review": bool(can(user, "invitation.review_queue")),
         "nav_queue": bool(can(user, "queue.view")),

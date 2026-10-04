@@ -10,7 +10,7 @@ from accounts import roles
 from audit import log
 from boards import dm, images
 from boards.limits import should_hold
-from boards.models import Post, PostQuote, PostRevision, SubForum, Thread, ThreadTitleRevision
+from boards.models import Post, PostQuote, PostRevision, SubForum, Thread, ThreadParticipant, ThreadTitleRevision
 from boards.rendering import render_post
 from core import registry
 from core.models import Notification
@@ -61,6 +61,31 @@ def notify_mentions(post, users):
     return notified
 
 
+def notify_followers(post):
+    """Followers of a forum thread hear of a visible new post: one unread notice per thread, and
+    only for those who can still read it and have not blocked the author."""
+    thread = post.thread
+    if thread.kind != Thread.Kind.DISCUSSION:
+        return
+    for follow in ThreadParticipant.objects.filter(thread=thread).exclude(user=post.author_id).select_related("user"):
+        follower = follow.user
+        if Notification.objects.filter(recipient=follower, kind="thread.reply", read_at__isnull=True,
+                                       payload__thread=thread.pk).exists():
+            continue
+        if not can(follower, "post.read", post) or dm.has_blocked(follower, post.author):
+            continue
+        Notification.objects.create(recipient=follower, kind="thread.reply", payload={"thread": thread.pk, "post": post.pk})
+
+
+@transaction.atomic
+def set_following(actor, thread, follow):
+    require(actor, "thread.follow", thread)
+    if follow:
+        ThreadParticipant.objects.get_or_create(thread=thread, user=actor, left_at=None)
+    else:
+        ThreadParticipant.objects.filter(thread=thread, user=actor).delete()
+
+
 def _attach(post, author, files):
     for upload in files:
         images.store(post, author, upload)
@@ -81,6 +106,7 @@ def _add_post(thread, author, body_source, files):
     # A held post is not thread activity until it is released.
     if not held:
         Thread.objects.filter(pk=thread.pk).update(post_count=F("post_count") + 1, last_post_at=now)
+        notify_followers(post)
     notify_mentions(post, rendered.mentions)
     if thread.kind == Thread.Kind.DM:
         from boards.messages import notify_new_message
@@ -154,6 +180,7 @@ def release_post(actor, post):
     log.record(actor, "post.release", post)
     rendered = render_post(post, attachments=post.attachments.order_by("pk"), validate_quotes=False)
     notify_mentions(post, rendered.mentions)
+    notify_followers(post)
     return post
 
 

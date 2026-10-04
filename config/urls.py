@@ -6,6 +6,8 @@ from core import views
 
 urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
+    path("notifications/", views.notifications_page, name="notifications"),
+    path("notifications/settings/", views.notification_settings, name="notification_settings"),
     # Same path as allauth's logout, listed first so this view handles it.
     path("accounts/logout/", LogoutView.as_view()),
     path("accounts/", include("allauth.urls")),

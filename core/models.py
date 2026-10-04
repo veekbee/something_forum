@@ -25,14 +25,30 @@ class SiteSetting(models.Model):
 
 
 class Notification(models.Model):
+    """In-app first. Email is only a pointer back to the forum and never carries content or a
+    sender (rule 39); see core.notifications."""
+
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="notifications")
     kind = models.CharField(max_length=64)
     payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     read_at = models.DateTimeField(null=True, blank=True)
+    emailed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["recipient", "read_at"])]
+
+
+class NotificationPreference(models.Model):
+    """A member's choice to get email for an optional kind. A missing row means off; account kinds
+    always email and have no row."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="notification_preferences")
+    kind = models.CharField(max_length=64)
+    email = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "kind"], name="one_preference_per_kind")]
 
 
 class DataRequest(models.Model):

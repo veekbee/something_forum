@@ -786,6 +786,14 @@ def _member_private_stats(actor, member):
     return allow() if actor.pk == member.pk else deny("only the member sees this")
 
 
+@rule("thread.follow")
+def _thread_follow(actor, thread):
+    """Follow or unfollow a forum thread, for "replies in threads you follow" notifications."""
+    if thread.kind != thread.Kind.DISCUSSION:
+        return deny("conversations notify their participants already")
+    return _thread_read(actor, thread)
+
+
 @rule("search.use")
 def _search_use(actor, _target):
     return _can_read_anything(actor)

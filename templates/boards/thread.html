@@ -9,6 +9,7 @@
 {% elif thread.state == "locked" %}<p class="notice">This thread is locked.</p>{% endif %}
 
 <div class="actions thread-actions">
+  {% if may.follow %}<form method="post" action="{% url 'thread_toggle' thread.pk 'follow' %}">{% csrf_token %}<button class="secondary">{% if following %}Unfollow{% else %}Follow{% endif %}</button></form>{% endif %}
   {% if may.title %}<a href="{% url 'edit_title' thread.pk %}">Edit title</a>{% endif %}
   {% if may.titles %}<a href="{% url 'title_revisions' thread.pk %}">Title history</a>{% endif %}
   {% if may.lock %}<form method="post" action="{% url 'thread_toggle' thread.pk 'lock' %}">{% csrf_token %}<button class="secondary">{% if thread.state == "locked" %}Unlock{% else %}Lock{% endif %}</button></form>{% endif %}

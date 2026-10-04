@@ -14,8 +14,10 @@ Built so far: milestone 1 (data model, permission service, settings registry, TO
 milestone 2 (invitations with sponsorship slots and a waitlist, Admin review at `/staff/onboarding/`,
 complimentary membership, promotions) and build step 3 (the forum: sub-forums, threads, the Markdown
 editor with mentions, quotes and image uploads, editing and deleting, the Thread Graveyard and Thread
-Classics, profiles and search). Pages are plain; the visual design comes later. Admins and Owners can
-inspect data, read-only, at `/staff/admin/`.
+Classics, profiles and search) and build step 4 (direct messages with blocking, the moderation queue
+with reports and automatic flags, scoped actions and Probation, the per-member view, the audit log,
+the Mod feedback feed, and notifications with pointer-only email). Pages are plain; the visual
+design comes later. Admins and Owners can inspect data, read-only, at `/staff/admin/`.
 
 ## Running it
 
@@ -59,6 +61,7 @@ Run these once a day (cron, or the host's scheduler):
 .venv/bin/python manage.py expire_invitations     # pending invitations past invitation.expiry_days
 .venv/bin/python manage.py delete_ended_accounts  # invited accounts whose invitation ended unapproved
 .venv/bin/python manage.py expire_actions         # mark time-limited moderation actions as ended
+.venv/bin/python manage.py send_notification_emails  # the daily pointer email for chosen kinds
 ```
 
 ## Tests
@@ -82,7 +85,7 @@ resets the database between transactional tests.
 | `accounts` | User, roles and role assignments, encrypted identity records, sessions |
 | `sponsorship` | Invitations, sponsorships (the pedigree), promotions and eligibility |
 | `boards` | Sub-forums, threads (including DMs), posts, revisions, quotes, attachments; rate limits and held posts; the Markdown renderer (`rendering.py`), image re-encoding (`images.py`), what each member can see (`visibility.py`) and the forum pages |
-| `moderation` | Reports, moderation actions, sponsor reviews, DM access grants |
+| `moderation` | Reports and automatic flags, moderation actions, sponsor reviews, DM access grants; the queue, the feed and the staff pages |
 | `billing` | Stripe subscription and charge records |
 | `audit` | Append-only audit log |
 
