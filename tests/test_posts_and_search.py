@@ -29,8 +29,8 @@ def scoped_mod(make_user):
 def test_author_edits_within_window_only(make_user, general):
     author = make_user("full")
     thread = make_thread(general, author)
-    assert can(author, "post.edit", make_post(thread, author, ago=timedelta(minutes=29)))
-    assert not can(author, "post.edit", make_post(thread, author, ago=timedelta(minutes=31)))
+    assert can(author, "post.edit", make_post(thread, author, ago=timedelta(minutes=1439)))
+    assert not can(author, "post.edit", make_post(thread, author, ago=timedelta(minutes=1441)))
 
 
 def test_unlimited_edit_window(make_user, general):
@@ -88,7 +88,7 @@ def test_dm_messages_are_edited_only_by_their_author_within_the_window(make_user
     author, other = make_user("full"), make_user("full")
     dm = make_dm(author, other)
     assert can(author, "post.edit", make_post(dm, author))
-    assert not can(author, "post.edit", make_post(dm, author, ago=timedelta(minutes=31)))
+    assert not can(author, "post.edit", make_post(dm, author, ago=timedelta(minutes=1441)))
     assert not can(other, "post.edit", make_post(dm, author))
     assert not can(make_user("admin"), "post.edit", make_post(dm, author))
 
@@ -147,7 +147,7 @@ def test_author_deletes_own_post_within_window(make_user, general):
     thread = make_thread(general, author)
     post = services.delete_post(author, make_post(thread, author))
     assert post.deleted_at is not None and post.deleted_by == author
-    assert not can(author, "post.delete", make_post(thread, author, ago=timedelta(hours=2)))
+    assert not can(author, "post.delete", make_post(thread, author, ago=timedelta(hours=25)))
 
 
 def test_staff_delete_needs_reason_and_is_audited(make_user, general):

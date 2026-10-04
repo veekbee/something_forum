@@ -339,20 +339,30 @@ class TitleForm(forms.Form):
 
 
 def edit_title(request, pk):
+    from moderation.models import REASONS
+
     thread = _thread_or_404(request.user, pk)
-    _require(request.user, "thread.edit_title", thread)
+    decision = _require(request.user, "thread.edit_title", thread)
+    redacting = decision.via == "redaction"
+    opening = thread.posts.order_by("created_at", "pk").first()
+    entries = services.rap_sheet_entries_for(opening) if redacting and opening is not None else []
     form = TitleForm(request.POST or None, initial={"title": thread.title})
     errors = []
     if request.method == "POST" and form.is_valid():
+        entry = None
+        if redacting and request.POST.get("rap_sheet_action", "").isdigit():
+            entry = entries.filter(pk=int(request.POST["rap_sheet_action"])).first()
         try:
-            services.edit_title(request.user, thread, form.cleaned_data["title"])
+            services.edit_title(request.user, thread, form.cleaned_data["title"],
+                                redaction_reason=request.POST.get("reason_key", ""),
+                                redaction_note=request.POST.get("note", ""), rap_sheet_action=entry)
         except ValidationError as exc:
             errors = _errors(exc)
         else:
             return redirect("thread", pk=thread.pk)
-    return render(request, "boards/simple_form.html", {
-        "form": form, "errors": errors, "heading": "Edit thread title", "button": "Save title",
-        "back": reverse("thread", args=[thread.pk]),
+    return render(request, "boards/title_form.html", {
+        "form": form, "errors": errors, "back": reverse("thread", args=[thread.pk]),
+        "redacting": redacting, "reasons": REASONS, "rap_sheet_entries": entries,
     })
 
 

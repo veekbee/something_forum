@@ -540,3 +540,15 @@ def test_lifted_ban_does_not_resume_while_still_lapse_restricted(pair, make_user
     ban = services.initiate_action(admin, old, "ban", internal_reason="abuse")
     services.lift_ban(admin, ban, "mistake")
     assert transfers.awaiting_sponsor(member)
+
+
+def test_withdrawn_offer_leaves_the_conversation_readable_but_closed(waiting, make_user):
+    from boards import messages
+
+    _, member = waiting
+    offerer = make_user("full")
+    offer = _offer(offerer, member)
+    conversation, _ = messages.start(member, [offerer], "Vouching", "Thank you for offering")
+    transfers.withdraw_offer(offerer, offer)
+    assert can(member, "thread.read", conversation) and can(offerer, "thread.read", conversation)
+    assert not can(member, "thread.reply", conversation) and not can(offerer, "thread.reply", conversation)

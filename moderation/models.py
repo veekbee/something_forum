@@ -141,7 +141,6 @@ class ModerationAction(models.Model):
         EXTRA_REVOCATION = "extra_revocation"
         EXTRA_RESTORATION = "extra_restoration"
         BAN_REVERSAL = "ban_reversal"
-        SPONSORSHIP_TRANSFER = "sponsorship_transfer"
         SPONSORING_SUSPENSION = "sponsoring_suspension"
 
     class Status(models.TextChoices):

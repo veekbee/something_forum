@@ -137,3 +137,39 @@ def test_staff_do_not_redact_their_own_posts(general_mod, general):
     own = services.reply(general_mod, make_thread(general, general_mod), "my own words")
     assert can(general_mod, "post.edit", own)
     assert not can(general_mod, "post.redact", own)
+
+
+# --- Graveyard titles (rule 69) ----------------------------------------------------------------
+
+
+def test_graveyard_title_redaction_needs_a_reason_and_may_link_the_rap_sheet(live_post, make_user):
+    admin = make_user("admin")
+    thread = services.send_to_graveyard(admin, live_post.thread, "abuse")
+    starter = thread.author
+    warning = moderation.initiate_action(admin, starter, "warning", internal_reason="slur", public_summary="Slur in a title")
+    with pytest.raises(ValidationError):
+        services.edit_title(admin, thread, "Removed thread")
+    services.edit_title(admin, thread, "Removed thread", redaction_reason="personal_attack", rap_sheet_action=warning)
+    entry = AuditEntry.objects.get(action="thread.title_redact")
+    assert entry.payload["reason"] == "Personal attack"
+    warning.refresh_from_db()
+    assert warning.related_post == thread.posts.order_by("created_at", "pk").first()
+
+
+def test_ordinary_title_edits_take_no_rap_sheet_link(live_post, make_user):
+    admin = make_user("admin")
+    warning = moderation.initiate_action(admin, live_post.thread.author, "warning", internal_reason="x", public_summary="x")
+    with pytest.raises(ValidationError):
+        services.edit_title(admin, live_post.thread, "New title", rap_sheet_action=warning)
+    services.edit_title(admin, live_post.thread, "New title")
+    assert AuditEntry.objects.filter(action="thread.title_edit").exists()
+
+
+def test_title_redaction_page_asks_for_a_reason(client, live_post, make_user):
+    admin = make_user("admin")
+    thread = services.send_to_graveyard(admin, live_post.thread, "abuse")
+    page = _page(client, admin, f"/t/{thread.pk}/title/")
+    assert b"Reason for the redaction" in page
+    client.post(f"/t/{thread.pk}/title/", {"title": "Removed", "reason_key": "spam"})
+    thread.refresh_from_db()
+    assert thread.title == "Removed"

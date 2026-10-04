@@ -224,3 +224,19 @@ def test_revoke_from_the_staff_view(client, make_user):
                 {"internal_reason": "misuse", "public_summary": "Lost the custom avatar"})
     assert not extras.has_extra(member, "avatar_caption")
     assert b"Restore (public)" in client.get(f"/staff/members/{member.slug}/").content
+
+
+def test_a_moderator_asks_for_revocation_by_reporting_and_escalating(make_user):
+    """Rule 49: a Moderator who thinks an extra should go files a report about the member and
+    escalates it, so it waits for an Admin or Owner."""
+    from moderation import queue, reports
+
+    member, entitlement = _with_extra(make_user)
+    mod = make_user("moderator")
+    report, _ = reports.report(mod, member, "other", "Avatar misuse again; please consider revoking the extra")
+    reports.escalate(mod, report, "Third reset this month")
+    report.refresh_from_db()
+    admin = make_user("admin")
+    assert any(i.obj == report for i in queue.items(admin))
+    assert not can(mod, "report.resolve", report)
+    assert can(admin, "report.resolve", report)

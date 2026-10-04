@@ -321,12 +321,21 @@ def _locked_thread(thread):
 
 
 @transaction.atomic
-def edit_title(actor, thread, title):
+def edit_title(actor, thread, title, *, redaction_reason="", redaction_note="", rap_sheet_action=None):
+    """A Graveyard title edit is a redaction: it needs a preset reason, kept in the audit entry, and
+    may link one of the starter's Rap Sheet entries to the thread's opening post (rule 69)."""
+    from moderation.models import reason_text
+
     thread = _locked_thread(thread)
     decision = require(actor, "thread.edit_title", thread)
     title = title.strip()
     if not title:
         raise ValidationError("A thread needs a title.")
+    reason = ""
+    if decision.via == "redaction":
+        reason = reason_text(redaction_reason, redaction_note)
+    elif rap_sheet_action is not None:
+        raise ValidationError("Only a redaction is linked from the Rap Sheet.")
     now = timezone.now()
     if not thread.title_revisions.exists():
         ThreadTitleRevision.objects.create(
@@ -335,8 +344,15 @@ def edit_title(actor, thread, title):
     ThreadTitleRevision.objects.create(thread=thread, title=title, edited_by=actor, edited_at=now)
     thread.title = title
     thread.save(update_fields=["title"])
-    if decision.via in ("staff", "redaction") and thread.author_id != actor.pk:
-        log.record(actor, f"thread.title_{'redact' if decision.via == 'redaction' else 'edit'}", thread)
+    if decision.via == "redaction":
+        log.record(actor, "thread.title_redact", thread, {"reason": reason})
+        if rap_sheet_action is not None:
+            opening = thread.posts.order_by("created_at", "pk").first()
+            if opening is None:
+                raise ValidationError("This thread has no post to link.")
+            _link_rap_sheet_entry(actor, opening, rap_sheet_action)
+    elif decision.via == "staff" and thread.author_id != actor.pk:
+        log.record(actor, "thread.title_edit", thread)
     return thread
 
 

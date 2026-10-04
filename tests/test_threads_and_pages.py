@@ -167,7 +167,7 @@ def test_admin_redacts_in_the_graveyard(make_user, general):
     assert not can(general_mod, "thread.edit_title", thread)  # titles stay with Admins
     admin = make_user("admin")
     services.edit_post(admin, post, "[removed]", redaction_reason="private_information")
-    services.edit_title(admin, thread, "Removed thread")
+    services.edit_title(admin, thread, "Removed thread", redaction_reason="private_information")
     assert post.revisions.filter(is_redaction=True).exists()
     assert AuditEntry.objects.filter(action="post.redact", actor=admin).exists()
     assert not can(admin, "post.delete", post)
@@ -227,7 +227,7 @@ def test_starter_edits_the_title_within_the_window_staff_any_time(make_user, gen
     assert list(ThreadTitleRevision.objects.filter(thread=thread).values_list("title", flat=True)) == [
         "A thread", "Better title",
     ]
-    thread.posts.update(created_at=timezone.now() - timedelta(hours=1))
+    thread.posts.update(created_at=timezone.now() - timedelta(hours=25))
     assert not can(author, "thread.edit_title", thread)
     assert not can(make_user("full"), "thread.edit_title", thread)
     assert can(make_user("moderator"), "thread.edit_title", thread)

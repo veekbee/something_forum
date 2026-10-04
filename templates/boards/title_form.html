@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{% if redacting %}Redact thread title{% else %}Edit thread title{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if redacting %}Redact thread title{% else %}Edit thread title{% endif %}</h1>
+<form class="panel" method="post">{% csrf_token %}
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  {{ form.as_p }}
+  {% if redacting %}
+  <p><label for="id_reason_key">Reason for the redaction</label>
+    <select id="id_reason_key" name="reason_key" required><option value="">Choose…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+    <input type="text" name="note" placeholder="A sentence, needed for Other" aria-label="Reason in a sentence"></p>
+  {% if rap_sheet_entries %}<p><label for="id_rap_sheet_action">Link from a Rap Sheet entry (optional)</label>
+    <select id="id_rap_sheet_action" name="rap_sheet_action"><option value="">None</option>{% for a in rap_sheet_entries %}<option value="{{ a.pk }}">{{ a.get_kind_display }}, {{ a.created_at|date:"j M Y" }}: {{ a.public_summary|truncatechars:60 }}</option>{% endfor %}</select></p>{% endif %}
+  {% endif %}
+  <div class="actions"><button>Save title</button><a href="{{ back }}">Cancel</a></div>
+</form>
+{% endblock %}

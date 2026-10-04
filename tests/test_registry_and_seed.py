@@ -21,6 +21,7 @@ def test_registry_defaults_match_design():
         "sponsorship.cap.admin": None,
         "sponsorship.cap.owner": None,
         "sponsorship.transfer_grace_days": 30,
+        "sponsorship.max_open_vouch_requests": 3,
         "sponsorship.review_on_member_ban": True,
         "promotion.full.min_days": 90,
         "promotion.full.min_posts": 25,
@@ -57,7 +58,7 @@ def test_registry_defaults_match_design():
         "dm.max_new_conversations_per_day": 10,
         "dm.links": "full_and_above",
         "dm.images": "inline",
-        "dm.edit_window_minutes": 30,
+        "dm.edit_window_minutes": 1440,
         "reports.max_per_member_per_day": 10,
         "flags.rate_limit_refusals": 3,
         "flags.rate_limit_window_hours": 24,
@@ -79,7 +80,7 @@ def test_registry_defaults_match_design():
         "pagination.threads_per_subforum_page": 30,
         "pagination.search_results_per_page": 20,
         "pagination.profile_posts_per_page": 20,
-        "subforum.edit_window_minutes": 30,
+        "subforum.edit_window_minutes": 1440,
         "subforum.hold_posts": "first_n_provisional",
     }
     assert {k: s.default for k, s in registry.REGISTRY.items()} == expected
