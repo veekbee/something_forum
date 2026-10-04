@@ -39,6 +39,12 @@ class User(AbstractBaseUser):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.INVITED)
     joined_at = models.DateTimeField(default=timezone.now)
     last_seen_at = models.DateTimeField(null=True, blank=True)
+    # Removal ends a membership; it is not discipline (rule 66). removed_by is empty when the member
+    # left on their own. An invited account whose invitation ended is also status removed, but has no
+    # removed_at: it was never a membership.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    removal_reason = models.TextField(blank=True)
     # The avatar and caption extra (rule 49); without it a member has a generated avatar.
     avatar = models.ForeignKey("boards.Attachment", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     caption = models.CharField(max_length=40, blank=True)

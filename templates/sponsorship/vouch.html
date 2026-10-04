@@ -3,6 +3,8 @@
 {% block content %}
 <h1>Vouch for {{ member.display_name }}</h1>
 <p>{{ member.display_name }} needs a new sponsor. If they accept your offer you become their sponsor, and they take one of your sponsorship places.</p>
+{% if asked %}<div class="notice"><p>{{ member.display_name }} asked you: {{ asked.note }}</p>
+  <form method="post" action="{% url 'vouch_request_action' asked.pk 'ignore' %}">{% csrf_token %}<button class="secondary">Let it pass</button></form></div>{% endif %}
 {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
 <form method="post">{% csrf_token %}{{ form.as_p }}<button>Offer to vouch</button></form>
 {% endblock %}

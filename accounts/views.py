@@ -29,3 +29,24 @@ def sessions_page(request):
         return redirect("sessions")
     return render(request, "account/sessions.html", {"sessions": sessions.active_sessions(request.user),
                                                      "current": current})
+
+
+def leave_page(request):
+    """A member ends their own membership (rule 66)."""
+    from django.contrib.auth import logout
+    from django.core.exceptions import PermissionDenied
+    from django.shortcuts import render
+
+    from accounts import removal
+    from core.permissions import can
+
+    decision = can(request.user, "member.leave", request.user)
+    if request.method == "POST" and request.POST.get("confirm") == "leave":
+        if not decision:
+            raise PermissionDenied(decision.reason)
+        removal.leave(request.user, request.POST.get("reason", ""))
+        logout(request)
+        response = render(request, "account/left.html")
+        response["Clear-Site-Data"] = '"cache", "storage"'
+        return response
+    return render(request, "account/leave.html", {"may_leave": decision})

@@ -9,6 +9,16 @@
   <p>This is not shown on your profile. You can still message staff{% if transfer.cause != "sponsor_banned" %} and your sponsor{% endif %}, and anyone who offers to vouch for you. Staff can help you find a sponsor.</p>
   <p class="muted">Waiting since {{ transfer.started_at|date:"j M Y" }}.</p>
 </section>
+<h2>Ask someone to vouch for you</h2>
+<section class="panel">
+  <p class="muted">They get a notification, not a message, and can offer or let it pass. Only members who could sponsor you can be asked. You can have {{ max_requests }} requests open at once.</p>
+  {% for r in requests %}<div class="actions">Asked <strong>{{ r.recipient.display_name }}</strong> {{ r.created_at|date:"j M Y" }} <form class="inline-form" method="post" action="{% url 'vouch_request_action' r.pk 'withdraw' %}">{% csrf_token %}<button class="secondary">Withdraw</button></form></div>{% endfor %}
+  {% if requests|length < max_requests %}<form method="post" action="{% url 'request_vouch' %}">{% csrf_token %}
+    <p><label for="id_member">Their profile name (as in the address of their profile)</label><input id="id_member" type="text" name="member" required></p>
+    <p><label for="id_note">A short note</label><textarea id="id_note" name="note" rows="3" required></textarea></p>
+    <button>Send request</button></form>{% endif %}
+</section>
+
 <h2>Offers to vouch for you</h2>
 {% if offers %}
 <ul class="list panel">

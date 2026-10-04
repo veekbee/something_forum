@@ -106,7 +106,8 @@ def test_choosing_email_kinds(client, make_user):
     client.force_login(member)
     client.post("/notifications/settings/", {"mention": "on"})
     chosen = dict(NotificationPreference.objects.filter(user=member).values_list("kind", "email"))
-    assert chosen == {"mention": True, "dm": False, "thread.reply": False, "promotion": False}
+    assert chosen == {"mention": True, "dm": False, "thread.reply": False, "promotion": False,
+                      "sponsorship.vouch_request": False}
 
 
 # --- following threads ---------------------------------------------------------------------

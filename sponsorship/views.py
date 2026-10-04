@@ -14,7 +14,7 @@ from accounts import roles
 from accounts.models import User
 from core.permissions import can
 from sponsorship import capacity, onboarding
-from sponsorship.models import Invitation, SponsorshipOffer, SponsorshipTransfer
+from sponsorship.models import Invitation, SponsorshipOffer, SponsorshipTransfer, VouchRequest
 
 
 def _errors(exc):
@@ -230,11 +230,48 @@ def transfer_status(request):
     """The waiting sponsee's page: why they are read-only, and the offers to vouch for them."""
     from sponsorship import transfers
 
+    from core import registry
+
     transfer = transfers.open_transfer(request.user)
     offers = transfer.offers.filter(status=SponsorshipOffer.Status.OPEN).select_related("offerer") if transfer else []
+    requests = transfer.vouch_requests.filter(status=VouchRequest.Status.OPEN).select_related("recipient") if transfer else []
     return render(request, "sponsorship/transfer.html", {
-        "transfer": transfer, "offers": offers, "error": request.GET.get("error", ""),
+        "transfer": transfer, "offers": offers, "requests": requests, "error": request.GET.get("error", ""),
+        "max_requests": registry.site_value("sponsorship.max_open_vouch_requests"),
     })
+
+
+@require_POST
+def request_vouch(request):
+    """A waiting sponsee asks a member, by the address of their profile, to vouch (rule 67)."""
+    from sponsorship import transfers
+
+    slug = request.POST.get("member", "").strip().strip("/").split("/")[-1].lstrip("@")
+    recipient = User.objects.filter(slug=slug).first()
+    try:
+        if recipient is None:
+            raise ValidationError("No member with that name.")
+        transfers.request_vouch(request.user, recipient, request.POST.get("note", ""))
+    except (ValidationError, PermissionDenied) as exc:
+        return redirect(f"{reverse('transfer_status')}?{urlencode({'error': ' '.join(_errors(exc))})}")
+    return redirect("transfer_status")
+
+
+@require_POST
+def vouch_request_action(request, pk, step):
+    from sponsorship import transfers
+
+    vouch_request = get_object_or_404(VouchRequest.objects.select_related("transfer__member"), pk=pk)
+    try:
+        if step == "withdraw":
+            transfers.withdraw_request(request.user, vouch_request)
+            return redirect("transfer_status")
+        if step == "ignore":
+            transfers.ignore_request(request.user, vouch_request)
+            return redirect("home")
+    except ValidationError:
+        return redirect("home")
+    raise PermissionDenied("unknown step")
 
 
 def vouch(request, slug):
@@ -253,7 +290,9 @@ def vouch(request, slug):
             errors = _errors(exc)
         else:
             return redirect(f"{reverse('invitations')}?sent=offer")
-    return render(request, "sponsorship/vouch.html", {"member": member, "form": form, "errors": errors})
+    asked = VouchRequest.objects.filter(transfer__member=member, recipient=request.user,
+                                        status=VouchRequest.Status.OPEN).first()
+    return render(request, "sponsorship/vouch.html", {"member": member, "form": form, "errors": errors, "asked": asked})
 
 
 @require_POST

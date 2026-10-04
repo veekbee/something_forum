@@ -16,6 +16,8 @@ urlpatterns = [
     path("staff/guests/<int:user_pk>/comp/", views.comp_guest, name="comp_guest"),
     path("sponsorship/transfer/", views.transfer_status, name="transfer_status"),
     path("sponsorship/vouch/<slug:slug>/", views.vouch, name="vouch"),
+    path("sponsorship/requests/", views.request_vouch, name="request_vouch"),
+    path("sponsorship/requests/<int:pk>/<str:step>/", views.vouch_request_action, name="vouch_request_action"),
     path("sponsorship/offers/<int:pk>/<str:step>/", views.offer_action, name="offer_action"),
     path("staff/transfers/<int:pk>/<str:step>/", views.transfer_decide, name="transfer_decide"),
 ]

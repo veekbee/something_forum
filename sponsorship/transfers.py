@@ -24,7 +24,7 @@ from core import registry
 from core.models import Notification
 from core.services import require
 from sponsorship import capacity
-from sponsorship.models import Sponsorship, SponsorshipOffer, SponsorshipTransfer
+from sponsorship.models import Sponsorship, SponsorshipOffer, SponsorshipTransfer, VouchRequest
 
 Cause = SponsorshipTransfer.Cause
 Status = SponsorshipTransfer.Status
@@ -45,6 +45,36 @@ def _notify(user, kind, transfer, **extra):
 
 
 # --- opening -------------------------------------------------------------------------------
+
+
+def open_for_member(sponsorship, cause, actor=None):
+    """Open one transfer, for a reinstated member whose restored sponsor can no longer sponsor."""
+    now = timezone.now()
+    transfer = SponsorshipTransfer.objects.create(
+        member=sponsorship.member, sponsorship=sponsorship, cause=cause, started_at=now,
+        deadline_at=now + timedelta(days=registry.site_value("sponsorship.transfer_grace_days")),
+    )
+    log.record(actor, "sponsorship.transfer_open", transfer, {
+        "member": sponsorship.member_id, "sponsor": sponsorship.sponsor_id, "cause": cause,
+    })
+    _notify(sponsorship.member, "sponsorship.transfer_opened", transfer)
+    return transfer
+
+
+def cause_for(sponsor):
+    """Which cause keeps this sponsor from sponsoring now."""
+    from billing.lapse import is_restricted
+    from moderation.models import ModerationAction
+
+    if sponsor.status in CLOSED_STATUSES:
+        return Cause.SPONSOR_LEFT
+    if ModerationAction.objects.in_force().filter(
+        target_user=sponsor, kind__in=[ModerationAction.Kind.BAN, ModerationAction.Kind.PERMANENT_BAN]
+    ).exists():
+        return Cause.SPONSOR_BANNED
+    if is_restricted(sponsor):
+        return Cause.SPONSOR_LAPSE_RESTRICTED
+    return Cause.SPONSOR_ROLE_LOST
 
 
 def open_for_sponsor(sponsor, cause, actor=None):
@@ -130,6 +160,10 @@ def _close(transfer, status, now, **fields):
     SponsorshipOffer.objects.filter(transfer=transfer, status=SponsorshipOffer.Status.OPEN).update(
         status=SponsorshipOffer.Status.LAPSED, decided_at=now
     )
+    # Requests to vouch close when the transfer ends: the sponsee no longer needs them.
+    VouchRequest.objects.filter(transfer=transfer, status=VouchRequest.Status.OPEN).update(
+        status=VouchRequest.Status.WITHDRAWN, closed_at=now
+    )
 
 
 def resume_for_sponsor(sponsor, actor=None):
@@ -174,6 +208,8 @@ def make_offer(offerer, member, vouching_notes):
         raise ValidationError("Say how you know them, and for how long.")
     transfer = SponsorshipTransfer.objects.select_for_update().get(member=member, status=Status.OPEN)
     offer = SponsorshipOffer.objects.create(transfer=transfer, offerer=offerer, vouching_notes=vouching_notes.strip())
+    VouchRequest.objects.filter(transfer=transfer, recipient=offerer, status=VouchRequest.Status.OPEN).update(
+        status=VouchRequest.Status.ANSWERED, closed_at=timezone.now())
     log.record(offerer, "sponsorship.offer", offer, {"member": member.pk})
     _notify(member, "sponsorship.offer", transfer)
     return offer
@@ -275,33 +311,72 @@ def extend(actor, transfer, days, notes=""):
 
 @transaction.atomic
 def remove_member(actor, transfer, notes=""):
-    """After the deadline. Removal is not otherwise designed yet; here it means the account can no
-    longer sign in, its posts stay, the sponsorship ends as member_removed and any Stripe renewal
-    stops, with no refund. The member's own sponsees then transfer, their sponsor having left."""
-    from billing.models import Subscription
-    from billing import stripe_api
+    """After the deadline an Admin or Owner may remove the member (rule 53); removal is the general
+    one (accounts.removal), recorded on the transfer as the decision."""
+    from accounts import removal
 
     transfer = _locked_transfer(transfer)
     require(actor, "sponsorship.remove_after_transfer", transfer)
     if not notes.strip():
         raise ValidationError("Give the reason, for staff.")
-    now = timezone.now()
     member = transfer.member
-    old = Sponsorship.objects.select_for_update().get(pk=transfer.sponsorship_id)
-    old.ended_at, old.end_reason = now, Sponsorship.EndReason.MEMBER_REMOVED
-    old.save()
-    _close(transfer, Status.DECIDED, now, decided_by=actor, decision=SponsorshipTransfer.Decision.REMOVED, notes=notes)
-    User.objects.filter(pk=member.pk).update(status=User.Status.REMOVED)
-    member.status = User.Status.REMOVED
-    sub = Subscription.objects.select_for_update().filter(user=member).first()
-    if sub is not None and sub.stripe_subscription_id:
-        stripe_api.cancel_subscription(sub.stripe_subscription_id)
-        sub.stripe_subscription_id = ""
-        sub.save(update_fields=["stripe_subscription_id"])
-    capacity.reassign_slots(old.sponsor)
+    removal.end_membership(member, actor, notes.strip(), Sponsorship.EndReason.MEMBER_REMOVED, transfer_decision=True)
+    transfer.refresh_from_db()
     log.record(actor, "sponsorship.transfer_decide", transfer, {"decision": transfer.decision, "member": member.pk})
-    open_for_sponsor(member, Cause.SPONSOR_LEFT, actor)
+    log.record(actor, "member.remove", member, {"reason": notes.strip(), "transfer": transfer.pk})
     return transfer
+
+
+# --- requests to vouch (rule 67) -----------------------------------------------------------
+
+
+@transaction.atomic
+def request_vouch(member, recipient, note):
+    """A waiting sponsee asks a member who could sponsor them. A notification, never a DM."""
+    require(member, "sponsorship.request_vouch", recipient)
+    if not (note or "").strip():
+        raise ValidationError("Add a short note: who you are to them, and why you are asking.")
+    transfer = SponsorshipTransfer.objects.select_for_update().get(member=member, status=Status.OPEN)
+    request = VouchRequest.objects.create(transfer=transfer, recipient=recipient, note=note.strip())
+    log.record(member, "sponsorship.vouch_request", request, {"recipient": recipient.pk})
+    Notification.objects.create(recipient=recipient, kind="sponsorship.vouch_request",
+                                payload={"request": request.pk, "member": member.slug})
+    return request
+
+
+def _locked_request(request):
+    return VouchRequest.objects.select_for_update(of=("self",)).select_related("transfer").get(pk=request.pk)
+
+
+@transaction.atomic
+def withdraw_request(member, request):
+    request = _locked_request(request)
+    if request.transfer.member_id != member.pk or request.status != VouchRequest.Status.OPEN:
+        raise ValidationError("This request is no longer open.")
+    request.status, request.closed_at = VouchRequest.Status.WITHDRAWN, timezone.now()
+    request.save(update_fields=["status", "closed_at"])
+    log.record(member, "sponsorship.vouch_request_withdraw", request)
+    return request
+
+
+@transaction.atomic
+def ignore_request(recipient, request):
+    request = _locked_request(request)
+    if request.recipient_id != recipient.pk or request.status != VouchRequest.Status.OPEN:
+        raise ValidationError("This request is no longer open.")
+    request.status, request.closed_at = VouchRequest.Status.IGNORED, timezone.now()
+    request.save(update_fields=["status", "closed_at"])
+    return request
+
+
+def close_requests_from(member, now):
+    VouchRequest.objects.filter(transfer__member=member, status=VouchRequest.Status.OPEN).update(
+        status=VouchRequest.Status.WITHDRAWN, closed_at=now)
+
+
+def close_requests_to(member, now):
+    VouchRequest.objects.filter(recipient=member, status=VouchRequest.Status.OPEN).update(
+        status=VouchRequest.Status.IGNORED, closed_at=now)
 
 
 def close_on_tenure(member, actor=None):

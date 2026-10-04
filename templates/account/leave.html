@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Leave the forum{% endblock %}
+{% block content %}
+<h1>Leave the forum</h1>
+{% if may_leave %}
+<section class="panel">
+  <p>Leaving ends your membership. You will no longer be able to sign in, and any renewal is cancelled, with no refund. Your posts stay under your name and your conversations are kept; if you want your posts anonymised, ask for erasure. Members you sponsor who are not yet Tenured will need new sponsors. An Admin can reinstate you later.</p>
+  <form method="post">{% csrf_token %}
+    <p><label for="id_reason">Why are you leaving? (optional, seen by staff)</label><input id="id_reason" type="text" name="reason"></p>
+    <p><label class="inline"><input type="checkbox" name="confirm" value="leave" required> I understand, end my membership</label></p>
+    <button class="secondary">Leave the forum</button>
+  </form>
+</section>
+{% else %}<p class="notice">You can't leave from here: {{ may_leave.reason }}.</p>{% endif %}
+{% endblock %}

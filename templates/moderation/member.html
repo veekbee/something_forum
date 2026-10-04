@@ -9,6 +9,13 @@
   <p><select name="reason_key" required aria-label="Reason"><option value="">Reason…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select> <input type="text" name="note" placeholder="A sentence, needed for Other" aria-label="Reason in a sentence"></p>
   <button class="secondary">Reset avatar and caption to the default</button></form>{% endif %}
 
+{% if member.removed_at %}<p class="notice">Membership ended {{ member.removed_at|date:"j M Y" }}{% if member.removed_by %}, removed by {{ member.removed_by.display_name }}{% else %}; they left{% endif %}{% if member.removal_reason %}: {{ member.removal_reason }}{% endif %}</p>{% endif %}
+{% if may_remove %}<form class="panel" method="post" action="{% url 'membership_action' member.slug 'remove' %}">{% csrf_token %}<h2>End their membership</h2>
+  <p class="muted">Not discipline: nothing goes on the Rap Sheet. They can no longer sign in, their renewal is cancelled with no refund, and their pre-Tenure sponsees need new sponsors. You can reinstate them later.</p>
+  <p><input type="text" name="reason" required placeholder="Reason, for staff" aria-label="Reason for removal"></p><button class="secondary">Remove member</button></form>{% endif %}
+{% if may_reinstate %}<form class="panel" method="post" action="{% url 'membership_action' member.slug 'reinstate' %}">{% csrf_token %}<h2>Reinstate</h2>
+  <p><input type="text" name="reason" required placeholder="Reason, for staff" aria-label="Reason for reinstating"></p><button class="secondary">Reinstate member</button></form>{% endif %}
+
 {% if may_reset_factor %}
 <form class="panel" method="post" action="{% url 'reset_factor' member.slug %}">{% csrf_token %}<h2>Reset their second factor</h2>
   <p class="muted">Signs out every session and makes them set up a new authenticator at the next sign-in. Confirm who they are first.</p>
@@ -56,7 +63,8 @@
   {% else %}<form method="post" action="{% url 'extra_action' e.pk e.revoked_at|yesno:'restore,revoke' %}">{% csrf_token %}<p>Extra: {{ e.extra.name }}{% if e.revoked_at %} <span class="status">revoked {{ e.revoked_at|date:"j M Y" }}</span>{% endif %}<br>
     <input type="text" name="internal_reason" required placeholder="Reason, for staff" aria-label="Reason, for staff"> <input type="text" name="public_summary" required placeholder="Public summary" aria-label="Public summary">
     <button class="secondary">{% if e.revoked_at %}Restore (public){% else %}Revoke (public, not refunded){% endif %}</button></p></form>{% endif %}{% endfor %}
-  {% for c in charges %}<p class="muted">{{ c.get_kind_display|capfirst }} · {{ c.amount_cents|dollars }} · {{ c.created_at|date:"j M Y" }}</p>{% endfor %}
+  {% for c in charges %}<p class="muted">{{ c.get_kind_display|capfirst }} · {{ c.amount_cents|dollars }} · {{ c.created_at|date:"j M Y" }}{% if c.status == "refunded" %} · refunded{% endif %}
+    {% if c.may_refund %}<form class="inline-form" method="post" action="{% url 'refund_charge' c.pk %}">{% csrf_token %}<button class="secondary">Refund</button></form>{% endif %}</p>{% endfor %}
   {% if subscription %}<p>{{ subscription.get_status_display }}{% if subscription.comped_by %} (comped by {{ subscription.comped_by.display_name }}){% endif %}{% if subscription.current_period_end %} · paid to {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>{% else %}<p class="muted">No subscription.</p>{% endif %}
 </section>
 <section class="panel"><h2>Direct messages</h2>

@@ -1087,11 +1087,63 @@ HIDDEN_STATUSES = {User.Status.INVITED, User.Status.REMOVED, User.Status.TOMBSTO
 
 @rule("member.view_profile")
 def _member_view_profile(actor, member):
+    """A removed member's profile stays, showing "membership ended" (rule 66). An invited account
+    whose invitation ended was never a membership and stays hidden."""
     base = _can_read_anything(actor)
     if not base:
         return base
-    if member.status in HIDDEN_STATUSES:
+    if member.status in HIDDEN_STATUSES and not (member.status == User.Status.REMOVED and member.removed_at):
         return deny("no such member")
+    return allow()
+
+
+# --- removal (rule 66) -----------------------------------------------------------------------
+
+
+@rule("member.remove")
+def _member_remove(actor, member):
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners remove a member")
+    if member.status in CLOSED_STATUSES:
+        return deny(f"account is {member.status}")
+    return _staff_may_act_on(actor, member)
+
+
+@rule("member.leave")
+def _member_leave(actor, member):
+    """Members leave from their own settings. Staff step down first, so the forum is never left
+    without whoever holds a staff role by accident."""
+    if member.pk != actor.pk:
+        return deny("members leave only on their own behalf")
+    if actor.status in CLOSED_STATUSES:
+        return deny(f"account is {actor.status}")
+    from boards.dm import is_staff_role
+
+    if is_staff_role(actor):
+        return deny("step down from your staff role first")
+    return allow()
+
+
+@rule("member.reinstate")
+def _member_reinstate(actor, member):
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners reinstate a member")
+    if member.status != User.Status.REMOVED or member.removed_at is None:
+        return deny("this member's membership has not ended")
+    if member.pk == actor.pk:
+        return deny("cannot reinstate yourself")
+    return allow()
+
+
+@rule("billing.refund_removed")
+def _billing_refund_removed(actor, charge):
+    """No automatic refund on removal; an Admin or Owner may refund in a particular case."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners refund")
+    if charge.user.status != User.Status.REMOVED or charge.user.removed_at is None:
+        return deny("refunds here are for removed members")
+    if charge.status != "succeeded" or not charge.stripe_payment_intent_id:
+        return deny("nothing to refund")
     return allow()
 
 
@@ -1205,6 +1257,28 @@ def _sponsorship_offer(actor, member):
         return deny("you have no free sponsorship slot")
     if transfer.offers.filter(offerer=actor, status="open").exists():
         return deny("you have already offered")
+    return allow()
+
+
+@rule("sponsorship.request_vouch")
+def _sponsorship_request_vouch(actor, recipient):
+    """Rule 67: a waiting sponsee asks a member who could make a valid offer, with at most
+    sponsorship.max_open_vouch_requests open at once."""
+    from sponsorship import transfers
+
+    transfer = transfers.open_transfer(actor)
+    if transfer is None:
+        return deny("you are not waiting for a sponsor")
+    if actor.status in CLOSED_STATUSES:
+        return deny(f"account is {actor.status}")
+    if not _sponsorship_offer(recipient, actor):
+        return deny(f"{recipient.display_name} cannot sponsor you at the moment")
+    open_requests = transfer.vouch_requests.filter(status="open")
+    if open_requests.filter(recipient=recipient).exists():
+        return deny("you have already asked them")
+    limit = registry.site_value("sponsorship.max_open_vouch_requests")
+    if open_requests.count() >= limit:
+        return deny(f"you can have at most {limit} requests open at once")
     return allow()
 
 

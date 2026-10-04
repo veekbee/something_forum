@@ -64,6 +64,7 @@ class Sponsorship(HistoryRowMixin, models.Model):
         SPONSOR_LEFT = "sponsor_left"
         SPONSOR_BANNED = "sponsor_banned"
         MEMBER_REMOVED = "member_removed"
+        MEMBER_LEFT = "member_left"
 
     closing_fields = ("ended_at", "end_reason")
 
@@ -140,6 +141,31 @@ class SponsorshipTransfer(models.Model):
     @property
     def past_deadline(self):
         return self.status == self.Status.OPEN and self.deadline_at <= timezone.now()
+
+
+class VouchRequest(models.Model):
+    """A waiting sponsee asks a member who could sponsor them to vouch (rule 67). A notification,
+    never a DM; the recipient offers or ignores it. Closes when the transfer ends."""
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        ANSWERED = "answered"
+        IGNORED = "ignored"
+        WITHDRAWN = "withdrawn"
+
+    transfer = models.ForeignKey(SponsorshipTransfer, on_delete=models.PROTECT, related_name="vouch_requests")
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="vouch_requests")
+    note = models.TextField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(default=timezone.now)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["transfer", "recipient"], condition=Q(status="open"), name="one_open_request_per_recipient"
+            )
+        ]
 
 
 class SponsorshipOffer(models.Model):

@@ -552,3 +552,80 @@ def test_withdrawn_offer_leaves_the_conversation_readable_but_closed(waiting, ma
     transfers.withdraw_offer(offerer, offer)
     assert can(member, "thread.read", conversation) and can(offerer, "thread.read", conversation)
     assert not can(member, "thread.reply", conversation) and not can(offerer, "thread.reply", conversation)
+
+
+# --- requests to vouch (rule 67) ---------------------------------------------------------------
+
+
+def test_waiting_sponsee_asks_eligible_members(waiting, make_user):
+    from boards.models import Thread
+    from core.models import Notification
+    from sponsorship.models import VouchRequest
+
+    _, member = waiting
+    candidate = make_user("full")
+    with pytest.raises(ValidationError):
+        transfers.request_vouch(member, candidate, " ")
+    request = transfers.request_vouch(member, candidate, "We worked together for years")
+    assert Notification.objects.filter(recipient=candidate, kind="sponsorship.vouch_request").exists()
+    assert not Thread.objects.filter(kind="dm").exists()  # a notification, never a DM
+    with pytest.raises(PermissionDenied):
+        transfers.request_vouch(member, candidate, "again")
+    _offer(candidate, member)
+    request.refresh_from_db()
+    assert request.status == VouchRequest.Status.ANSWERED
+
+
+@pytest.mark.parametrize("who", ["provisional", "full_at_cap", "admin"])
+def test_requests_only_to_members_who_could_sponsor(waiting, make_user, who):
+    _, member = waiting
+    if who == "full_at_cap":
+        recipient = make_user("full")
+        sponsor(recipient, make_user("provisional"))
+    else:
+        recipient = make_user(who)
+    with pytest.raises(PermissionDenied):
+        transfers.request_vouch(member, recipient, "please")
+
+
+def test_at_most_three_open_requests(waiting, make_user, owner):
+    _, member = waiting
+    for _ in range(3):
+        transfers.request_vouch(member, make_user("tenured"), "please")
+    with pytest.raises(PermissionDenied):
+        transfers.request_vouch(member, make_user("tenured"), "please")
+    first = member.sponsorship_transfers.get().vouch_requests.first()
+    transfers.withdraw_request(member, first)
+    transfers.request_vouch(member, make_user("tenured"), "please")
+
+
+def test_only_waiting_sponsees_ask(pair, make_user):
+    _, member = pair
+    with pytest.raises(PermissionDenied):
+        transfers.request_vouch(member, make_user("full"), "please")
+
+
+def test_requests_close_when_the_transfer_ends(waiting, make_user):
+    from sponsorship.models import VouchRequest
+
+    old, member = waiting
+    ignored = transfers.request_vouch(member, make_user("tenured"), "please")
+    transfers.ignore_request(ignored.recipient, ignored)
+    still_open = transfers.request_vouch(member, make_user("tenured"), "please")
+    services.lift_ban(make_user("admin"), ModerationAction.objects.get(target_user=old, kind="ban"), "x")
+    ignored.refresh_from_db()
+    still_open.refresh_from_db()
+    assert ignored.status == VouchRequest.Status.IGNORED
+    assert still_open.status == VouchRequest.Status.WITHDRAWN and still_open.closed_at is not None
+
+
+def test_request_through_the_page(waiting, client, make_user):
+    _, member = waiting
+    candidate = make_user("full")
+    enrol_totp(member)
+    client.force_login(member)
+    client.post("/sponsorship/requests/", {"member": candidate.slug, "note": "Old colleague"})
+    assert candidate.vouch_requests.get().note == "Old colleague"
+    enrol_totp(candidate)
+    client.force_login(candidate)
+    assert b"Old colleague" in client.get(f"/sponsorship/vouch/{member.slug}/").content

@@ -21,6 +21,8 @@ urlpatterns = [
     path("staff/sponsor-reviews/<int:pk>/", views.sponsor_review_action, name="sponsor_review_action"),
     path("staff/members/<slug:slug>/sponsor-review/", views.open_sponsor_review, name="open_sponsor_review"),
     path("staff/members/<slug:slug>/reset-factor/", views.reset_factor, name="reset_factor"),
+    path("staff/members/<slug:slug>/membership/<str:step>/", views.membership_action, name="membership_action"),
+    path("staff/charges/<int:pk>/refund/", views.refund_charge, name="refund_charge"),
     path("report/post/<int:pk>/", views.report_post, name="report_post"),
     path("report/member/<slug:slug>/", views.report_member, name="report_member"),
 ]

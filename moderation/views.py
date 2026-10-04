@@ -8,6 +8,7 @@ from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.http import require_POST
 
 from accounts.models import User
+from billing.models import Charge
 from boards.models import Post
 from core.permissions import can
 from moderation import queue, reports, services
@@ -172,6 +173,27 @@ def promotion_action(request, pk, step):
 
 
 @require_POST
+def membership_action(request, slug, step):
+    """Remove or reinstate a member (rule 66), with a written reason."""
+    from accounts import removal
+
+    member = get_object_or_404(User, slug=slug)
+    act = {"remove": removal.remove, "reinstate": removal.reinstate}.get(step)
+    if act is None:
+        raise PermissionDenied("unknown step")
+    return _staff_page_act(request, member, lambda: act(request.user, member, request.POST.get("reason", "")))
+
+
+@require_POST
+def refund_charge(request, pk):
+    from accounts import removal
+    from billing.models import Charge
+
+    charge = get_object_or_404(Charge.objects.select_related("user"), pk=pk)
+    return _staff_page_act(request, charge.user, lambda: removal.refund(request.user, charge))
+
+
+@require_POST
 def reset_factor(request, slug):
     from accounts import factor_reset
 
@@ -240,7 +262,7 @@ def member_view(request, slug):
 
     from accounts.models import Block, IdentityRecord, UserSession
     from audit import log
-    from billing.models import Charge, Subscription
+    from billing.models import Subscription
     from boards.models import Thread
     from boards.views import _page
     from boards.visibility import moderated_subforums
@@ -269,6 +291,8 @@ def member_view(request, slug):
         "error": request.GET.get("error", ""),
         "may_open_review": bool(can(request.user, "sponsor_review.open", member)),
         "may_reset_factor": bool(can(request.user, "account.reset_factor", member)),
+        "may_remove": bool(can(request.user, "member.remove", member)),
+        "may_reinstate": bool(can(request.user, "member.reinstate", member)),
     }
     transfers = SponsorshipTransfer.objects.filter(member=member).select_related("decided_by").order_by("-started_at")
     open_transfer = next((t for t in transfers if t.status == SponsorshipTransfer.Status.OPEN), None)
@@ -286,7 +310,7 @@ def member_view(request, slug):
             "blocks_made": Block.objects.filter(blocker=member).select_related("blocked"),
             "blocks_received": Block.objects.filter(blocked=member).select_related("blocker"),
             "subscription": Subscription.objects.filter(user=member).first(),
-        "charges": Charge.objects.filter(user=member).order_by("-created_at"),
+        "charges": _charges(request.user, member),
         "entitlements": _entitlements(request.user, member),
             "sessions": UserSession.objects.filter(user=member).order_by("-last_seen_at")[:20],
             "has_identity": IdentityRecord.objects.filter(user=member).exists(),
@@ -367,6 +391,13 @@ def extra_action(request, pk, step):
         raise PermissionDenied("unknown step")
     return _staff_page_act(request, entitlement.user, lambda: act(
         request.user, entitlement, request.POST.get("internal_reason", ""), request.POST.get("public_summary", "")))
+
+
+def _charges(actor, member):
+    rows = list(Charge.objects.filter(user=member).select_related("user").order_by("-created_at"))
+    for row in rows:
+        row.may_refund = bool(can(actor, "billing.refund_removed", row))
+    return rows
 
 
 def _entitlements(actor, member):

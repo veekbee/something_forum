@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from accounts.views import LogoutView, sessions_page
+from accounts.views import LogoutView, leave_page, sessions_page
 from core import install, views
 
 urlpatterns = [
@@ -13,6 +13,7 @@ urlpatterns = [
     path("legal/<slug:slug>/", views.legal, name="legal"),
     path("help/install/", views.install_help, name="install_help"),
     path("sessions/", sessions_page, name="sessions"),
+    path("leave/", leave_page, name="leave"),
     path("notifications/", views.notifications_page, name="notifications"),
     path("notifications/settings/", views.notification_settings, name="notification_settings"),
     path("staff/settings/", views.site_settings, name="site_settings"),

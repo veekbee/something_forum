@@ -34,6 +34,7 @@ OPTIONAL_KINDS = {
     "mention": "Mentions of you",
     "thread.reply": "Replies in threads you follow",
     "promotion": "Promotion news",
+    "sponsorship.vouch_request": "Requests to vouch for someone",
 }
 
 
@@ -75,6 +76,8 @@ def describe(notification):
         "sponsorship.offer_accepted": ("Your offer to vouch was accepted; you are now their sponsor",
                                        reverse("invitations")),
         "sponsorship.offer_declined": ("Your offer to vouch was declined", reverse("invitations")),
+        "sponsorship.vouch_request": ("A member has asked you to vouch for them",
+                                      data.get("member") and reverse("vouch", args=[data["member"]])),
         "emoji.approved": (f"Your emoji :{data.get('name', '')}: is live", reverse("emoji_list")),
         "emoji.rejected": (f"Your emoji :{data.get('name', '')}: was not approved: {data.get('reason', '')}",
                            reverse("emoji_list")),
