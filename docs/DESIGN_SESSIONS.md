@@ -21,7 +21,8 @@ Repository (public): https://github.com/veekbee/something_forum
 
 ## Proposing design changes
 - Only the user makes decisions. When a change needs a decision, ask first, one question at a time, and write the patch only after the answer.
-- Deliver every change as a unified diff against the current `main`: edit the cloned file, run `git diff > name.patch`, check it with `git apply --check` on a clean checkout, and present the `.patch` file.
+- Deliver every change as a unified diff against the current `main`: edit the cloned file, run `git diff > name.patch`, check it with `git apply --check` on a clean checkout, and present the `.patch` file. Just before delivering, fetch `main` again; if it has moved, regenerate the patch on the new `main` and check it again.
+- Read the top of each brief for design commits the implementation session made directly, and pull them before writing a patch.
 - Keep each patch to one coherent decision or a small related set. Include changes to `CLAUDE.md` when session guidance is affected.
 - Follow the document's conventions:
   - Mark decisions inline as "(decided D Mon YYYY)" or "(confirmed D Mon YYYY)".

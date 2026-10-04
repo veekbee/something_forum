@@ -24,6 +24,8 @@ Design chats in Claude.ai propose changes as unified diffs against `docs/DESIGN.
 
 Never edit the design decisions in `docs/DESIGN.md` on your own initiative. Propose the change to the user first. Updating status lines (for example, marking a milestone done) is fine.
 
+If the user confirms a design change with you directly and you commit it to `docs/DESIGN.md`, list that commit at the top of your next design brief, so the design chat pulls it before writing patches.
+
 ## Stack
 
 Python 3.12+, Django 5.x, PostgreSQL 16+, HTMX with server-rendered templates, django-allauth (email/password, mandatory TOTP), Stripe, django-storages (S3-compatible, signed URLs only), pytest-django, Docker Compose.
