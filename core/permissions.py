@@ -874,6 +874,84 @@ def _moderation_annul(actor, action):
     return allow()
 
 
+@rule("billing.gift")
+def _billing_gift(actor, invitee):
+    """Only a sponsor, for their own approved Guest invitee (rule 41)."""
+    from billing.models import Gift
+    from boards import dm
+
+    if actor.status != User.Status.ACTIVE:
+        return deny(f"account is {actor.status}")
+    sponsor = dm.active_sponsor(invitee)
+    if sponsor is None or sponsor.pk != actor.pk:
+        return deny("you can gift only to your own invitee")
+    role = roles.trust_role(invitee)
+    if invitee.status != User.Status.GUEST or role is None or role.name != roles.GUEST:
+        return deny("only an approved Guest can be given a first year")
+    if Gift.objects.filter(invitee=invitee).exists():
+        return deny("their first year has already been given")
+    return allow()
+
+
+@rule("billing.accept_gift")
+def _billing_accept_gift(actor, gift):
+    if gift.invitee_id != actor.pk or gift.status != gift.Status.PAID:
+        return deny("not a gift waiting for you")
+    if actor.status != User.Status.GUEST:
+        return deny("the gift is for a Guest's first year")
+    return allow()
+
+
+def _has_extra(user, key):
+    from billing.models import Entitlement
+
+    return Entitlement.objects.filter(user=user, extra__key=key, revoked_at__isnull=True).exists()
+
+
+@rule("extras.buy")
+def _extras_buy(actor, extra):
+    """Extras are for Provisional and above and bought once (rule 49)."""
+    from django.conf import settings as django_settings
+
+    if not extra.is_active or not getattr(django_settings, extra.stripe_price_setting, ""):
+        return deny("not on sale")
+    if actor.status != User.Status.ACTIVE:
+        return deny(f"account is {actor.status}")
+    if roles.trust_rank(actor) < roles.rank_of(extra.min_role):
+        return deny(f"for {extra.min_role.capitalize()} members and above")
+    if _has_extra(actor, extra.key):
+        return deny("you already have it")
+    return allow()
+
+
+@rule("profile.customise")
+def _profile_customise(actor, _target):
+    """Set one's own avatar and caption: needs the extra, which survives a lapse."""
+    if actor.status in CLOSED_STATUSES or _banned(actor):
+        return deny("not available")
+    if not _has_extra(actor, "avatar_caption"):
+        return deny("the custom avatar and caption is a paid extra")
+    return allow()
+
+
+@rule("profile.reset_extra")
+def _profile_reset_extra(actor, member):
+    """Staff may reset an offending avatar or caption to the default (rule 49)."""
+    if not _staff_active(actor):
+        return deny("staff only")
+    return _staff_may_act_on(actor, member)
+
+
+@rule("extras.revoke")
+def _extras_revoke(actor, entitlement):
+    """Interim (sponsorship-transfer-brief.md): an Admin or Owner revokes, citing a public action."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners revoke an extra")
+    if entitlement.revoked_at is not None:
+        return deny("already revoked")
+    return _staff_may_act_on(actor, entitlement.user)
+
+
 @rule("billing.extend_comp")
 def _billing_extend_comp(actor, member):
     if actor.status != User.Status.ACTIVE or not roles.is_owner(actor):

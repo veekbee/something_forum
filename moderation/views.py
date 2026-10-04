@@ -245,6 +245,7 @@ def member_view(request, slug):
         "sponsorships": Sponsorship.objects.filter(member=member).select_related("sponsor").order_by("started_at"),
         "invitees": Sponsorship.objects.filter(sponsor=member).select_related("member").order_by("started_at"),
         "invitations": Invitation.objects.filter(sponsor=member).order_by("-created_at"),
+        "may_reset": bool(can(request.user, "profile.reset_extra", member)) and bool(member.avatar_id or member.caption),
     }
     if full:
         context.update({
@@ -254,6 +255,9 @@ def member_view(request, slug):
             "blocks_received": Block.objects.filter(blocked=member).select_related("blocker"),
             "subscription": Subscription.objects.filter(user=member).first(),
         "charges": Charge.objects.filter(user=member).order_by("-created_at"),
+        "entitlements": member.entitlements.filter(revoked_at__isnull=True).select_related("extra"),
+        "public_actions": ModerationAction.objects.filter(target_user=member, is_public=True,
+                                                          status__in=ModerationAction.RECORD_STATUSES),
             "sessions": UserSession.objects.filter(user=member).order_by("-last_seen_at")[:20],
             "has_identity": IdentityRecord.objects.filter(user=member).exists(),
         })
@@ -309,3 +313,24 @@ def feed_page(request):
     if not decision:
         raise PermissionDenied(decision.reason)
     return render(request, "moderation/feed.html", {"items": feed.items(request.user)})
+
+
+
+@require_POST
+def reset_extra(request, slug):
+    from billing import extras
+
+    member = get_object_or_404(User, slug=slug)
+    return _act(request, lambda: extras.reset_to_default(request.user, member))
+
+
+@require_POST
+def revoke_extra(request, pk):
+    from billing import extras
+    from billing.models import Entitlement
+
+    entitlement = get_object_or_404(Entitlement, pk=pk)
+    action = ModerationAction.objects.filter(pk=request.POST.get("action") or 0).first()
+    if action is None:
+        raise PermissionDenied("Choose the moderation action this revocation rests on.")
+    return _act(request, lambda: extras.revoke(request.user, entitlement, action))

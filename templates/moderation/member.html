@@ -4,6 +4,7 @@
 {% block content %}
 <h1>{{ member.display_name }} <span class="muted">· staff view</span></h1>
 <p class="actions"><a href="{% url 'member_profile' member.slug %}">Public profile</a><a href="{% url 'take_action' member.slug %}">Moderate</a></p>
+{% if may_reset %}<form class="panel" method="post" action="{% url 'reset_extra' member.slug %}">{% csrf_token %}<p>Avatar and caption: {% if member.caption %}“{{ member.caption }}”{% endif %}</p><button class="secondary">Reset avatar and caption to the default</button></form>{% endif %}
 
 {% if full %}
 <section class="panel"><h2>Identity details</h2>
@@ -29,6 +30,9 @@
 
 {% if full %}
 <section class="panel"><h2>Payment</h2>
+  {% for e in entitlements %}<form method="post" action="{% url 'revoke_extra' e.pk %}">{% csrf_token %}<p>Extra: {{ e.extra.name }}
+    <select name="action" required aria-label="Moderation action this rests on"><option value="">Revoke, citing…</option>{% for a in public_actions %}<option value="{{ a.pk }}">{{ a.get_kind_display }} {{ a.starts_at|date:"j M Y" }}</option>{% endfor %}</select>
+    <button class="secondary">Revoke</button></p></form>{% endfor %}
   {% for c in charges %}<p class="muted">{{ c.get_kind_display|capfirst }} · {{ c.amount_cents|dollars }} · {{ c.created_at|date:"j M Y" }}</p>{% endfor %}
   {% if subscription %}<p>{{ subscription.get_status_display }}{% if subscription.comped_by %} (comped by {{ subscription.comped_by.display_name }}){% endif %}{% if subscription.current_period_end %} · paid to {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>{% else %}<p class="muted">No subscription.</p>{% endif %}
 </section>

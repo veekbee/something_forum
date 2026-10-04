@@ -27,6 +27,9 @@
   <li>
     <strong>{{ inv.invitee_email }}</strong> <span class="status {{ inv.status }}">{{ inv.get_status_display }}</span><br>
     <span class="muted">Sent {{ inv.created_at|date:"j M Y" }}{% if inv.invitee %} · accepted as {{ inv.invitee.display_name }}{% endif %}</span>
+    {% if inv.may_gift %}
+    <div class="actions"><form method="post" action="{% url 'gift' inv.invitee.pk %}">{% csrf_token %}<button class="secondary">Pay for their first year</button></form></div>
+    {% endif %}
     {% if inv.status in live %}
     <div class="actions"><form method="post" action="{% url 'invitation_rescind' inv.pk %}">{% csrf_token %}<button class="secondary">Rescind</button></form></div>
     {% endif %}

@@ -439,6 +439,8 @@ def member_profile(request, slug):
         context["may_block"] = bool(can(request.user, "member.block", member))
         context["blocked"] = Block.objects.filter(blocker=request.user, blocked=member).exists()
         context["may_report"] = bool(can(request.user, "report.create", member))
+    else:
+        context["may_customise"] = bool(can(request.user, "profile.customise"))
         from core.permissions import ActionRequest
 
         context["may_act"] = any(
@@ -510,7 +512,11 @@ def search(request):
 def attachment(request, pk):
     """Images are served only after a permission check on their post (design rule 22)."""
     item = get_object_or_404(Attachment.objects.select_related("post__thread"), pk=pk)
-    if not can(request.user, "post.read", item.post):
+    if item.post is None:
+        # An avatar: shown to any signed-in member, and only while it is someone's current avatar.
+        if not User.objects.filter(avatar=item).exists():
+            raise Http404
+    elif not can(request.user, "post.read", item.post):
         raise Http404
     if settings.AWS_STORAGE_BUCKET_NAME:
         # Object storage: a short-lived signed URL (settings: querystring_expire).

@@ -3,6 +3,10 @@
 {% block content %}
 <h1>Membership</h1>
 {% if done %}<p class="notice">Thank you. Your payment is being confirmed; this page updates in a moment.</p>{% endif %}
+{% for g in gifts %}
+<section class="panel"><p>{{ g.sponsor.display_name }} has paid for your first year.</p>
+  <form method="post" action="{% url 'accept_gift' g.pk %}">{% csrf_token %}<button>Accept the gift</button></form></section>
+{% endfor %}
 <section class="panel">
   {% if not sub or sub.status == "none" %}
     <p>You are not a paying member yet. Membership is $25 a year, and paying makes you a Provisional member straight away.</p>
@@ -17,6 +21,6 @@
     {% if may_pay %}<form method="post" action="{% url 'billing_pay' %}">{% csrf_token %}<button>Pay $25 for a year</button></form>{% endif %}
     {% if may_manage %}<form method="post" action="{% url 'billing_manage' %}">{% csrf_token %}<button class="secondary">Manage card and renewal</button></form>{% endif %}
   </div>
-  <p class="helptext">Payments are handled by Stripe. The forum never sees your card.</p>
+  <p class="helptext">Payments are handled by Stripe. The forum never sees your card. <a href="{% url 'extras' %}">Extras</a></p>
 </section>
 {% endblock %}

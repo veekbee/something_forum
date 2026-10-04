@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Avatar and caption{% endblock %}
+{% block content %}
+<h1>Avatar and caption</h1>
+<form class="panel" method="post" enctype="multipart/form-data">{% csrf_token %}
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  <p><label for="avatar">Avatar (JPEG, PNG, WebP or GIF)</label><input id="avatar" type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif"></p>
+  <p><label for="caption">Caption, shown under your name</label><input id="caption" type="text" name="caption" maxlength="40" value="{{ user.caption }}"></p>
+  <button>Save</button>
+</form>
+{% endblock %}

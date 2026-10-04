@@ -1,6 +1,6 @@
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseBadRequest
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -16,8 +16,12 @@ def billing_page(request):
     decision = can(request.user, "billing.view", request.user)
     if not decision:
         raise PermissionDenied(decision.reason)
+    from billing.models import Gift
+
     return render(request, "billing/billing.html", {
         "sub": Subscription.objects.filter(user=request.user).first(),
+        "gifts": [g for g in Gift.objects.filter(invitee=request.user, status=Gift.Status.PAID).select_related("sponsor")
+                  if can(request.user, "billing.accept_gift", g)],
         "may_pay": can(request.user, "billing.pay_membership"),
         "may_manage": can(request.user, "billing.portal"),
         "done": request.GET.get("done"),
@@ -66,3 +70,61 @@ def stripe_webhook(request):
         return HttpResponseBadRequest("bad signature")
     webhooks.process(json.loads(payload))
     return HttpResponse("ok")
+
+
+@require_POST
+def gift(request, user_pk):
+    from accounts.models import User
+    from billing import extras
+
+    invitee = get_object_or_404(User, pk=user_pk)
+    back = request.build_absolute_uri(reverse("invitations"))
+    return redirect(extras.gift_checkout(request.user, invitee, back, back))
+
+
+@require_POST
+def accept_gift(request, pk):
+    from billing import extras
+    from billing.models import Gift
+
+    extras.accept_gift(request.user, get_object_or_404(Gift, pk=pk))
+    return redirect("billing")
+
+
+def extras_page(request):
+    from billing import extras
+    from billing.models import Extra
+
+    rows = [{"extra": e, "owned": extras.has_extra(request.user, e.key), "may_buy": can(request.user, "extras.buy", e)}
+            for e in Extra.objects.filter(is_active=True).order_by("name")]
+    return render(request, "billing/extras.html", {"rows": rows})
+
+
+@require_POST
+def buy_extra(request, key):
+    from billing import extras
+    from billing.models import Extra
+
+    extra = get_object_or_404(Extra, key=key)
+    back = request.build_absolute_uri(reverse("extras"))
+    return redirect(extras.extra_checkout(request.user, extra, f"{back}?done=1", back))
+
+
+def customise(request):
+    """The member's own avatar and caption, for those who bought the extra."""
+    from django.core.exceptions import ValidationError
+
+    from billing import extras
+
+    decision = can(request.user, "profile.customise")
+    if not decision:
+        raise PermissionDenied(decision.reason)
+    errors = []
+    if request.method == "POST":
+        try:
+            extras.set_avatar_and_caption(request.user, request.FILES.get("avatar"), request.POST.get("caption", ""))
+        except ValidationError as exc:
+            errors = exc.messages
+        else:
+            return redirect("member_profile", slug=request.user.slug)
+    return render(request, "billing/customise.html", {"errors": errors})

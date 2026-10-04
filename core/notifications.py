@@ -42,6 +42,7 @@ def describe(notification):
         "dm": ("New direct message", data.get("thread") and reverse("conversation", args=[data["thread"]])),
         "thread.reply": ("New reply in a thread you follow", post and reverse("post_link", args=[post])),
         "promotion": ("News about your promotion", None),
+        "billing.gift": ("Your sponsor has paid for your first year", reverse("billing")),
         "post.rejected": ("A post of yours was not approved", None),
         "post.hidden": (f"A post of yours was removed: {data.get('reason', '')}", None),
         "moderation.action": ("Staff took an action on your account", None),

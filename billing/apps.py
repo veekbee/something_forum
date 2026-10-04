@@ -6,4 +6,4 @@ class BillingConfig(AppConfig):
 
     def ready(self):
         # One-time Checkout purposes register their webhook handlers on import.
-        from billing import bans  # noqa: F401
+        from billing import bans, extras  # noqa: F401

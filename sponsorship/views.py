@@ -50,7 +50,9 @@ def invitations(request):
                 errors = _errors(exc)
             else:
                 return redirect(f"{reverse('invitations')}?sent={'slot' if holds_slot else 'wait'}")
-    sent = Invitation.objects.filter(sponsor=request.user).select_related("invitee").order_by("-created_at")
+    sent = list(Invitation.objects.filter(sponsor=request.user).select_related("invitee").order_by("-created_at"))
+    for invitation in sent:
+        invitation.may_gift = invitation.invitee is not None and bool(can(request.user, "billing.gift", invitation.invitee))
     return render(request, "sponsorship/invitations.html", {
         "form": form,
         "errors": errors,
