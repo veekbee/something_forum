@@ -201,3 +201,77 @@ def test_links_value_rename_migration(seeded):
     old.refresh_from_db()
     assert old.settings == {"subforum.links": "full_and_above"}
     assert SubForum.objects.get(slug="guest-lobby").settings["subforum.links"] == "off"
+
+
+# --- the Owner settings page (rule 55) ---------------------------------------------------------
+
+
+def _owner_client(owner):
+    from django.test import Client
+
+    from tests.factories import enrol_totp
+
+    enrol_totp(owner)
+    client = Client()
+    client.force_login(owner)
+    return client
+
+
+def test_owner_edits_a_setting_and_it_is_audited(owner):
+    from audit.models import AuditEntry
+    from core import registry
+
+    client = _owner_client(owner)
+    page = client.get("/staff/settings/").content
+    assert b"session.retention_days" in page and b"Default: <code>90</code>" in page
+    client.post("/staff/settings/", {"key": "session.retention_days", "value": "120"})
+    assert registry.site_value("session.retention_days") == 120
+    entry = AuditEntry.objects.get(action="site_setting.write")
+    assert entry.payload == {"key": "session.retention_days", "old": None, "new": 120}
+    assert b"changed" in client.get("/staff/settings/").content
+
+
+def test_values_are_checked_against_the_registry(owner):
+    from core import registry
+
+    client = _owner_client(owner)
+    page = client.post("/staff/settings/", {"key": "session.retention_days", "value": "-3"}).content
+    assert b"must be a positive integer" in page
+    client.post("/staff/settings/", {"key": "dm.links", "value": "sometimes"})
+    assert registry.site_value("dm.links") == "full_and_above"
+    client.post("/staff/settings/", {"key": "site.name", "value": "Test Commons"})
+    assert registry.site_value("site.name") == "Test Commons"
+    client.post("/staff/settings/", {"key": "watermark.enabled", "value": "false"})
+    assert registry.site_value("watermark.enabled") is False
+    assert b"unknown setting" in client.post("/staff/settings/", {"key": "nope", "value": "1"}).content
+
+
+def test_reset_to_default_is_audited(owner):
+    from audit.models import AuditEntry
+    from core import registry
+    from core.models import SiteSetting
+
+    client = _owner_client(owner)
+    client.post("/staff/settings/", {"key": "emoji.max_kb", "value": "256"})
+    client.post("/staff/settings/", {"key": "emoji.max_kb", "reset": "1"})
+    assert registry.site_value("emoji.max_kb") == 512 and not SiteSetting.objects.filter(key="emoji.max_kb").exists()
+    entry = AuditEntry.objects.get(action="site_setting.reset")
+    assert entry.payload == {"key": "emoji.max_kb", "old": 256, "new": 512}
+
+
+def test_only_owners_edit_settings(make_user, owner):
+    from django.core.exceptions import PermissionDenied
+
+    from core.services import reset_site_setting
+
+    admin = make_user("admin")
+    assert _owner_client(admin).post("/staff/settings/", {"key": "emoji.max_kb", "value": "1"}).status_code == 403
+    with pytest.raises(PermissionDenied):
+        reset_site_setting(admin, "emoji.max_kb")
+
+
+def test_subforum_only_settings_are_not_on_the_page(owner):
+    client = _owner_client(owner)
+    assert b"subforum.links" not in client.get("/staff/settings/").content
+    page = client.post("/staff/settings/", {"key": "subforum.links", "value": "on"}).content
+    assert b"Not a site-wide setting" in page

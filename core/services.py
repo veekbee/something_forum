@@ -24,8 +24,29 @@ def set_site_setting(actor, key, value):
     row.value, row.updated_by, row.updated_at = value, actor, timezone.now()
     row.save()
     log.record(actor, "site_setting.write", row, {"key": key, "old": old, "new": value})
+    _after_change(key)
+    return row
+
+
+def _after_change(key):
     if key.startswith("sponsorship.cap."):
         from sponsorship.capacity import reassign_all
 
         reassign_all()
-    return row
+
+
+@transaction.atomic
+def reset_site_setting(actor, key):
+    """Back to the registry default: the row goes, and the audit entry keeps the old value."""
+    from core import registry
+
+    require(actor, "site_setting.write", key)
+    setting = registry.get(key)
+    row = SiteSetting.objects.filter(key=key).first()
+    if row is None:
+        return None
+    old = row.value
+    row.delete()
+    log.record(actor, "site_setting.reset", actor, {"key": key, "old": old, "new": setting.default})
+    _after_change(key)
+    return setting.default

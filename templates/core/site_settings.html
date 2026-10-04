@@ -2,13 +2,22 @@
 {% block title %}Site settings{% endblock %}
 {% block content %}
 <h1>Site settings</h1>
+{% for e in page_errors %}<p class="errors">{{ e }}</p>{% endfor %}
 <section class="panel"><h2>Billing</h2>
   {% if launch %}<p>Billing launched on {{ launch.created_at|date:"j M Y" }}. {{ launch.payload.founding_comps }} comp{{ launch.payload.founding_comps|pluralize }} became founding comps, ending {{ launch.payload.until|slice:":10" }}.</p>
   {% else %}<p>Billing has not launched. An Owner launches it once, with the <code>launch_billing</code> command.</p>{% endif %}
 </section>
-<section class="panel"><h2>Settings</h2>
-  <ul class="list">{% for r in rows %}
-    <li><strong>{{ r.key }}</strong>: {{ r.value|default_if_none:"no limit" }}{% if r.value != r.default %} <span class="muted">(default {{ r.default|default_if_none:"no limit" }})</span>{% endif %} <span class="status">{{ r.status }}</span><br><span class="muted">{{ r.description }}</span></li>
-  {% endfor %}</ul>
-</section>
+<h2>Settings</h2>
+<p class="muted">Numbers as digits, <code>true</code> or <code>false</code>, <code>null</code> for no limit, objects as JSON; text as it is. Each change is checked against the setting's rules and recorded in the audit log.</p>
+<ul class="list panel">{% for r in rows %}
+  <li id="setting-{{ r.key }}">
+    <form method="post">{% csrf_token %}<input type="hidden" name="key" value="{{ r.key }}">
+      <p><label for="value-{{ r.key }}"><strong>{{ r.key }}</strong></label> <span class="status">{{ r.status }}</span>{% if r.changed %} <span class="status pending">changed</span>{% endif %}<br>
+        <span class="muted">{{ r.description }} Default: <code>{{ r.default }}</code>.</span></p>
+      {% if r.error %}<p class="errors">{{ r.error }}</p>{% endif %}
+      <div class="actions"><input id="value-{{ r.key }}" type="text" name="value" value="{{ r.value }}">
+        <button>Save</button>{% if r.changed %}<button class="secondary" name="reset" value="1">Reset to default</button>{% endif %}</div>
+    </form>
+  </li>
+{% endfor %}</ul>
 {% endblock %}

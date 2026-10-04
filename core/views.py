@@ -37,22 +37,63 @@ def notification_settings(request):
     return redirect("notifications")
 
 
-@require_GET
+def _parse_setting(text):
+    """Values are typed as JSON (numbers, true or false, null, objects); anything that is not JSON
+    is taken as text, so a name needs no quotes."""
+    import json
+
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
 def site_settings(request):
-    """The Owner's settings page: every site-wide setting with its current value, and the date
-    billing launched (rule 55). Read-only for now."""
-    from django.core.exceptions import PermissionDenied
+    """The Owner settings page (rule 55): every site-wide setting with its current value and default,
+    which Owners edit or reset; each change is validated against the registry and audited with old
+    and new values. Also the date billing launched."""
+    import json
+
+    from django.core.exceptions import PermissionDenied, ValidationError
 
     from audit.models import AuditEntry
+    from core import services
+    from core.models import SiteSetting
     from core.permissions import can
 
     decision = can(request.user, "site_setting.write")
     if not decision:
         raise PermissionDenied(decision.reason)
-    rows = [{"key": s.key, "value": registry.site_value(s.key), "default": s.default, "status": s.status,
-             "description": s.description} for s in registry.REGISTRY.values() if registry.SITE in s.scopes]
+    errors = {}
+    if request.method == "POST":
+        key = request.POST.get("key", "")
+        try:
+            setting = registry.get(key)
+            if registry.SITE not in setting.scopes:
+                raise ValidationError("Not a site-wide setting.")
+            if request.POST.get("reset"):
+                services.reset_site_setting(request.user, key)
+            else:
+                services.set_site_setting(request.user, key, _parse_setting(request.POST.get("value", "")))
+        except (ValidationError, KeyError, LookupError) as exc:
+            errors[key] = " ".join(getattr(exc, "messages", [str(exc)]))
+        else:
+            return redirect(f"{request.path}#setting-{key}")
+    stored = set(SiteSetting.objects.values_list("key", flat=True))
+    rows = []
+    for s in registry.REGISTRY.values():
+        if registry.SITE not in s.scopes:
+            continue
+        value = registry.site_value(s.key)
+        rows.append({"key": s.key, "value": json.dumps(value) if not isinstance(value, str) else value,
+                     "default": json.dumps(s.default) if not isinstance(s.default, str) else s.default,
+                     "changed": s.key in stored, "status": s.status, "description": s.description,
+                     "error": errors.get(s.key, "")})
     launch = AuditEntry.objects.filter(action="billing.launch").order_by("created_at").first()
-    return render(request, "core/site_settings.html", {"rows": rows, "launch": launch})
+    shown = {r["key"] for r in rows}
+    page_errors = [message for key, message in errors.items() if key not in shown]
+    return render(request, "core/site_settings.html", {"rows": rows, "launch": launch, "page_errors": page_errors})
 
 
 # --- public pages: legal notices and the offline page -------------------------------------------
