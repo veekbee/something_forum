@@ -256,6 +256,7 @@ def member_view(request, slug):
         "invitees": Sponsorship.objects.filter(sponsor=member).select_related("member").order_by("started_at"),
         "invitations": Invitation.objects.filter(sponsor=member).order_by("-created_at"),
         "may_reset": bool(can(request.user, "profile.reset_extra", member)) and bool(member.avatar_id or member.caption),
+        "reasons": REASONS,
         "error": request.GET.get("error", ""),
         "may_open_review": bool(can(request.user, "sponsor_review.open", member)),
     }
@@ -276,9 +277,7 @@ def member_view(request, slug):
             "blocks_received": Block.objects.filter(blocked=member).select_related("blocker"),
             "subscription": Subscription.objects.filter(user=member).first(),
         "charges": Charge.objects.filter(user=member).order_by("-created_at"),
-        "entitlements": member.entitlements.filter(revoked_at__isnull=True).select_related("extra"),
-        "public_actions": ModerationAction.objects.filter(target_user=member, is_public=True,
-                                                          status__in=ModerationAction.RECORD_STATUSES),
+        "entitlements": member.entitlements.select_related("extra").order_by("granted_at"),
             "sessions": UserSession.objects.filter(user=member).order_by("-last_seen_at")[:20],
             "has_identity": IdentityRecord.objects.filter(user=member).exists(),
         })
@@ -342,16 +341,28 @@ def reset_extra(request, slug):
     from billing import extras
 
     member = get_object_or_404(User, slug=slug)
-    return _act(request, lambda: extras.reset_to_default(request.user, member))
+    return _staff_page_act(request, member, lambda: extras.reset_to_default(
+        request.user, member, request.POST.get("reason_key", ""), request.POST.get("note", "")))
 
 
 @require_POST
-def revoke_extra(request, pk):
+def extra_action(request, pk, step):
+    """Revoke or restore a paid extra: Admins and Owners, public on the Rap Sheet (rule 49)."""
     from billing import extras
     from billing.models import Entitlement
 
-    entitlement = get_object_or_404(Entitlement, pk=pk)
-    action = ModerationAction.objects.filter(pk=request.POST.get("action") or 0).first()
-    if action is None:
-        raise PermissionDenied("Choose the moderation action this revocation rests on.")
-    return _act(request, lambda: extras.revoke(request.user, entitlement, action))
+    entitlement = get_object_or_404(Entitlement.objects.select_related("user"), pk=pk)
+    act = {"revoke": extras.revoke, "restore": extras.restore}.get(step)
+    if act is None:
+        raise PermissionDenied("unknown step")
+    return _staff_page_act(request, entitlement.user, lambda: act(
+        request.user, entitlement, request.POST.get("internal_reason", ""), request.POST.get("public_summary", "")))
+
+
+def _staff_page_act(request, member, fn):
+    try:
+        fn()
+    except (ValidationError, PermissionDenied) as exc:
+        target = reverse("staff_member", args=[member.slug])
+        return redirect(f"{target}?{urlencode({'error': ' '.join(_errors(exc))})}")
+    return redirect("staff_member", member.slug)

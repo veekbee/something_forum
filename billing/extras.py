@@ -121,27 +121,74 @@ def set_avatar_and_caption(user, upload=None, caption=None):
     return user
 
 
-@transaction.atomic
-def reset_to_default(actor, member):
-    """Staff reset an offending avatar or caption; the extra itself is not refunded or removed."""
-    require(actor, "profile.reset_extra", member)
-    member.avatar, member.caption = None, ""
-    member.save(update_fields=["avatar", "caption"])
-    log.record(actor, "profile.reset_extra", member)
-
-
-@transaction.atomic
-def revoke(actor, entitlement, action):
-    """Repeated misuse can cost the extra, through a public moderation action on the member."""
+def _record(actor, member, kind, internal_reason, *, public_summary="", is_public, related_action=None):
+    """These actions are single-actor: the person who may take them takes them alone (rule 49)."""
     from moderation.models import ModerationAction
 
+    now = timezone.now()
+    action = ModerationAction.objects.create(
+        target_user=member, kind=kind, initiated_by=actor, status=ModerationAction.Status.ACTIVE, starts_at=now,
+        internal_reason=internal_reason, public_summary_draft=public_summary, public_summary=public_summary,
+        is_public=is_public, related_action=related_action,
+    )
+    if is_public:
+        Notification.objects.create(recipient=member, kind="moderation.action", payload={"action": action.pk, "kind": kind})
+    return action
+
+
+@transaction.atomic
+def reset_to_default(actor, member, reason_key, note=""):
+    """Any staff member resets an offending avatar or caption, with a preset reason. The extra itself
+    is not refunded or removed, and the reset is not on the Rap Sheet."""
+    from moderation.models import ModerationAction, reason_text
+
+    require(actor, "profile.reset_extra", member)
+    reason = reason_text(reason_key, note)
+    member.avatar, member.caption = None, ""
+    member.save(update_fields=["avatar", "caption"])
+    action = _record(actor, member, ModerationAction.Kind.AVATAR_RESET, reason, is_public=False)
+    log.record(actor, "profile.reset_extra", member, {"action": action.pk, "reason": reason})
+    return action
+
+
+@transaction.atomic
+def revoke(actor, entitlement, internal_reason, public_summary):
+    """An Admin or Owner revokes an extra for repeated misuse: a public action, not refunded."""
+    from moderation.models import ModerationAction
+
+    entitlement = Entitlement.objects.select_for_update().select_related("user").get(pk=entitlement.pk)
     require(actor, "extras.revoke", entitlement)
-    if (action.target_user_id != entitlement.user_id or not action.is_public
-            or action.status not in ModerationAction.RECORD_STATUSES):
-        raise ValidationError("Cite a public moderation action on this member.")
+    if not internal_reason.strip() or not public_summary.strip():
+        raise ValidationError("Give the reason, for staff, and the public summary.")
+    member = entitlement.user
+    action = _record(actor, member, ModerationAction.Kind.EXTRA_REVOCATION, internal_reason.strip(),
+                     public_summary=public_summary.strip(), is_public=True)
     entitlement.revoked_at, entitlement.revoked_by_action = timezone.now(), action
     entitlement.save(update_fields=["revoked_at", "revoked_by_action"])
-    member = entitlement.user
     member.avatar, member.caption = None, ""
     member.save(update_fields=["avatar", "caption"])
     log.record(actor, "billing.extra_revoked", entitlement, {"action": action.pk})
+    return action
+
+
+@transaction.atomic
+def restore(actor, entitlement, internal_reason, public_summary):
+    """An Admin or Owner reverses a revocation. Both stay on the record: the revocation marked
+    reversed, and the restoration as its own entry."""
+    from moderation.models import ModerationAction
+
+    entitlement = Entitlement.objects.select_for_update(of=("self",)).select_related("user", "revoked_by_action").get(
+        pk=entitlement.pk)
+    require(actor, "extras.restore", entitlement)
+    if not internal_reason.strip() or not public_summary.strip():
+        raise ValidationError("Give the reason, for staff, and the public summary.")
+    revocation = entitlement.revoked_by_action
+    if revocation is not None and revocation.kind == ModerationAction.Kind.EXTRA_REVOCATION:
+        ModerationAction.objects.filter(pk=revocation.pk).update(
+            status=ModerationAction.Status.REVERSED, ends_at=timezone.now())
+    action = _record(actor, entitlement.user, ModerationAction.Kind.EXTRA_RESTORATION, internal_reason.strip(),
+                     public_summary=public_summary.strip(), is_public=True, related_action=revocation)
+    entitlement.revoked_at = None
+    entitlement.save(update_fields=["revoked_at"])
+    log.record(actor, "billing.extra_restored", entitlement, {"action": action.pk})
+    return action

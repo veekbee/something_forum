@@ -5,7 +5,9 @@
 <h1>{{ member.display_name }} <span class="muted">· staff view</span></h1>
 {% if error %}<p class="errors">{{ error }}</p>{% endif %}
 <p class="actions"><a href="{% url 'member_profile' member.slug %}">Public profile</a><a href="{% url 'take_action' member.slug %}">Moderate</a></p>
-{% if may_reset %}<form class="panel" method="post" action="{% url 'reset_extra' member.slug %}">{% csrf_token %}<p>Avatar and caption: {% if member.caption %}“{{ member.caption }}”{% endif %}</p><button class="secondary">Reset avatar and caption to the default</button></form>{% endif %}
+{% if may_reset %}<form class="panel" method="post" action="{% url 'reset_extra' member.slug %}">{% csrf_token %}<p>Avatar and caption: {% if member.caption %}“{{ member.caption }}”{% endif %}</p>
+  <p><select name="reason_key" required aria-label="Reason"><option value="">Reason…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select> <input type="text" name="note" placeholder="A sentence, needed for Other" aria-label="Reason in a sentence"></p>
+  <button class="secondary">Reset avatar and caption to the default</button></form>{% endif %}
 
 {% if full %}
 <section class="panel"><h2>Identity details</h2>
@@ -39,9 +41,9 @@
 
 {% if full %}
 <section class="panel"><h2>Payment</h2>
-  {% for e in entitlements %}<form method="post" action="{% url 'revoke_extra' e.pk %}">{% csrf_token %}<p>Extra: {{ e.extra.name }}
-    <select name="action" required aria-label="Moderation action this rests on"><option value="">Revoke, citing…</option>{% for a in public_actions %}<option value="{{ a.pk }}">{{ a.get_kind_display }} {{ a.starts_at|date:"j M Y" }}</option>{% endfor %}</select>
-    <button class="secondary">Revoke</button></p></form>{% endfor %}
+  {% for e in entitlements %}<form method="post" action="{% url 'extra_action' e.pk e.revoked_at|yesno:'restore,revoke' %}">{% csrf_token %}<p>Extra: {{ e.extra.name }}{% if e.revoked_at %} <span class="status">revoked {{ e.revoked_at|date:"j M Y" }}</span>{% endif %}<br>
+    <input type="text" name="internal_reason" required placeholder="Reason, for staff" aria-label="Reason, for staff"> <input type="text" name="public_summary" required placeholder="Public summary" aria-label="Public summary">
+    <button class="secondary">{% if e.revoked_at %}Restore (public){% else %}Revoke (public, not refunded){% endif %}</button></p></form>{% endfor %}
   {% for c in charges %}<p class="muted">{{ c.get_kind_display|capfirst }} · {{ c.amount_cents|dollars }} · {{ c.created_at|date:"j M Y" }}</p>{% endfor %}
   {% if subscription %}<p>{{ subscription.get_status_display }}{% if subscription.comped_by %} (comped by {{ subscription.comped_by.display_name }}){% endif %}{% if subscription.current_period_end %} · paid to {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>{% else %}<p class="muted">No subscription.</p>{% endif %}
 </section>

@@ -132,6 +132,11 @@ class ModerationAction(models.Model):
         BAN = "ban"
         # Applies to the person, not the account, and cannot be bought back. Owners only.
         PERMANENT_BAN = "permanent_ban"
+        # Paid extras (rule 49): any staff member resets an avatar or caption; only an Admin or
+        # Owner revokes or restores the extra itself.
+        AVATAR_RESET = "avatar_reset"
+        EXTRA_REVOCATION = "extra_revocation"
+        EXTRA_RESTORATION = "extra_restoration"
         BAN_REVERSAL = "ban_reversal"
         SPONSORSHIP_TRANSFER = "sponsorship_transfer"
         SPONSORING_SUSPENSION = "sponsoring_suspension"

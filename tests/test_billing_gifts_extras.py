@@ -10,9 +10,8 @@ from PIL import Image
 from accounts import roles
 from accounts.models import User
 from billing import extras, stripe_api, webhooks
-from billing.models import Entitlement, Extra, Gift, Subscription
+from billing.models import Charge, Entitlement, Extra, Gift, Subscription
 from core.permissions import can
-from moderation import services as moderation
 from tests.factories import enrol_totp, sponsor
 
 _ids = iter(range(1, 10**6))
@@ -146,21 +145,82 @@ def test_extras_survive_a_lapse(make_user):
     assert can(member, "profile.customise")
 
 
-def test_staff_reset_to_default_and_admins_revoke_citing_an_action(make_user):
+def _with_extra(make_user):
     member = make_user("provisional")
     _completed(member, "extra", 1000, extra="avatar_caption")
     extras.set_avatar_and_caption(member, _image(), "Offensive")
-    extras.reset_to_default(make_user("moderator"), member)
+    return member, Entitlement.objects.get(user=member)
+
+
+def test_any_staff_member_resets_with_a_preset_reason(make_user):
+    from moderation.models import ModerationAction
+
+    member, _ = _with_extra(make_user)
+    mod = make_user("moderator")
+    with pytest.raises(ValidationError):
+        extras.reset_to_default(mod, member, "")
+    with pytest.raises(PermissionDenied):
+        extras.reset_to_default(make_user("full"), member, "spam")
+    action = extras.reset_to_default(mod, member, "personal_attack")
     member.refresh_from_db()
     assert member.avatar is None and member.caption == "" and extras.has_extra(member, "avatar_caption")
-    entitlement = Entitlement.objects.get(user=member)
-    warning = moderation.initiate_action(make_user("admin"), member, "warning", internal_reason="caption misuse")
+    assert (action.kind, action.status, action.is_public, action.approved_by) == (
+        ModerationAction.Kind.AVATAR_RESET, "active", False, None)
+    assert action.internal_reason == "Personal attack"
+
+
+def test_only_admins_and_owners_revoke_an_extra_publicly(client, make_user):
+    from moderation.models import ModerationAction
+
+    member, entitlement = _with_extra(make_user)
     with pytest.raises(PermissionDenied):
-        extras.revoke(make_user("moderator"), entitlement, warning)
-    other = moderation.initiate_action(make_user("admin"), make_user("full"), "warning", internal_reason="x")
+        extras.revoke(make_user("moderator"), entitlement, "misuse", "Lost the custom avatar")
+    admin = make_user("admin")
     with pytest.raises(ValidationError):
-        extras.revoke(make_user("admin"), entitlement, other)
-    extras.revoke(make_user("admin"), entitlement, warning)
+        extras.revoke(admin, entitlement, "misuse", "")
+    action = extras.revoke(admin, entitlement, "repeated misuse", "Lost the custom avatar for misuse")
+    assert action.kind == ModerationAction.Kind.EXTRA_REVOCATION and action.is_public
     assert not extras.has_extra(member, "avatar_caption")
     entitlement.refresh_from_db()
-    assert entitlement.revoked_by_action == warning
+    assert entitlement.revoked_by_action == action
+    member.refresh_from_db()
+    assert member.avatar is None and member.caption == ""
+    assert not Charge.objects.filter(user=member, status="refunded").exists()
+    reader = make_user("provisional")
+    enrol_totp(reader)
+    client.force_login(reader)
+    assert b"Lost the custom avatar for misuse" in client.get(f"/members/{member.slug}/rap-sheet/").content
+
+
+def test_admins_and_owners_restore_and_both_stay_on_the_record(client, make_user):
+    from moderation.models import ModerationAction
+
+    member, entitlement = _with_extra(make_user)
+    admin = make_user("admin")
+    with pytest.raises(PermissionDenied):
+        extras.restore(admin, entitlement, "x", "y")  # not revoked
+    revocation = extras.revoke(admin, entitlement, "misuse", "Lost the custom avatar")
+    with pytest.raises(PermissionDenied):
+        extras.restore(make_user("moderator"), entitlement, "mistake", "Avatar restored")
+    restoration = extras.restore(make_user("owner"), entitlement, "mistake", "Custom avatar restored")
+    assert extras.has_extra(member, "avatar_caption")
+    revocation.refresh_from_db()
+    assert revocation.status == ModerationAction.Status.REVERSED
+    assert restoration.kind == ModerationAction.Kind.EXTRA_RESTORATION and restoration.related_action == revocation
+    reader = make_user("provisional")
+    enrol_totp(reader)
+    client.force_login(reader)
+    page = client.get(f"/members/{member.slug}/rap-sheet/").content
+    assert b"Lost the custom avatar" in page and b"Custom avatar restored" in page
+
+
+def test_revoke_from_the_staff_view(client, make_user):
+    member, entitlement = _with_extra(make_user)
+    admin = make_user("admin")
+    enrol_totp(admin)
+    client.force_login(admin)
+    assert b"Revoke (public, not refunded)" in client.get(f"/staff/members/{member.slug}/").content
+    client.post(f"/staff/entitlements/{entitlement.pk}/revoke/",
+                {"internal_reason": "misuse", "public_summary": "Lost the custom avatar"})
+    assert not extras.has_extra(member, "avatar_caption")
+    assert b"Restore (public)" in client.get(f"/staff/members/{member.slug}/").content

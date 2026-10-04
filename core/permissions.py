@@ -973,11 +973,21 @@ def _profile_reset_extra(actor, member):
 
 @rule("extras.revoke")
 def _extras_revoke(actor, entitlement):
-    """Interim (sponsorship-transfer-brief.md): an Admin or Owner revokes, citing a public action."""
+    """Rule 49: only an Admin or Owner revokes an extra; a Moderator who thinks it warranted
+    escalates."""
     if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
         return deny("only Admins and Owners revoke an extra")
     if entitlement.revoked_at is not None:
         return deny("already revoked")
+    return _staff_may_act_on(actor, entitlement.user)
+
+
+@rule("extras.restore")
+def _extras_restore(actor, entitlement):
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners restore an extra")
+    if entitlement.revoked_at is None:
+        return deny("the extra is not revoked")
     return _staff_may_act_on(actor, entitlement.user)
 
 
