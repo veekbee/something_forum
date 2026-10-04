@@ -48,6 +48,9 @@ class Report(models.Model):
         FLAG_RATE_LIMIT = "flag_rate_limit"
         FLAG_RAPID_DELETION = "flag_rapid_deletion"
         FLAG_REQUEST_RATE = "flag_request_rate"
+        # Two devices in two countries at once (rule 58). Admins and Owners only; details hold
+        # session ids only.
+        FLAG_CONCURRENT_LOCATION = "flag_concurrent_location"
 
     class Status(models.TextChoices):
         OPEN = "open"

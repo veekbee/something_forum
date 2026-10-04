@@ -45,6 +45,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "core.middleware.SessionBindingMiddleware",
     "core.middleware.AccessControlMiddleware",
     "moderation.flags.RequestRateMiddleware",
 ]
@@ -103,6 +104,14 @@ MFA_ADAPTER = "accounts.adapters.MFAAdapter"  # issuer from the site.name settin
 # Origins besides the site itself that images may load from: the object store's address when
 # attachments are served from a bucket by signed URL. Space-separated.
 CSP_EXTRA_IMG_SRC = env("CSP_EXTRA_IMG_SRC", default="").split()
+
+# Session binding (rule 57): the country database on this server, in MaxMind DB format (GeoLite2
+# Country or DB-IP Lite Country, under their own licence terms). Without one, countries are unknown
+# and the concurrent-location check never fires.
+GEOIP_COUNTRY_DATABASE = env("GEOIP_COUNTRY_DATABASE", default="")
+# The long-lived cookie holding a random device identifier.
+DEVICE_COOKIE_NAME = "device"
+DEVICE_COOKIE_AGE = 2 * 365 * 24 * 3600
 
 PUBLIC_PATH_PREFIXES = [
     "/accounts/login/",

@@ -64,6 +64,7 @@ Run these once a day (cron, or the host's scheduler):
 .venv/bin/python manage.py expire_actions         # mark time-limited moderation actions as ended
 .venv/bin/python manage.py send_notification_emails  # the daily pointer email for chosen kinds
 .venv/bin/python manage.py billing_daily          # renewal and lapse reminders, read-only on lapse, comp endings
+.venv/bin/python manage.py sessions_daily         # end expired and idle sessions, delete old session records
 ```
 
 Once, on the day billing goes live, an Owner runs `manage.py launch_billing`: comps granted before

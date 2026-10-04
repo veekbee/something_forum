@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Your sessions{% endblock %}
+{% block content %}
+<h1>Your sessions</h1>
+<p class="muted">Every device signed in to your account. If you don't recognise one, sign it out and change your password.</p>
+<ul class="list panel">
+  {% for s in sessions %}
+  <li>
+    <strong>{{ s.browser_family }} on {{ s.os_family }}</strong>{% if s.session_key == current %} <span class="status approved">This device</span>{% endif %}<br>
+    <span class="muted">{{ s.country|default:"Country unknown" }} · last active {{ s.last_seen_at|timesince }} ago · signed in {{ s.created_at|date:"j M Y" }}</span>
+    {% if s.session_key != current %}<div class="actions"><form method="post">{% csrf_token %}<input type="hidden" name="session" value="{{ s.pk }}"><button class="secondary">Sign out</button></form></div>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% if sessions|length > 1 %}<form method="post">{% csrf_token %}<input type="hidden" name="all_others" value="1"><button class="secondary">Sign out every other session</button></form>{% endif %}
+{% endblock %}

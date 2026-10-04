@@ -142,13 +142,37 @@ class IdentityRecord(models.Model):
 
 
 class UserSession(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sessions")
+    """One signed-in session (docs/DESIGN.md, Session binding; rules 57 to 59). Session binding and
+    the per-session watermark key off this row. Deleted session.retention_days after it ends, so
+    nothing may block its deletion: flags and audit entries refer to it by id only."""
+
+    class RevokeReason(models.TextChoices):
+        SIGNED_OUT = "signed_out"
+        SIGNED_OUT_BY_MEMBER = "signed_out_by_member"
+        CONCURRENT_LOCATION = "concurrent_location"
+        FACTOR_RESET = "factor_reset"
+        EXPIRED = "expired"
+        IDLE = "idle"
+
+    # CASCADE: deleting an account (rule 19) takes its session records with it.
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sessions")
     session_key = models.CharField(max_length=40, unique=True)
-    device_fingerprint = models.CharField(max_length=128, blank=True)
+    # The random identifier from the long-lived device cookie. No client-side fingerprinting.
+    device_id = models.CharField(max_length=64, blank=True)
+    browser_family = models.CharField(max_length=40, blank=True)
+    os_family = models.CharField(max_length=40, blank=True)
+    # /24 for IPv4, /48 for IPv6; never the full address.
     ip_prefix = models.CharField(max_length=64, blank=True)
-    approx_location = models.CharField(max_length=128, blank=True)
+    # ISO country code from the local database at sign-in; empty when unknown.
+    country = models.CharField(max_length=2, blank=True)
     user_agent = models.TextField(blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     last_seen_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
-    watermark_seed = models.CharField(max_length=64)
+    revoke_reason = models.CharField(max_length=24, choices=RevokeReason.choices, blank=True)
+    watermark_seed = models.CharField(max_length=64, db_index=True)
+
+    @property
+    def ended_at(self):
+        return self.revoked_at

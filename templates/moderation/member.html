@@ -57,7 +57,7 @@
   {% if not blocks_made and not blocks_received %}<li class="muted">None.</li>{% endif %}</ul>
 </section>
 <section class="panel"><h2>Sessions</h2>
-  <ul class="list">{% for s in sessions %}<li>{{ s.approx_location|default:"Unknown place" }} · {{ s.user_agent|truncatechars:60 }} <span class="muted">last seen {{ s.last_seen_at|timesince }} ago{% if s.revoked_at %} · revoked{% endif %}</span></li>{% empty %}<li class="muted">No sessions recorded yet.</li>{% endfor %}</ul>
+  <ul class="list">{% for s in sessions %}<li>{{ s.browser_family }} on {{ s.os_family }} · {{ s.country|default:"country unknown" }} · {{ s.ip_prefix }} <span class="muted">session {{ s.pk }}, last seen {{ s.last_seen_at|timesince }} ago{% if s.revoked_at %} · ended ({{ s.get_revoke_reason_display|lower }}){% endif %}</span></li>{% empty %}<li class="muted">No sessions recorded.</li>{% endfor %}</ul>
 </section>
 {% endif %}
 

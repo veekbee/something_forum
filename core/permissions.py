@@ -682,7 +682,7 @@ def _report_in_scope(actor, report):
 
     if roles.is_admin_or_owner(actor):
         return True
-    if report.kind == Report.Kind.DM:
+    if report.kind in (Report.Kind.DM, Report.Kind.FLAG_CONCURRENT_LOCATION):
         return False
     if report.kind == Report.Kind.FLAG_REQUEST_RATE:
         return roles.is_moderator(actor)
