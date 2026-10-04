@@ -135,10 +135,18 @@ def emoji_refund(request, pk):
 
 
 def display_settings(request):
-    """The member's own choice of how custom emoji display (rule 62)."""
-    choices = User.EmojiDisplay
-    if request.method == "POST" and request.POST.get("emoji_display") in choices.values:
-        User.objects.filter(pk=request.user.pk).update(emoji_display=request.POST["emoji_display"])
+    """The member's display choices: light or dark pages (rule 76) and how custom emoji show (rule 62)."""
+    choices, schemes = User.EmojiDisplay, User.ColourScheme
+    if request.method == "POST":
+        changes = {}
+        if request.POST.get("emoji_display") in choices.values:
+            changes["emoji_display"] = request.POST["emoji_display"]
+        if request.POST.get("colour_scheme") in schemes.values:
+            changes["colour_scheme"] = request.POST["colour_scheme"]
+        if changes:
+            User.objects.filter(pk=request.user.pk).update(**changes)
         return redirect("display_settings")
-    return render(request, "boards/emoji/display.html", {"choices": choices.choices,
-                                                          "current": request.user.emoji_display})
+    return render(request, "boards/emoji/display.html", {
+        "choices": choices.choices, "current": request.user.emoji_display,
+        "schemes": schemes.choices, "scheme": request.user.colour_scheme,
+    })

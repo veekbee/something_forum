@@ -57,6 +57,14 @@ class User(AbstractBaseUser):
     # How custom emoji show to this member (rule 62): images, still images, or names only.
     emoji_display = models.CharField(max_length=8, choices=EmojiDisplay.choices, default=EmojiDisplay.IMAGES)
 
+    class ColourScheme(models.TextChoices):
+        DEVICE = "device"
+        LIGHT = "light"
+        DARK = "dark"
+
+    # Light or dark pages: the device's choice unless the member picks one (rule 76).
+    colour_scheme = models.CharField(max_length=8, choices=ColourScheme.choices, default=ColourScheme.DEVICE)
+
     objects = UserManager()
 
     USERNAME_FIELD = "email"

@@ -25,14 +25,24 @@
   --measure: 38rem; --wide: 72rem;
   color-scheme: light dark;
 }
+/* The member's colour_scheme sets data-theme on <html> server-side (rule 76): "light" or "dark" fixes
+   the scheme; with neither, the device decides. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #171614; --surface: #1f1d1a; --text: #e9e5dc; --muted: #a39d90;
     --line: #35322c; --rule: #5a544a; --link: #e0917f; --accent: #e0917f; --accent-text: #171614;
     --head: #0d0c0b; --head-text: #e9e5dc; --head-muted: #8e887c;
     --warn: #e0a84f; --ok: #86c08c; --esc: #e07a7a; --band: #262320;
   }
 }
+:root[data-theme="dark"] {
+    --bg: #171614; --surface: #1f1d1a; --text: #e9e5dc; --muted: #a39d90;
+    --line: #35322c; --rule: #5a544a; --link: #e0917f; --accent: #e0917f; --accent-text: #171614;
+    --head: #0d0c0b; --head-text: #e9e5dc; --head-muted: #8e887c;
+    --warn: #e0a84f; --ok: #86c08c; --esc: #e07a7a; --band: #262320;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
 
 /* --- base --- */
 html { box-sizing: border-box; scroll-padding-top: env(safe-area-inset-top, 0px); }

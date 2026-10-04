@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="en">
+<html lang="en"{% if user.is_authenticated and user.colour_scheme != "device" %} data-theme="{{ user.colour_scheme }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -44,8 +44,7 @@
     </div></details>
     {% endif %}
   </div></header>
-  {% if nav_transfer %}<div class="band" role="status"><div class="inner"><p>You need a new sponsor, and your account is read-only until you have one. <a href="{% url 'transfer_status' %}">What this means</a></p></div></div>
-  {% elif nav_lapsed %}<div class="band" role="status"><div class="inner"><p>Your membership has lapsed, so your account is read-only. <a href="{% url 'billing' %}">Renew</a></p></div></div>{% endif %}
+  {% if nav_band %}{% include "_band.html" with band=nav_band %}{% elif scoped_band %}{% include "_band.html" with band=scoped_band %}{% endif %}
   {% for message in messages %}<div class="band {% if message.level_tag == 'success' %}ok{% elif message.level_tag == 'info' %}info{% endif %}" role="status"><div class="inner"><p>{{ message }}</p></div></div>{% endfor %}
   <main id="content"{% block main_class %}{% endblock %}>{% block content %}{% endblock %}</main>
   <footer class="site">

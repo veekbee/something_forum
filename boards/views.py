@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from accounts import roles
+from core.context_processors import scoped_band
 from accounts.models import User
 from boards import services, visibility
 from boards.models import Attachment, Post, PostRevision, SubForum, Thread
@@ -94,6 +95,7 @@ def subforum_page(request, slug):
         "subforum": subforum,
         "page": _page(request, threads, "pagination.threads_per_subforum_page"),
         "may_start": can(request.user, "subforum.start_thread", subforum),
+        "scoped_band": scoped_band(request.user, subforum),
     })
 
 
@@ -113,7 +115,7 @@ def new_thread(request, slug):
             return redirect("thread", pk=thread.pk)
     return render(request, "boards/post_form.html", {
         "form": form, "errors": errors, "subforum": subforum, "heading": f"New thread in {subforum.name}",
-        "images": subforum.setting("subforum.images"),
+        "images": subforum.setting("subforum.images"), "scoped_band": scoped_band(request.user, subforum),
     })
 
 
@@ -217,6 +219,7 @@ def thread_page(request, pk):
             "follow": can(user, "thread.follow", thread),
         },
         "following": thread.participants.filter(user=user).exists(),
+        "scoped_band": scoped_band(user, subforum),
     })
 
 

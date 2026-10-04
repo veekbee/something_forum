@@ -1,10 +1,15 @@
 {% extends "base.html" %}
-{% block title %}How emoji show{% endblock %}
+{% block title %}Display{% endblock %}
 {% block content %}
-<h1>How custom emoji show for you</h1>
-<form class="panel" method="post">{% csrf_token %}
+<div class="titlebar"><h1>Display</h1></div>
+<form method="post">{% csrf_token %}
+  <fieldset><legend>Light or dark</legend>
+  {% for value, label in schemes %}<p><label class="inline"><input type="radio" name="colour_scheme" value="{{ value }}"{% if value == scheme %} checked{% endif %}> {% if value == "device" %}As your device is set{% elif value == "light" %}Light{% else %}Dark{% endif %}</label></p>{% endfor %}
+  </fieldset>
+  <fieldset><legend>Custom emoji</legend>
   {% for value, label in choices %}<p><label class="inline"><input type="radio" name="emoji_display" value="{{ value }}"{% if value == current %} checked{% endif %}> {% if value == "images" %}Images, animated where they are{% elif value == "still" %}Still images (animated emoji show their first frame){% else %}Names only, like :name:{% endif %}</label></p>{% endfor %}
   <p class="muted">If your device asks for reduced motion, animated emoji already show still.</p>
+  </fieldset>
   <button>Save</button>
 </form>
 {% endblock %}

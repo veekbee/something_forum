@@ -315,3 +315,70 @@ def test_queue_action_column_has_a_label_for_screen_readers(make_user, general):
     services.reply(make_user("provisional"), make_thread(general, make_user("full")), "held")
     page = signed_in(make_user("admin")).get("/staff/queue/").content.decode()
     assert '<th><span class="vh">Actions</span></th>' in page
+
+
+# --- step 7 follow-ups: colour scheme and posting bands (rules 75 and 76) ------------------------
+
+
+@pytest.mark.parametrize("scheme,attr", [("device", None), ("light", "light"), ("dark", "dark")])
+def test_colour_scheme_is_set_by_the_server(make_user, scheme, attr):
+    member = make_user("full")
+    client = signed_in(member)
+    client.post("/settings/display/", {"colour_scheme": scheme})
+    member.refresh_from_db()
+    assert member.colour_scheme == scheme
+    html = client.get("/").content.decode()
+    tag = html[html.index("<html"):html.index(">", html.index("<html")) + 1]
+    assert (f'data-theme="{attr}"' in tag) if attr else ("data-theme" not in tag)
+
+
+def test_dark_tokens_apply_for_the_dark_choice_and_never_for_light():
+    assert ':root:not([data-theme="light"])' in CSS and ':root[data-theme="dark"]' in CSS
+
+
+def _band(client, path="/"):
+    page = client.get(path).content.decode()
+    if '<div class="band" role="status">' not in page:
+        return ""
+    return page[page.index('<div class="band" role="status">'):].split("</div></div>")[0]
+
+
+def test_bands_show_one_at_a_time_most_pressing_first(make_user, general):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from accounts.models import User
+    from moderation import services as moderation
+    from moderation.models import Report
+
+    member = make_user("full", status=User.Status.READ_ONLY)
+    client = signed_in(member)
+    assert "membership has lapsed" in _band(client)
+    Report.objects.create(source="system", kind=Report.Kind.FLAG_REQUEST_RATE, user=member)
+    assert "unusually heavy activity" in _band(client)
+    admin = make_user("admin")
+    moderation.initiate_action(admin, member, "suspension", internal_reason="x", ends_at=timezone.now() + timedelta(days=3))
+    assert "Your posting is suspended until" in _band(client)
+    moderation.initiate_action(admin, member, "probation", internal_reason="x")
+    band = _band(client)
+    assert "You are on Probation until further notice" in band and band.count("<p>") == 1
+    assert f"/members/{member.slug}/rap-sheet/" in band
+
+
+def test_a_scoped_suspension_shows_only_on_its_sub_forums(make_user, general, serious):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from moderation import services as moderation
+    from tests.factories import make_thread
+
+    member = make_user("full")
+    moderation.initiate_action(make_user("admin"), member, "suspension", internal_reason="x",
+                               ends_at=timezone.now() + timedelta(days=2), scope_subforums=[general])
+    client = signed_in(member)
+    assert "Your posting in General Discussion is suspended" in _band(client, f"/f/{general.slug}/")
+    thread = make_thread(general, make_user("full"))
+    assert "General Discussion is suspended" in _band(client, f"/t/{thread.pk}/")
+    assert _band(client, f"/f/{serious.slug}/") == "" and _band(client, "/") == ""
