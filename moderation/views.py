@@ -172,6 +172,15 @@ def promotion_action(request, pk, step):
 
 
 @require_POST
+def reset_factor(request, slug):
+    from accounts import factor_reset
+
+    member = get_object_or_404(User, slug=slug)
+    return _staff_page_act(request, member, lambda: factor_reset.reset(
+        request.user, member, request.POST.get("method", ""), request.POST.get("note", "")))
+
+
+@require_POST
 def open_sponsor_review(request, slug):
     member = get_object_or_404(User, slug=slug)
     try:
@@ -259,6 +268,7 @@ def member_view(request, slug):
         "reasons": REASONS,
         "error": request.GET.get("error", ""),
         "may_open_review": bool(can(request.user, "sponsor_review.open", member)),
+        "may_reset_factor": bool(can(request.user, "account.reset_factor", member)),
     }
     transfers = SponsorshipTransfer.objects.filter(member=member).select_related("decided_by").order_by("-started_at")
     open_transfer = next((t for t in transfers if t.status == SponsorshipTransfer.Status.OPEN), None)

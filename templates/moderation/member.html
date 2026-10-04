@@ -9,6 +9,16 @@
   <p><select name="reason_key" required aria-label="Reason"><option value="">Reason…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select> <input type="text" name="note" placeholder="A sentence, needed for Other" aria-label="Reason in a sentence"></p>
   <button class="secondary">Reset avatar and caption to the default</button></form>{% endif %}
 
+{% if may_reset_factor %}
+<form class="panel" method="post" action="{% url 'reset_factor' member.slug %}">{% csrf_token %}<h2>Reset their second factor</h2>
+  <p class="muted">Signs out every session and makes them set up a new authenticator at the next sign-in. Confirm who they are first.</p>
+  <p><label class="inline"><input type="radio" name="method" value="sponsor_consulted" required> I confirmed it with their sponsor</label><br>
+    <label class="inline"><input type="radio" name="method" value="other"> Another way, because their sponsor is staff or gone</label></p>
+  <p><input type="text" name="note" placeholder="How you confirmed it (no real names)" aria-label="How you confirmed it"></p>
+  <button class="secondary">Reset second factor</button>
+</form>
+{% endif %}
+
 {% if full %}
 <section class="panel"><h2>Identity details</h2>
   {% if identity %}<p>Real name: <strong>{{ identity.real_name }}</strong>{% if identity.reviewed_at %} · checked {{ identity.reviewed_at|date:"j M Y" }}{% endif %}</p>

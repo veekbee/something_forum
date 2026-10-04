@@ -1533,6 +1533,21 @@ def _admin_site_view(actor, _target):
     return allow() if roles.is_admin_or_owner(actor) else deny("staff admin is for Admins only")
 
 
+@rule("account.reset_factor")
+def _account_reset_factor(actor, member):
+    """Rule 63: Admins and Owners reset a lost second factor; an Admin's needs an Owner, and an
+    Owner's another Owner."""
+    if actor.status != User.Status.ACTIVE or not roles.is_admin_or_owner(actor):
+        return deny("only Admins and Owners reset a second factor")
+    if member.pk == actor.pk:
+        return deny("another Admin or Owner resets yours")
+    if member.status in CLOSED_STATUSES:
+        return deny(f"account is {member.status}")
+    if roles.is_admin_or_owner(member) and not roles.is_owner(actor):
+        return deny("an Admin's or Owner's second factor is reset by an Owner")
+    return allow()
+
+
 @rule("watermark.trace")
 def _watermark_trace(actor, _target):
     """Rule 61: only Admins and Owners use the tracing page."""

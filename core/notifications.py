@@ -26,8 +26,8 @@ ACCOUNT_KINDS = {
     "billing.restored", "billing.founding_comp_ending",
     # Sponsorship transfer: the member's account is read-only until it ends (rule 51).
     "sponsorship.transfer_opened", "sponsorship.offer", "sponsorship.transfer_ended",
-    # Session binding (rule 58).
-    "session.concurrent_location",
+    # Session binding (rule 58) and second-factor reset (rule 63).
+    "session.concurrent_location", "account.factor_reset",
 }
 OPTIONAL_KINDS = {
     "dm": "New direct messages",
@@ -75,6 +75,7 @@ def describe(notification):
         "sponsorship.offer_accepted": ("Your offer to vouch was accepted; you are now their sponsor",
                                        reverse("invitations")),
         "sponsorship.offer_declined": ("Your offer to vouch was declined", reverse("invitations")),
+        "account.factor_reset": ("Your authenticator was reset; set up a new one when you next sign in", None),
         "session.concurrent_location": ("Your account was in use from two countries at the same time, so we asked "
                                         "the newer device to sign in again. If that wasn't you, change your password.",
                                         reverse("sessions")),
