@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Lift your ban{% endblock %}
+{% block content %}
+<h1>Lift your ban</h1>
+{% if done %}<p class="notice">Thank you. Your payment is being confirmed; the ban lifts as soon as it is.</p>{% endif %}
+<section class="panel">
+  <p>You were banned on {{ ban.starts_at|date:"j M Y" }}{% if ban.public_summary %}: {{ ban.public_summary }}{% endif %}.</p>
+  <p>You can lift this ban by paying ${{ fee_dollars|floatformat:2 }}. Payment lifts the ban only; any suspension or Probation stays in force.</p>
+  <form method="post">{% csrf_token %}<button>Pay and lift the ban</button></form>
+  <p class="helptext">You can also message an Admin or Owner to appeal.</p>
+</section>
+{% endblock %}

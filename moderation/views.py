@@ -144,10 +144,20 @@ def take_action(request, slug):
         else:
             return redirect("queue")
     active_bans = ModerationAction.objects.in_force().filter(target_user=member, kind=ModerationAction.Kind.BAN)
+    permanent = ModerationAction.objects.in_force().filter(target_user=member, kind=ModerationAction.Kind.PERMANENT_BAN)
     return render(request, "moderation/take_action.html", {
         "member": member, "kinds": kinds, "scopes": scopes, "errors": errors,
         "liftable": [b for b in active_bans if can(request.user, "moderation.lift_ban", b)],
+        "annullable": [p for p in permanent if can(request.user, "moderation.annul", p)],
     })
+
+
+@require_POST
+def annul_permanent_ban(request, pk):
+    from moderation import permanent
+
+    action = get_object_or_404(ModerationAction, pk=pk)
+    return _act(request, lambda: permanent.annul(request.user, action, request.POST.get("reason", "")))
 
 
 @require_POST
@@ -211,7 +221,7 @@ def member_view(request, slug):
 
     from accounts.models import Block, IdentityRecord, UserSession
     from audit import log
-    from billing.models import Subscription
+    from billing.models import Charge, Subscription
     from boards.models import Thread
     from boards.views import _page
     from boards.visibility import moderated_subforums
@@ -243,6 +253,7 @@ def member_view(request, slug):
             "blocks_made": Block.objects.filter(blocker=member).select_related("blocked"),
             "blocks_received": Block.objects.filter(blocked=member).select_related("blocker"),
             "subscription": Subscription.objects.filter(user=member).first(),
+        "charges": Charge.objects.filter(user=member).order_by("-created_at"),
             "sessions": UserSession.objects.filter(user=member).order_by("-last_seen_at")[:20],
             "has_identity": IdentityRecord.objects.filter(user=member).exists(),
         })

@@ -42,6 +42,16 @@ class AccessControlMiddleware:
                 return redirect_to_login(request.get_full_path())
             return HttpResponse("Authentication required.", status=401, content_type="text/plain")
 
+        from moderation.permanent import is_permanently_banned
+
+        if is_permanently_banned(request.user):
+            # A session from before the ban ends here (rule 46).
+            from django.contrib.auth import logout
+            from django.shortcuts import render
+
+            logout(request)
+            return render(request, "account/permanently_banned.html", status=403)
+
         if (
             registry.site_value("auth.require_totp")
             and not _matches(path, settings.TOTP_ENROLMENT_PATH_PREFIXES)

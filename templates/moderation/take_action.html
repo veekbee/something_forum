@@ -9,6 +9,13 @@
     <input type="text" name="reason" placeholder="Reason (for staff)" aria-label="Reason"> <button>Lift ban</button></form>{% endfor %}
 </section>
 {% endif %}
+{% if annullable %}
+<section class="panel"><h2>Permanently Banned</h2>
+  {% for p in annullable %}<form method="post" action="{% url 'annul_permanent_ban' p.pk %}">{% csrf_token %}
+    <p>Annul only to correct an error, never as forgiveness. The reason is recorded.</p>
+    <input type="text" name="reason" placeholder="Why this was an error" aria-label="Reason" required> <button>Annul</button></form>{% endfor %}
+</section>
+{% endif %}
 <form class="panel" method="post">{% csrf_token %}
   {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
   <p><label for="kind">Action</label><select id="kind" name="kind" required>{% for key, label in kinds %}<option value="{{ key }}">{{ label|capfirst }}</option>{% endfor %}</select></p>

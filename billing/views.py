@@ -24,6 +24,22 @@ def billing_page(request):
     })
 
 
+def ban_payment(request):
+    """The one extra page a banned member reaches (rule 45): the fee, and the way to pay it."""
+    from billing import bans
+
+    ban = bans.active_ban(request.user)
+    decision = can(request.user, "billing.pay_ban", ban) if ban else None
+    if not decision:
+        raise PermissionDenied(decision.reason if decision is not None else "You are not banned.")
+    if request.method == "POST":
+        back = request.build_absolute_uri(reverse("ban_payment"))
+        return redirect(bans.ban_checkout(request.user, ban, f"{back}?done=1", back))
+    return render(request, "billing/ban_payment.html", {
+        "ban": ban, "fee_dollars": bans.fee_cents(request.user) / 100, "done": request.GET.get("done"),
+    })
+
+
 @require_POST
 def pay(request):
     back = request.build_absolute_uri(reverse("billing"))

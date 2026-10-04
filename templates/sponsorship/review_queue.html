@@ -7,7 +7,8 @@
   {% for inv in queue %}
   <li>
     <strong>{{ inv.invitee.identity.real_name }}</strong> ({{ inv.invitee.display_name }}, {{ inv.invitee_email }})
-    {% if inv.status == "waitlisted" %}<span class="status waitlisted">Over sponsor's cap</span>{% endif %}<br>
+    {% if inv.status == "waitlisted" %}<span class="status waitlisted">Over sponsor's cap</span>{% endif %}
+    {% if inv.permanent_ban_matches %}<span class="status pending">Matches the permanent-ban list: {% for r in inv.permanent_ban_matches %}{{ r.action.target_user.display_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}<br>
     <span class="muted">Invited by {{ inv.sponsor.display_name }} · waiting {{ inv.invitee.identity.submitted_at|timesince }}</span>
     <p>{{ inv.vouching_notes|linebreaksbr }}</p>
     <div class="actions">

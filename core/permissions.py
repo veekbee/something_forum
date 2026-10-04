@@ -103,7 +103,7 @@ def _in_force(user, *kinds, subforum=None):
 def _can_read_anything(user):
     if user.status not in READABLE_STATUSES:
         return deny(f"account is {user.status}")
-    if _in_force(user, "ban"):
+    if _in_force(user, "ban", "permanent_ban"):
         return deny("account is banned")
     return allow()
 
@@ -854,6 +854,26 @@ def _billing_pay_membership(actor, _target):
     return allow()
 
 
+@rule("billing.pay_ban")
+def _billing_pay_ban(actor, ban):
+    """A banned member reaches one extra page, to pay their ban off (rule 45). A Permanent Ban
+    cannot be paid."""
+    if ban.target_user_id != actor.pk or ban.kind != ban.Kind.BAN or ban.status != ban.Status.ACTIVE:
+        return deny("not a ban you can pay")
+    if _in_force(actor, "permanent_ban"):
+        return deny("a Permanent Ban cannot be bought back")
+    return allow()
+
+
+@rule("moderation.annul")
+def _moderation_annul(actor, action):
+    if action.kind != "permanent_ban" or action.status != action.Status.ACTIVE:
+        return deny("not an active Permanent Ban")
+    if actor.status != User.Status.ACTIVE or not roles.is_owner(actor):
+        return deny("only an Owner annuls a Permanent Ban")
+    return allow()
+
+
 @rule("billing.extend_comp")
 def _billing_extend_comp(actor, member):
     if actor.status != User.Status.ACTIVE or not roles.is_owner(actor):
@@ -1104,6 +1124,8 @@ def _moderation_initiate(actor, request):
         return deny(f"account is {actor.status}")
     if request.scope_subforums and request.kind not in SCOPABLE_KINDS:
         return deny("only suspensions and holds are limited to a sub-forum")
+    if request.kind == "permanent_ban" and not roles.is_owner(actor):
+        return deny("only an Owner imposes a Permanent Ban; escalate the case")
     if not roles.is_admin_or_owner(actor):
         if request.kind not in MODERATOR_KINDS:
             return deny("only Admins and Owners may take this action")

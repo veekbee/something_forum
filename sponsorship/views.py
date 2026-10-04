@@ -179,8 +179,14 @@ def review_queue(request):
         role_assignments__role__name=roles.GUEST,
         role_assignments__revoked_at__isnull=True,
     ).distinct().order_by("joined_at")
+    from moderation.permanent import matches
+
+    queue = list(onboarding.review_queue())
+    for invitation in queue:
+        # Rule 46: a match is shown to the reviewing Admin, never acted on automatically.
+        invitation.permanent_ban_matches = matches(invitation.invitee_email, invitation.invitee.identity.real_name)
     return render(request, "sponsorship/review_queue.html", {
-        "queue": onboarding.review_queue(),
+        "queue": queue,
         "waiting_on_invitee": waiting_on_invitee,
         "guests": guests,
     })

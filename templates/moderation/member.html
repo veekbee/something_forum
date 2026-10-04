@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load forum %}
 {% block title %}{{ member.display_name }}: staff view{% endblock %}
 {% block content %}
 <h1>{{ member.display_name }} <span class="muted">· staff view</span></h1>
@@ -28,6 +29,7 @@
 
 {% if full %}
 <section class="panel"><h2>Payment</h2>
+  {% for c in charges %}<p class="muted">{{ c.get_kind_display|capfirst }} · {{ c.amount_cents|dollars }} · {{ c.created_at|date:"j M Y" }}</p>{% endfor %}
   {% if subscription %}<p>{{ subscription.get_status_display }}{% if subscription.comped_by %} (comped by {{ subscription.comped_by.display_name }}){% endif %}{% if subscription.current_period_end %} · paid to {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>{% else %}<p class="muted">No subscription.</p>{% endif %}
 </section>
 <section class="panel"><h2>Direct messages</h2>

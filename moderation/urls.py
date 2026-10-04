@@ -10,6 +10,7 @@ urlpatterns = [
     path("staff/actions/<int:pk>/decline/", views.decline_action, name="decline_action"),
     path("staff/actions/<int:pk>/withdraw/", views.withdraw_action, name="withdraw_action"),
     path("staff/actions/<int:pk>/lift/", views.lift_ban, name="lift_ban"),
+    path("staff/actions/<int:pk>/annul/", views.annul_permanent_ban, name="annul_permanent_ban"),
     path("staff/members/<slug:slug>/act/", views.take_action, name="take_action"),
     path("staff/members/<slug:slug>/", views.member_view, name="staff_member"),
     path("staff/audit/", views.audit_log, name="audit_log"),

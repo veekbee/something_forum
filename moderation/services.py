@@ -157,6 +157,10 @@ def _activate(actor, action):
                                     payload={"action": action.pk, "kind": action.kind})
     if action.kind == Kind.BAN:
         _open_sponsor_review(actor, action)
+    if action.kind == Kind.PERMANENT_BAN:
+        from moderation.permanent import write_list_entry
+
+        write_list_entry(action)
 
 
 def _open_sponsor_review(actor, ban):
