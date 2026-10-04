@@ -110,6 +110,12 @@ CSP_EXTRA_IMG_SRC = env("CSP_EXTRA_IMG_SRC", default="").split()
 # Country or DB-IP Lite Country, under their own licence terms). Without one, countries are unknown
 # and the concurrent-location check never fires.
 GEOIP_COUNTRY_DATABASE = env("GEOIP_COUNTRY_DATABASE", default="")
+# A supplied logo (docs/DESIGN.md, Visual design): SITE_LOGO replaces the wordmark in the masthead,
+# SITE_ICON (a square PNG of at least 512 pixels) replaces the generated home-screen icons. Both are
+# paths under the static files, for example "brand/logo.svg". Empty means the generated ones.
+SITE_LOGO = env("SITE_LOGO", default="")
+SITE_ICON = env("SITE_ICON", default="")
+
 # Proxies whose X-Forwarded-For header is trusted for the client address (rule 57; Launch checklist).
 # Space-separated addresses. Empty means the connection's own address is used.
 TRUSTED_PROXIES = env("TRUSTED_PROXIES", default="").split()

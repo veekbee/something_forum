@@ -2,42 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}{{ site_name }}{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'css/forum.css' %}">
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="apple-touch-icon" href="{% url 'icon' 'apple-touch-icon' %}">
-  <meta name="theme-color" content="#2f5d8a">
+  <meta name="theme-color" content="#2c2824">
 </head>
 <body>
-  <header class="site"><div class="inner">
-    <a class="brand" href="{% url 'home' %}">{{ site_name }}</a>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="masthead"><div class="inner">
+    <a class="brand" href="{% url 'home' %}">{% if site_logo %}<img src="{{ site_logo }}" alt="{{ site_name }}">{% else %}{{ site_name }}{% endif %}</a>
     {% if user.is_authenticated %}
-    <nav>
-      {% if nav_forum %}<a href="{% url 'search' %}">Search</a>{% endif %}
-      <a href="{% url 'inbox' %}">Messages{% if nav_unread_messages %} ({{ nav_unread_messages }}){% endif %}</a>
-      <a href="{% url 'notifications' %}">Notifications{% if nav_unread_notifications %} ({{ nav_unread_notifications }}){% endif %}</a>
-      {% if nav_forum %}<a href="{% url 'member_profile' user.slug %}">Profile</a>{% endif %}
-      <a href="{% url 'billing' %}">Membership</a>
-      {% if nav_invite %}<a href="{% url 'invitations' %}">Invitations</a>{% endif %}
-      {% if nav_queue %}<a href="{% url 'queue' %}">Moderation</a><a href="{% url 'feed' %}">Feed</a>{% endif %}
-      {% if nav_audit %}<a href="{% url 'audit_log' %}">Audit log</a>{% endif %}
-      {% if nav_settings %}<a href="{% url 'site_settings' %}">Site settings</a>{% endif %}
-      {% if nav_trace %}<a href="{% url 'trace_watermark' %}">Trace a leak</a>{% endif %}
-      {% if nav_review %}<a href="{% url 'review_queue' %}">Invitations to review</a>{% endif %}
-      <form class="inline-form" method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button class="secondary">Sign out</button></form>
+    <nav aria-label="Main">
+      {% if nav_forum %}<a href="{% url 'home' %}"{% if nav_section == "forum" %} aria-current="page"{% endif %}>Forum</a>{% endif %}
+      <a href="{% url 'inbox' %}"{% if nav_section == "messages" %} aria-current="page"{% endif %}>Messages{% if nav_unread_messages %} <span class="count">{{ nav_unread_messages }}</span>{% endif %}</a>
+      <a href="{% url 'notifications' %}"{% if nav_section == "notifications" %} aria-current="page"{% endif %}>Notifications{% if nav_unread_notifications %} <span class="count">{{ nav_unread_notifications }}</span>{% endif %}</a>
+      {% if nav_forum %}<a href="{% url 'member_profile' user.slug %}"{% if nav_section == "profile" %} aria-current="page"{% endif %}>Profile</a>{% endif %}
+      {% if nav_queue %}<a href="{% url 'queue' %}">Queue{% if nav_queue_count %} <span class="count">{{ nav_queue_count }}</span>{% endif %}</a>{% endif %}
     </nav>
+    <details class="menu"><summary>Menu</summary><div>
+      <div class="group">You</div>
+      {% if nav_forum %}<a href="{% url 'search' %}">Search</a>{% endif %}
+      <a href="{% url 'sessions' %}">Sessions</a>
+      {% if nav_forum %}<a href="{% url 'display_settings' %}">Display</a>{% endif %}
+      <a href="{% url 'billing' %}">Membership and billing</a>
+      {% if nav_invite %}<a href="{% url 'invitations' %}">Invitations</a>{% endif %}
+      {% if nav_forum %}<a href="{% url 'emoji_list' %}">Custom emoji</a>{% endif %}
+      {% if nav_queue or nav_review or nav_audit or nav_settings or nav_trace %}<div class="group">Staff</div>{% endif %}
+      {% if nav_queue %}<a href="{% url 'queue' %}">Moderation queue</a><a href="{% url 'feed' %}">Mod feedback feed</a>{% endif %}
+      {% if nav_review %}<a href="{% url 'review_queue' %}">Invitations to review</a>{% endif %}
+      {% if nav_audit %}<a href="{% url 'audit_log' %}">Audit log</a>{% endif %}
+      {% if nav_settings %}<a href="{% url 'site_settings' %}">Settings</a>{% endif %}
+      {% if nav_trace %}<a href="{% url 'trace_watermark' %}">Trace a leak</a>{% endif %}
+      <div class="group">Site</div>
+      <a href="{% url 'install_help' %}">Install on your phone</a>
+      <a href="{% url 'legal' 'member-agreement' %}">Member agreement</a>
+      <a href="{% url 'legal' 'privacy' %}">Privacy notice</a>
+      <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button>Sign out</button></form>
+    </div></details>
     {% endif %}
   </div></header>
-  <main>
-  {% if nav_transfer %}<p class="notice warn">You need a new sponsor, and your account is read-only until you have one. <a href="{% url 'transfer_status' %}">What this means</a></p>{% endif %}
-  {% block content %}{% endblock %}</main>
-  <footer class="site"><div class="inner">
-    {% if user.is_authenticated %}<a href="{% url 'install_help' %}">Add to your home screen</a>{% endif %}
+  {% if nav_transfer %}<div class="band" role="status"><div class="inner"><p>You need a new sponsor, and your account is read-only until you have one. <a href="{% url 'transfer_status' %}">What this means</a></p></div></div>
+  {% elif nav_lapsed %}<div class="band" role="status"><div class="inner"><p>Your membership has lapsed, so your account is read-only. <a href="{% url 'billing' %}">Renew</a></p></div></div>{% endif %}
+  {% for message in messages %}<div class="band {% if message.level_tag == 'success' %}ok{% elif message.level_tag == 'info' %}info{% endif %}" role="status"><div class="inner"><p>{{ message }}</p></div></div>{% endfor %}
+  <main id="content">{% block content %}{% endblock %}</main>
+  <footer class="site">
+    {% if user.is_authenticated %}<a href="{% url 'install_help' %}">Install on your phone</a>{% endif %}
     <a href="{% url 'legal' 'member-agreement' %}">Member agreement</a>
     <a href="{% url 'legal' 'privacy' %}">Privacy notice</a>
-  </div></footer>
+  </footer>
+  {% if user.is_authenticated and user.status != "invited" %}{% include "_tabs.html" %}{% endif %}
   <script src="{% static 'js/sw-register.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </body>

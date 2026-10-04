@@ -94,10 +94,10 @@ def test_page_lists_marks_read_and_the_header_counts(client, make_user, general)
     services.reply(author, make_thread(general, author), f"@{target.slug}")
     enrol_totp(target)
     client.force_login(target)
-    assert b"Notifications (1)" in client.get("/").content
+    assert b'Notifications <span class="count">1</span>' in client.get("/").content
     page = client.get("/notifications/").content.decode()
     assert "You were mentioned in a post" in page
-    assert b"Notifications (1)" not in client.get("/").content
+    assert b'Notifications <span class="count">1</span>' not in client.get("/").content
 
 
 def test_choosing_email_kinds(client, make_user):

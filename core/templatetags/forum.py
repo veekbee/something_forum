@@ -14,8 +14,8 @@ def dollars(cents):
     return f"${(cents or 0) / 100:,.2f}"
 
 
-# Generated avatar colours; static/css/site.css has a .avatar-cN class for each, in this order.
-_COLOURS = ("#2f5d8a", "#8a4b0f", "#2e6b3a", "#6b2e5f", "#5f5a1e", "#1e5f5a", "#7a2e2e", "#3e3e7a")
+# Generated avatar colours; static/css/forum.css has an .avatar-cN class for each, in this order.
+_COLOURS = ("#8a3b2f", "#4a3a2a", "#2f5d5a", "#6a3d5c", "#3f5a2d", "#7a5418", "#3b4a6b", "#5c4a3d")
 _SIZES = (32, 40, 56)
 
 

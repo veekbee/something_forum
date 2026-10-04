@@ -34,6 +34,7 @@ def test_moderator_tier_leaves_out_dms_payment_sessions_identity_and_blocks(logi
     messages.start(member, [make_user("full")], "Private chat", "hello")
     client = login(make_user("moderator"))
     page = client.get(f"/staff/members/{member.slug}/").content.decode()
+    page = page[page.index("<main"):page.index("</main>")]  # the menu has its own Sessions link
     for hidden in ("Direct messages", "Payment", "Sessions", "Identity details", "Blocks", "Private chat"):
         assert hidden not in page
     assert "Moderation history" in page and "Sponsorship" in page
