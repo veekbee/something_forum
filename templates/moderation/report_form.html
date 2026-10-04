@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<h1>{{ heading }}</h1>
+{% if done %}<p class="notice">{{ done }}</p>
+{% else %}
+<form class="panel" method="post">{% csrf_token %}
+  {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
+  <p><label for="reason">Reason</label><select id="reason" name="reason" required>
+    <option value="">Choose…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></p>
+  <p><label for="note">Anything staff should know (optional)</label><textarea id="note" name="note" rows="3"></textarea></p>
+  <p class="helptext">The member you report never learns who reported them.</p>
+  <button>Send report</button>
+</form>
+{% endif %}
+{% endblock %}

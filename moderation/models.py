@@ -1,32 +1,97 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
 
+REASONS = {
+    "off_topic": "Off-topic",
+    "personal_attack": "Personal attack",
+    "spam": "Spam",
+    "private_information": "Private information",
+    "other": "Other",
+}
+
+
+def reason_text(key, note=""):
+    """The preset reason in words; "other" must come with a sentence."""
+    if key not in REASONS:
+        raise ValidationError("Choose a reason from the list.")
+    note = note.strip()
+    if key == "other" and not note:
+        raise ValidationError("Say in a sentence why.")
+    return f"{REASONS[key]}: {note}" if note else REASONS[key]
+
+
+class ReportQuerySet(models.QuerySet):
+    def waiting(self):
+        return self.filter(status__in=[Report.Status.OPEN, Report.Status.ESCALATED])
+
+
 class Report(models.Model):
+    """Member reports and automatic flags in one table, so the moderation queue reads one list."""
+
+    class Source(models.TextChoices):
+        MEMBER = "member"
+        SYSTEM = "system"
+
+    class Kind(models.TextChoices):
+        POST = "post"
+        MEMBER = "member"
+        DM = "dm"
+        FLAG_RATE_LIMIT = "flag_rate_limit"
+        FLAG_RAPID_DELETION = "flag_rapid_deletion"
+        FLAG_REQUEST_RATE = "flag_request_rate"
+
     class Status(models.TextChoices):
         OPEN = "open"
-        HANDLED = "handled"
-        DISMISSED = "dismissed"
+        ESCALATED = "escalated"
+        RESOLVED = "resolved"
 
+    class Outcome(models.TextChoices):
+        ACTION_TAKEN = "action_taken"
+        NO_ACTION = "no_action"
+
+    source = models.CharField(max_length=8, choices=Source.choices, default=Source.MEMBER)
+    kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.POST)
     post = models.ForeignKey("boards.Post", null=True, blank=True, on_delete=models.PROTECT, related_name="reports")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="reports_against"
     )
-    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reports_made")
-    reason = models.TextField()
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="reports_made"
+    )
+    reason = models.CharField(max_length=32, blank=True, choices=[(k, v) for k, v in REASONS.items()])
+    note = models.TextField(blank=True)
+    # Flag context (counts, sub-forum) and staff notes added while it waits.
+    details = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    escalated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    escalation_note = models.TextField(blank=True)
+    outcome = models.CharField(max_length=16, choices=Outcome.choices, blank=True)
     handled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     handled_at = models.DateTimeField(null=True, blank=True)
 
+    objects = ReportQuerySet.as_manager()
+
     class Meta:
         constraints = [
-            models.CheckConstraint(condition=Q(post__isnull=False) | Q(user__isnull=False), name="report_has_subject")
+            models.CheckConstraint(condition=Q(post__isnull=False) | Q(user__isnull=False), name="report_has_subject"),
+            models.CheckConstraint(
+                condition=Q(source="system") | Q(reporter__isnull=False), name="member_reports_have_reporter"
+            ),
         ]
+        indexes = [models.Index(fields=["status", "created_at"])]
+
+    @property
+    def is_flag(self):
+        return self.source == self.Source.SYSTEM
 
 
 class ModerationActionQuerySet(models.QuerySet):

@@ -4,7 +4,8 @@
 <h1>{{ member.display_name }}</h1>
 <section class="panel">
   <p>{% if role %}{{ role.name|capfirst }}{% endif %} · joined {{ member.joined_at|date:"j M Y" }}</p>
-  {% if may_message or may_block %}<div class="actions">
+  {% if may_message or may_block or may_report %}<div class="actions">
+    {% if may_report %}<a href="{% url 'report_member' member.slug %}">Report</a>{% endif %}
     {% if may_message %}<a class="button" href="{% url 'new_conversation' %}?to={{ member.slug }}">Message</a>{% endif %}
     {% if may_block %}<form method="post" action="{% url 'member_block' member.slug %}">{% csrf_token %}{% if blocked %}<input type="hidden" name="undo" value="1"><button class="secondary">Unblock</button>{% else %}<button class="secondary">Block</button>{% endif %}</form>{% endif %}
   </div>{% endif %}
@@ -31,6 +32,7 @@
   <li><a href="{% url 'thread' post.thread_id %}">{{ post.thread.title }}</a> <span class="muted">· {{ post.created_at|date:"j M Y" }}</span>
     {% if post.is_held %}<span class="status pending">Held for review</span>{% endif %}
     {% if post.rejected_at %}<span class="status">Rejected</span>{% endif %}
+    {% if post.deleted_at %}<span class="status">{% if post.deleted_by_id == post.author_id %}Deleted{% else %}Removed by staff: {{ post.delete_reason }}{% endif %}</span>{% endif %}
     <div class="excerpt">{{ post.body_source|truncatechars:200 }}</div></li>
   {% endfor %}
 </ul>

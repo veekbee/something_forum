@@ -75,8 +75,8 @@ def conversation(request, pk):
     return render(request, "boards/messages/conversation.html", {
         "thread": thread,
         "page": page,
-        "entries": [{"post": p, "may_edit": can(user, "post.edit", p), "may_delete": can(user, "post.delete", p)}
-                    for p in page.object_list],
+        "entries": [{"post": p, "may_edit": can(user, "post.edit", p), "may_delete": can(user, "post.delete", p),
+                     "may_report": can(user, "report.create", p)} for p in page.object_list],
         "participants": participants,
         "active": active,
         "removable": [p.user for p in active if can(user, "dm.remove", Membership(thread, p.user))],

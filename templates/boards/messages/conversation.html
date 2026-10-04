@@ -30,6 +30,7 @@
   <div class="actions">
     {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
     {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}
+    {% if entry.may_report %}<a href="{% url 'report_post' post.pk %}">Report</a>{% endif %}
   </div>
 </article>
 {% endwith %}{% endfor %}

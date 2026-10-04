@@ -155,14 +155,14 @@ def test_staff_delete_needs_reason_and_is_audited(make_user, general):
     post = make_post(make_thread(general, author), author)
     with pytest.raises(ValidationError):
         services.delete_post(mod, post)
-    services.delete_post(mod, post, reason="Doxxing")
-    entry = AuditEntry.objects.get(action="post.delete")
-    assert entry.actor == mod and entry.payload["reason"] == "Doxxing"
+    services.delete_post(mod, post, reason_key="private_information")
+    entry = AuditEntry.objects.get(action="post.hide")
+    assert entry.actor == mod and entry.payload["reason"] == "Private information"
 
 
 def test_deleted_post_visible_only_to_admin_and_owner_with_who_and_why(make_user, general):
     author, mod = make_user("full"), make_user("moderator")
-    post = services.delete_post(mod, make_post(make_thread(general, author), author), reason="Spam")
+    post = services.delete_post(mod, make_post(make_thread(general, author), author), reason_key="spam")
     admin = make_user("admin")
     assert can(admin, "post.read", post) and not can(mod, "post.read", post)
     shown = visibility.visible_posts(admin).get(pk=post.pk)
@@ -282,7 +282,7 @@ def test_post_history_for_others_shows_only_what_they_could_read(make_user, gene
     member = make_user("provisional")
     visible = make_post(make_thread(lobby, member), member)
     held = make_post(make_thread(general, member), member, is_held=True)
-    deleted = make_post(make_thread(general, member), member, deleted_at=timezone.now())
+    deleted = make_post(make_thread(general, member), member, deleted_at=timezone.now(), deleted_by=member)
     guest = make_user("guest")
     assert list(visibility.post_history(guest, member)) == [visible]
     assert set(visibility.post_history(member, member)) == {visible, held}

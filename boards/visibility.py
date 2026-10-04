@@ -53,12 +53,16 @@ def thread_posts(actor, thread):
 
 
 def post_history(viewer, member):
-    """The list of posts on `member`'s profile. Members see all of their own posts, held and
-    rejected ones included; everyone else sees what they could read in the threads."""
+    """The list of posts on `member`'s profile. Members see all of their own posts, held, rejected
+    and removed ones included; everyone else sees what they could read in the threads."""
     if viewer.pk == member.pk:
         if not can(viewer, "search.use"):
             return Post.objects.none()
-        own = Post.objects.filter(author=member, thread__kind=Thread.Kind.DISCUSSION, deleted_at__isnull=True)
+        # Their own posts, held and rejected ones included, and posts staff removed (marked as
+        # such in the template); posts they deleted themselves are gone from the list.
+        own = Post.objects.filter(author=member, thread__kind=Thread.Kind.DISCUSSION).exclude(
+            deleted_at__isnull=False, deleted_by=member
+        )
         return own.order_by("-created_at")
     return visible_posts(viewer).filter(author=member).order_by("-created_at")
 

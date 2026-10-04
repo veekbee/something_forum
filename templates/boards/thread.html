@@ -32,6 +32,7 @@
     {% if entry.may_quote %}<a href="?quote={{ post.pk }}#reply">Quote</a>{% endif %}
     {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
     {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}
+    {% if entry.may_report %}<a href="{% url 'report_post' post.pk %}">Report</a>{% endif %}
     {% if entry.may_revisions %}<a href="{% url 'post_revisions' post.pk %}">History</a>{% endif %}
     {% if entry.may_moderate %}
       <form method="post" action="{% url 'moderate_post' post.pk 'release' %}">{% csrf_token %}<button>Release</button></form>

@@ -32,6 +32,8 @@ class Decision:
     # How access was granted, when it matters to the caller (e.g. "dm_grant" must be audited).
     via: str = ""
     detail: Any = field(default=None, compare=False)
+    # A short machine-readable reason, where callers need to tell refusals apart.
+    code: str = ""
 
     def __bool__(self):
         return self.allowed
@@ -41,8 +43,8 @@ def allow(via="", detail=None):
     return Decision(True, via=via, detail=detail)
 
 
-def deny(reason):
-    return Decision(False, reason=reason)
+def deny(reason, code=""):
+    return Decision(False, reason=reason, code=code)
 
 
 @dataclass(frozen=True)
@@ -108,7 +110,15 @@ def _can_write_anything(user):
         return deny(f"account is {user.status}")
     if _in_force(user, "suspension", "read_only"):
         return deny("posting is suspended")
+    if _request_rate_flagged(user):
+        return deny("account is read-only until a Moderator reviews unusual activity")
     return allow()
+
+
+def _request_rate_flagged(user):
+    from moderation.models import Report
+
+    return Report.objects.waiting().filter(kind=Report.Kind.FLAG_REQUEST_RATE, user=user).exists()
 
 
 def _rank_in(user, subforum):
@@ -165,9 +175,9 @@ def _subforum_start_thread(actor, subforum):
     if not _meets(actor, subforum, "subforum.min_thread_role"):
         return deny("role is below this sub-forum's minimum to start a thread")
     if limits.thread_limit_reached(actor, subforum):
-        return deny("thread rate limit reached")
+        return deny("thread rate limit reached", code="rate_limit")
     if limits.post_limit_reached(actor, subforum):
-        return deny("post rate limit reached")
+        return deny("post rate limit reached", code="rate_limit")
     return allow()
 
 
@@ -232,7 +242,7 @@ def _thread_reply(actor, thread):
     if not _meets(actor, subforum, "subforum.min_reply_role"):
         return deny("role is below this sub-forum's minimum to reply")
     if limits.post_limit_reached(actor, subforum):
-        return deny("post rate limit reached")
+        return deny("post rate limit reached", code="rate_limit")
     return allow()
 
 
@@ -585,6 +595,119 @@ def _member_block(actor, target):
     if target.status in CLOSED_STATUSES:
         return deny("no such member")
     return allow()
+
+
+# --- reports and the moderation queue --------------------------------------------------------
+
+
+def _staff_active(actor):
+    return actor.status == User.Status.ACTIVE and (roles.is_moderator(actor) or roles.is_admin_or_owner(actor))
+
+
+def _global_moderator(actor):
+    return roles.is_moderator(actor) and roles.moderated_subforum_ids(actor) is None
+
+
+def _report_in_scope(actor, report):
+    """The moderation queue table: sub-forum items to that sub-forum's Moderators, member items to
+    global Moderators, DM reports to Admins and Owners; Admins and Owners see everything."""
+    from boards.models import SubForum
+    from moderation.models import Report
+
+    if roles.is_admin_or_owner(actor):
+        return True
+    if report.kind == Report.Kind.DM:
+        return False
+    if report.kind == Report.Kind.FLAG_REQUEST_RATE:
+        return roles.is_moderator(actor)
+    subforum = None
+    if report.post_id is not None:
+        subforum = report.post.thread.subforum
+        if subforum is None:
+            return False
+    elif report.details.get("subforum"):
+        subforum = SubForum.objects.filter(pk=report.details["subforum"]).first()
+    if subforum is not None:
+        return roles.moderates(actor, subforum)
+    return _global_moderator(actor)
+
+
+@rule("queue.view")
+def _queue_view(actor, _target):
+    return allow() if _staff_active(actor) else deny("the moderation queue is for staff")
+
+
+@rule("report.view")
+def _report_view(actor, report):
+    if not _staff_active(actor) or not _report_in_scope(actor, report):
+        return deny("not in your moderation scope")
+    return allow()
+
+
+@rule("report.resolve")
+def _report_resolve(actor, report):
+    """Rule 34: only Admins and Owners resolve escalated items and DM reports; a handled item stays
+    handled."""
+    viewable = _report_view(actor, report)
+    if not viewable:
+        return viewable
+    if report.status == report.Status.RESOLVED:
+        return deny("already handled", code="handled")
+    if report.status == report.Status.ESCALATED and not roles.is_admin_or_owner(actor):
+        return deny("escalated items are resolved by Admins and Owners")
+    return allow()
+
+
+@rule("report.escalate")
+def _report_escalate(actor, report):
+    viewable = _report_view(actor, report)
+    if not viewable:
+        return viewable
+    if report.status != report.Status.OPEN:
+        return deny("already handled" if report.status == report.Status.RESOLVED else "already escalated",
+                    code="handled")
+    if roles.is_admin_or_owner(actor):
+        return deny("Admins and Owners resolve items directly")
+    return allow()
+
+
+@rule("report.note")
+def _report_note(actor, report):
+    viewable = _report_view(actor, report)
+    if not viewable:
+        return viewable
+    if report.status == report.Status.RESOLVED:
+        return deny("already handled", code="handled")
+    return allow()
+
+
+@rule("report.create")
+def _report_create(actor, target):
+    """Every member, Guests included, reports posts they can read, DM messages in conversations they
+    take part in, and members; at most reports.max_per_member_per_day (rule 33)."""
+    from boards.models import Post
+    from moderation.models import Report
+
+    base = _can_read_anything(actor)
+    if not base:
+        return base
+    since = timezone.now() - timedelta(hours=24)
+    if Report.objects.filter(reporter=actor, created_at__gt=since).count() >= registry.site_value(
+        "reports.max_per_member_per_day"
+    ):
+        return deny("you have made as many reports as allowed today")
+    if isinstance(target, Post):
+        if target.author_id == actor.pk:
+            return deny("cannot report your own post")
+        readable = _post_read(actor, target)
+        if not readable:
+            return readable
+        if target.thread.kind == target.thread.Kind.DM and readable.via != "participant":
+            return deny("only people in a conversation report its messages")
+        return allow()
+    if target.pk == actor.pk:
+        return deny("cannot report yourself")
+    return _member_view_profile(actor, target)
 
 
 # --- members ---------------------------------------------------------------------------------

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load forum %}
+{% block title %}Moderation queue{% endblock %}
+{% block content %}
+<h1>Moderation queue</h1>
+{% if error %}<p class="notice warn">{{ error }}</p>{% endif %}
+<nav class="actions"><a href="?">All</a>{% for key, label in types.items %}<a href="?type={{ key }}">{{ label }}</a>{% endfor %}</nav>
+{% if not items %}<p class="muted">Nothing is waiting.</p>{% endif %}
+{% for item in items %}{% with o=item.obj %}
+<article class="panel queue-item">
+  <header class="meta"><span class="status">{{ types|get_item:item.type|default:item.type }}</span>
+    <span class="muted">waiting {{ item.waiting_since|timesince }}</span>
+    {% if o.status == "escalated" %}<span class="status pending">Escalated by {{ o.escalated_by.display_name }}: {{ o.escalation_note }}</span>{% endif %}</header>
+
+  {% if item.type == "held" %}
+    <p><a href="{% url 'post_link' o.pk %}">{{ o.thread.title }}</a> · {{ o.author.display_name }} in {{ o.thread.subforum.name }}</p>
+    <pre class="source">{{ o.body_source|truncatechars:600 }}</pre>
+    <div class="actions">
+      <form method="post" action="{% url 'moderate_post' o.pk 'release' %}">{% csrf_token %}<button>Approve</button></form>
+      <a href="{% url 'edit_post' o.pk %}">Edit</a>
+      <form method="post" action="{% url 'moderate_post' o.pk 'reject' %}">{% csrf_token %}<input type="text" name="reason" placeholder="Reason" aria-label="Reason"> <button class="secondary">Reject</button></form>
+    </div>
+
+  {% elif item.type == "report" or item.type == "flag" %}
+    <p>{% if o.is_flag %}{{ o.get_kind_display }}{% else %}{{ o.get_reason_display }}{% if o.note %}: {{ o.note }}{% endif %} · reported by {{ o.reporter.display_name }}{% endif %}</p>
+    <p>{% if o.post %}<a href="{% url 'post_link' o.post.pk %}">{{ o.post.thread.title }}</a> · post by {{ o.post.author.display_name }}{% endif %}
+       {% if o.user %} · member <a href="{% url 'member_profile' o.user.slug %}">{{ o.user.display_name }}</a>{% endif %}
+       {% if o.details.refusals %} · {{ o.details.refusals }} refused posts{% endif %}{% if o.details.deletions %} · {{ o.details.deletions }} deletions{% endif %}{% if o.details.requests %} · {{ o.details.requests }} requests in 10 minutes; the account is read-only until resolved{% endif %}</p>
+    {% for n in o.details.notes %}<p class="muted">Note from {{ n.name }}: {{ n.note }}</p>{% endfor %}
+    <div class="actions">
+      {% if item.may_resolve %}
+        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}">{% csrf_token %}<input type="hidden" name="outcome" value="no_action"><button class="secondary">No action needed</button></form>
+        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}">{% csrf_token %}<input type="hidden" name="outcome" value="action_taken"><button class="secondary">Action taken</button></form>
+        {% if o.post and not o.post.deleted_at and not o.post.thread.kind == "dm" %}
+        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}">{% csrf_token %}
+          <select name="hide_reason" required aria-label="Reason for hiding"><option value="">Hide post for…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+          <input type="text" name="hide_note" placeholder="Sentence (needed for Other)" aria-label="Sentence"> <button>Hide</button></form>
+        {% endif %}
+      {% endif %}
+      {% if item.may_escalate %}<form method="post" action="{% url 'report_action' o.pk 'escalate' %}">{% csrf_token %}<input type="text" name="note" placeholder="Why escalate?" aria-label="Why escalate" required> <button class="secondary">Escalate</button></form>{% endif %}
+      <form method="post" action="{% url 'report_action' o.pk 'note' %}">{% csrf_token %}<input type="text" name="note" placeholder="Add a note" aria-label="Add a note" required> <button class="secondary">Note</button></form>
+    </div>
+
+  {% elif item.type == "action" %}
+    <p>{{ o.get_kind_display|capfirst }} for <a href="{% url 'member_profile' o.target_user.slug %}">{{ o.target_user.display_name }}</a>, proposed by {{ o.initiated_by.display_name }}{% if o.ends_at %} until {{ o.ends_at|date:"j M Y" }}{% endif %}</p>
+    <p class="muted">{{ o.internal_reason }}</p>
+    <form method="post" action="{% url 'approve_action' o.pk %}">{% csrf_token %}<button>Approve</button></form>
+
+  {% elif item.type == "promotion" %}
+    <p><a href="{% url 'member_profile' o.member.slug %}">{{ o.member.display_name }}</a>: {{ o.from_role.name }} to {{ o.to_role.name }}, recommended by {{ o.recommended_by.display_name }}{% if o.reviewed_by %}, reviewed by {{ o.reviewed_by.display_name }}{% endif %}</p>
+    {% if o.review_notes %}<p class="muted">{{ o.review_notes }}</p>{% endif %}
+    {% if o.status == "recommended" %}
+    <form method="post" action="{% url 'promotion_action' o.pk 'review' %}">{% csrf_token %}<input type="text" name="notes" placeholder="Notes on their record" aria-label="Review notes"> <button>Sign off review</button></form>
+    {% else %}
+    <div class="actions">
+      <form method="post" action="{% url 'promotion_action' o.pk 'approve' %}">{% csrf_token %}<button>Approve promotion</button></form>
+      <form method="post" action="{% url 'promotion_action' o.pk 'decline' %}">{% csrf_token %}<input type="text" name="notes" placeholder="Reason" aria-label="Reason"> <button class="secondary">Decline</button></form>
+    </div>
+    {% endif %}
+
+  {% elif item.type == "sponsor_review" %}
+    <p>{{ o.banned_member.display_name }} was banned; their sponsor is <a href="{% url 'member_profile' o.sponsor.slug %}">{{ o.sponsor.display_name }}</a>.</p>
+    <form method="post" action="{% url 'sponsor_review_action' o.pk %}">{% csrf_token %}
+      <p><select name="outcome" required aria-label="Outcome"><option value="">Decide…</option><option value="no_action">No action</option><option value="warning">Warning</option><option value="sponsoring_suspension">Suspend sponsoring</option><option value="ban">Ban</option></select>
+        <input type="number" name="months" min="1" placeholder="Months" aria-label="Months of suspension">
+        <label class="inline"><input type="checkbox" name="invitees_transfer"> Invitees must transfer</label></p>
+      <p><input type="text" name="public_summary" placeholder="Public summary" aria-label="Public summary"> <input type="text" name="notes" placeholder="Private notes" aria-label="Private notes"></p>
+      <button>Decide</button>
+    </form>
+  {% endif %}
+</article>
+{% endwith %}{% endfor %}
+{% endblock %}

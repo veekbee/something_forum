@@ -11,5 +11,6 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("staff/admin/", admin.site.urls),
     path("", include("sponsorship.urls")),
+    path("", include("moderation.urls")),
     path("", include("boards.urls")),
 ]

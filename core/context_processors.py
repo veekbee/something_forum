@@ -13,4 +13,5 @@ def nav(request):
         "nav_unread_messages": unread_count(user),
         "nav_invite": bool(can(user, "member.sponsor")),
         "nav_review": bool(can(user, "invitation.review_queue")),
+        "nav_queue": bool(can(user, "queue.view")),
     }

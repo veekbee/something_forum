@@ -1,7 +1,7 @@
 """Forum writes. Each service checks permission through core.permissions, does the work in one
 transaction, and audits staff actions there (design rules 1 and 10)."""
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -89,8 +89,25 @@ def _add_post(thread, author, body_source, files):
     return post
 
 
-@transaction.atomic
+def _check_posting(author, action, target, subforum):
+    """Refuse before the write transaction starts, so a rate-limit refusal can be counted toward the
+    automatic flag without being rolled back with the refused post."""
+    decision = can(author, action, target)
+    if not decision:
+        if decision.code == "rate_limit":
+            from moderation.flags import record_rate_limit_refusal
+
+            record_rate_limit_refusal(author, subforum)
+        raise PermissionDenied(decision.reason)
+
+
 def start_thread(author, subforum, title, body_source, files=()):
+    _check_posting(author, "subforum.start_thread", subforum, subforum)
+    return _start_thread(author, subforum, title, body_source, files)
+
+
+@transaction.atomic
+def _start_thread(author, subforum, title, body_source, files):
     require(author, "subforum.start_thread", subforum)
     title = title.strip()
     if not title:
@@ -102,8 +119,13 @@ def start_thread(author, subforum, title, body_source, files=()):
     return thread, post
 
 
-@transaction.atomic
 def reply(author, thread, body_source, files=()):
+    _check_posting(author, "thread.reply", thread, thread.subforum)
+    return _reply(author, thread, body_source, files)
+
+
+@transaction.atomic
+def _reply(author, thread, body_source, files):
     require(author, "thread.reply", thread)
     return _add_post(thread, author, body_source, files)
 
@@ -186,20 +208,34 @@ def edit_post(actor, post, body_source, files=()):
 
 
 @transaction.atomic
-def delete_post(actor, post, reason=""):
+def delete_post(actor, post, reason_key="", note=""):
     """Soft delete: the post stays, visible to Admins and Owners with who deleted it and why.
-    Staff must give a reason for deleting someone else's post, and are audited."""
+    Staff deleting someone else's post is "hiding" it (rule 35): a preset reason is required, the
+    author is told, and the post stays in their history marked removed. An author deleting their
+    own posts quickly may raise the rapid-deletion flag."""
+    from moderation.models import reason_text
+
     post = Post.objects.select_for_update(of=("self",)).select_related("thread__subforum").get(pk=post.pk)
     decision = require(actor, "post.delete", post)
-    by_staff = decision.via == "staff" and post.author_id != actor.pk
-    if by_staff and not reason.strip():
-        raise ValidationError("Staff must give a reason for deleting a member's post.")
+    hidden = decision.via == "staff" and post.author_id != actor.pk
+    reason = reason_text(reason_key, note) if hidden else ""
     post.deleted_at, post.deleted_by, post.delete_reason = timezone.now(), actor, reason
     post.save(update_fields=["deleted_at", "deleted_by", "delete_reason"])
     rerender_quoting(post)
-    if by_staff:
-        log.record(actor, "post.delete", post, {"author": post.author_id, "reason": reason})
+    if hidden:
+        log.record(actor, "post.hide", post, {"author": post.author_id, "reason": reason})
+        Notification.objects.create(
+            recipient_id=post.author_id, kind="post.hidden",
+            payload={"post": post.pk, "thread": post.thread_id, "reason": reason},
+        )
+    elif post.author_id == actor.pk:
+        from moderation.flags import check_rapid_deletions
+
+        check_rapid_deletions(actor)
     return post
+
+
+hide_post = delete_post
 
 
 @transaction.atomic

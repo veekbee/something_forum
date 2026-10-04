@@ -38,6 +38,10 @@ def standing(user):
         return LIMITED
     if _in_force(user, "probation", "read_only", "suspension"):
         return LIMITED
+    from moderation.models import Report
+
+    if Report.objects.waiting().filter(kind=Report.Kind.FLAG_REQUEST_RATE, user=user).exists():
+        return LIMITED
     return NORMAL
 
 

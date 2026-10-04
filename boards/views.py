@@ -164,6 +164,7 @@ def thread_page(request, pk):
         "may_quote": bool(may_reply) and not post.is_held and post.deleted_at is None,
         "may_moderate": post.is_held and can(user, "post.moderate", post),
         "may_revisions": can(user, "post.read_revisions", post),
+        "may_report": can(user, "report.create", post),
     } for post in posts]
 
     initial = ""
@@ -261,17 +262,21 @@ def delete_post(request, pk):
     errors = []
     if request.method == "POST":
         try:
-            services.delete_post(request.user, post, request.POST.get("reason", ""))
+            services.delete_post(request.user, post, request.POST.get("reason_key", ""), request.POST.get("note", ""))
         except ValidationError as exc:
             errors = _errors(exc)
         else:
             if post.thread.kind == Thread.Kind.DM:
                 return redirect("conversation", pk=post.thread_id)
             return redirect("thread", pk=post.thread_id)
+    from moderation.models import REASONS
+
     return render(request, "boards/confirm.html", {
-        "heading": "Delete this post?", "errors": errors, "reason_field": needs_reason, "reason_required": needs_reason,
-        "explanation": "The post disappears from the thread. Admins can still see it, with who deleted it and why.",
-        "button": "Delete post", "back": reverse("post_link", args=[post.pk]),
+        "heading": "Hide this post?" if needs_reason else "Delete this post?", "errors": errors,
+        "reasons": REASONS if needs_reason else None,
+        "explanation": "The post disappears from the thread and its author is told why. Admins can still see it."
+        if needs_reason else "The post disappears from the thread. Admins can still see it.",
+        "button": "Hide post" if needs_reason else "Delete post", "back": reverse("post_link", args=[post.pk]),
     })
 
 
@@ -429,6 +434,7 @@ def member_profile(request, slug):
         context["may_message"] = dm.may_message(request.user, member)
         context["may_block"] = bool(can(request.user, "member.block", member))
         context["blocked"] = Block.objects.filter(blocker=request.user, blocked=member).exists()
+        context["may_report"] = bool(can(request.user, "report.create", member))
     return render(request, "boards/profile.html", context)
 
 

@@ -45,6 +45,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "core.middleware.AccessControlMiddleware",
+    "moderation.flags.RequestRateMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -67,6 +68,9 @@ TEMPLATES = [
 ]
 
 DATABASES = {"default": env.db("DATABASE_URL")}
+# A cache shared by every server process: request-rate counting (design: anti-scraping) and
+# allauth's TOTP replay protection both need one. `manage.py createcachetable` creates the table.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.db.DatabaseCache", "LOCATION": "forum_cache"}}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"

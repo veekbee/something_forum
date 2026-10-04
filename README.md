@@ -27,7 +27,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Compose runs migrations and `manage.py seed`, then serves on http://localhost:8000.
+Compose runs migrations, creates the cache table and runs `manage.py seed`, then serves on http://localhost:8000.
 
 ### Without Docker
 
@@ -38,6 +38,7 @@ python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env              # and fill it in; point DATABASE_URL at your database
 .venv/bin/python manage.py migrate
+.venv/bin/python manage.py createcachetable   # the shared cache: request counting, TOTP replay protection
 .venv/bin/python manage.py seed
 .venv/bin/python manage.py runserver
 ```

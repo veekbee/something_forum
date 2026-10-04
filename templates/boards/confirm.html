@@ -7,6 +7,11 @@
   {% if warning %}<p class="notice warn">{{ warning }}</p>{% endif %}
   {% for e in errors %}<p class="errors">{{ e }}</p>{% endfor %}
   <form method="post">{% csrf_token %}
+    {% if reasons %}
+    <p><label for="reason_key">Reason</label><select id="reason_key" name="reason_key" required>
+      <option value="">Choose…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></p>
+    <p><label for="note">In a sentence (needed for “Other”)</label><input id="note" type="text" name="note"></p>
+    {% endif %}
     {% if reason_field %}<p><label for="reason">Reason{% if not reason_required %} (optional){% endif %}</label><input id="reason" type="text" name="reason"{% if reason_required %} required{% endif %}></p>{% endif %}
     <div class="actions"><button>{{ button }}</button><a href="{{ back }}">Cancel</a></div>
   </form>
