@@ -236,3 +236,9 @@ dl.facts dt { color: var(--muted); } dl.facts dd { margin: 0; }
 /* --- footer --- */
 footer.site { max-width: var(--wide); margin: 2rem auto 0; padding: 1rem; font-size: .8rem; color: var(--muted); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
 footer.site a { color: var(--muted); }
+
+/* --- allauth's pages, in the site layout --- */
+main.auth { max-width: 28rem; }
+main.auth h1 { margin-bottom: 1rem; }
+main.auth form button { margin-top: .25rem; }
+main.auth hr { border: 0; border-top: 1px solid var(--line); margin: 1.25rem 0; }

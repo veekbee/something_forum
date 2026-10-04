@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% comment %}
+Allauth's pages (sign-in, the authenticator step, password reset, email management) in the site's own
+layout (docs/DESIGN.md, Visual design). Allauth's templates fill head_title, content and extra_body.
+{% endcomment %}
+{% block title %}{% block head_title %}{% endblock head_title %} · {{ site_name }}{% endblock %}
+{% block main_class %} class="auth"{% endblock %}
+{% block scripts %}{% block extra_head %}{% endblock extra_head %}{% block extra_body %}{% endblock extra_body %}{% endblock %}

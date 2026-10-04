@@ -264,3 +264,35 @@ def test_staff_pages_are_denser(owner, path):
 
 def test_member_pages_are_not_dense(make_user):
     assert '<main id="content">' in signed_in(make_user("full")).get("/").content.decode()
+
+
+# --- allauth's pages and the standalone pages --------------------------------------------------
+
+
+def test_sign_in_uses_the_site_layout(client, seeded):
+    page = client.get("/accounts/login/").content.decode()
+    assert '<header class="masthead">' in page and '<main id="content" class="auth">' in page
+    assert "Sign In" in page and "Menu:" not in page
+
+
+def test_password_reset_uses_the_site_layout(client, seeded):
+    page = client.get("/accounts/password/reset/").content.decode()
+    assert '<main id="content" class="auth">' in page
+
+
+def test_authenticator_setup_uses_the_site_layout(client, make_user):
+    member = make_user("full")
+    client.force_login(member)
+    response = client.get("/accounts/2fa/totp/activate/", follow=True)  # via re-authentication
+    assert response.status_code == 200
+    assert '<main id="content" class="auth">' in response.content.decode()
+
+
+def test_email_change_form_is_hidden_without_an_inline_style():
+    source = (Path(settings.BASE_DIR) / "templates" / "account" / "email_change.html").read_text()
+    assert "<form hidden" in source and "style=" not in source
+
+
+@pytest.mark.parametrize("path", ["/offline/", "/legal/privacy/"])
+def test_standalone_pages_carry_the_wordmark(client, seeded, path):
+    assert '<span class="brand">Something Forum</span>' in client.get(path).content.decode()

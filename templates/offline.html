@@ -8,8 +8,9 @@
   <link rel="stylesheet" href="{% static 'css/forum.css' %}">
 </head>
 <body>
+  <header class="masthead"><div class="inner"><span class="brand">{{ site_name }}</span></div></header>
   <main>
-    <p><strong>You're offline.</strong> {{ site_name }} needs a connection to show posts and messages. Check your connection and try again.</p>
+    <p class="body"><strong>You're offline.</strong> {{ site_name }} needs a connection to show posts and messages. Check your connection and try again.</p>
     <form method="get"><button>Try again</button></form>
   </main>
 </body>

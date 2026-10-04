@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="{% static 'css/forum.css' %}">
 </head>
 <body>
+  <header class="masthead"><div class="inner"><span class="brand">{{ site_name }}</span></div></header>
   <main>
     <h1>{{ title }}</h1>
     {% if draft %}<p class="notice warn"><strong>Draft.</strong> This text is a placeholder awaiting legal review. Nobody joins {{ site_name }} until the reviewed text replaces it.</p>{% endif %}
