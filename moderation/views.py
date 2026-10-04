@@ -33,7 +33,13 @@ def queue_page(request):
     if not decision:
         raise PermissionDenied(decision.reason)
     only = request.GET.get("type") if request.GET.get("type") in queue.TYPES else None
-    items = queue.items(request.user, only)
+    everything = queue.items(request.user)
+    counts = {}
+    for item in everything:
+        counts[item.type] = counts.get(item.type, 0) + 1
+    items = [i for i in everything if not only or i.type == only]
+    for item in items:
+        item.member, item.where, item.by = _summary(item)
     links = {"held": "post", "action": "related_action", "promotion": "related_promotion"}
     for item in items:
         if item.type in ("report", "flag"):
@@ -44,10 +50,40 @@ def queue_page(request):
                 kind=Report.Kind.ESCALATION, **{links[item.type]: item.obj}).exists()
             item.may_escalate = can(request.user, "queue.escalate", item.obj)
     mine = ModerationAction.objects.filter(initiated_by=request.user, status=ModerationAction.Status.PENDING)
+    filters = [{"key": key, "label": label, "count": counts.get(key, 0)} for key, label in queue.TYPES.items()
+               if key != "flag"]
+    for f in filters:
+        if f["key"] == "report":
+            f["count"] += counts.get("flag", 0)
     return render(request, "moderation/queue.html", {
         "items": items, "types": queue.TYPES, "only": only, "reasons": REASONS, "mine": mine.select_related("target_user"),
+        "filters": filters, "total": len(everything),
         "error": request.GET.get("error", ""),
     })
+
+
+def _summary(item):
+    """Who an item is about, where, and who raised it, for the queue's summary table."""
+    o, t = item.obj, item.type
+    if t == "held":
+        return o.author, o.thread.subforum.name if o.thread.subforum else "", ""
+    if t in ("report", "flag"):
+        member = o.user or (o.post.author if o.post else None)
+        where = o.post.thread.subforum.name if o.post and o.post.thread.subforum else ""
+        return member, where, o.reporter.display_name if o.reporter else "system"
+    if t == "action":
+        scopes = [sf.name for sf in o.scope_subforums.all()]
+        where = ", ".join(scopes) or (o.related_post.thread.subforum.name if o.related_post and o.related_post.thread.subforum else "")
+        return o.target_user, where, o.initiated_by.display_name
+    if t == "promotion":
+        return o.member, "", o.recommended_by.display_name if o.recommended_by else ""
+    if t == "sponsor_review":
+        return o.sponsor, "", o.opened_by.display_name if o.opened_by else "system"
+    if t == "transfer":
+        return o.member, "", "system"
+    if t == "emoji":
+        return o.purchaser, "", ""
+    return None, "", ""
 
 
 def _act(request, fn):

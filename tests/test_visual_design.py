@@ -234,3 +234,33 @@ def test_profile_head_and_facts(make_user):
     page = signed_in(member).get(f"/members/{member.slug}/").content.decode()
     assert '<div class="profile-head">' in page and '<dl class="facts">' in page
     assert 'class="section-head">Posts' in page
+
+
+# --- staff pages -------------------------------------------------------------------------------
+
+
+def test_queue_summary_table_and_filters(make_user, general):
+    from boards import services
+    from moderation import reports
+    from tests.factories import make_thread
+
+    author = make_user("full")
+    held = services.reply(make_user("provisional"), make_thread(general, author), "held words")
+    report, _ = reports.report(make_user("full"), author, "spam")
+    mod = make_user("moderator")
+    reports.escalate(mod, report, "needs an Admin")
+    page = signed_in(make_user("admin")).get("/staff/queue/").content.decode()
+    assert '<table class="dense">' in page and '<span class="tag esc">escalated</span>' in page
+    assert ">All 2</a>" in page and "Held posts 1</a>" in page and "Reports 1</a>" in page
+    assert f'<a href="/staff/members/{held.author.slug}/">' in page and 'href="#item-1"' in page and 'id="item-2"' in page
+    filtered = signed_in(make_user("admin")).get("/staff/queue/?type=held").content.decode()
+    assert 'class="on">Held posts 1</a>' in filtered and "held words" in filtered and "needs an Admin" not in filtered
+
+
+@pytest.mark.parametrize("path", ["/staff/queue/", "/staff/audit/", "/staff/feed/", "/staff/settings/", "/staff/trace/"])
+def test_staff_pages_are_denser(owner, path):
+    assert '<main id="content" class="staff">' in signed_in(owner).get(path).content.decode()
+
+
+def test_member_pages_are_not_dense(make_user):
+    assert '<main id="content">' in signed_in(make_user("full")).get("/").content.decode()

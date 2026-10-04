@@ -1,20 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Audit log{% endblock %}
+{% block main_class %} class="staff"{% endblock %}
 {% block content %}
-<h1>Audit log</h1>
+<div class="titlebar"><h1>Audit log</h1></div>
+<details class="help"{% if params.actor or params.member or params.action or params.from or params.to %} open{% endif %}><summary>Filter</summary>
 <form class="panel" method="get">
   <p><label for="actor">Actor (profile name)</label><input id="actor" type="text" name="actor" value="{{ params.actor }}"></p>
   <p><label for="member">Member concerned</label><input id="member" type="text" name="member" value="{{ params.member }}"></p>
   <p><label for="action">Action (or its start, e.g. "moderation.")</label><input id="action" type="text" name="action" value="{{ params.action }}"></p>
   <p><label for="from">From</label><input id="from" type="date" name="from" value="{{ params.from }}"> <label for="to">To</label><input id="to" type="date" name="to" value="{{ params.to }}"></p>
   <button>Filter</button>
-</form>
-<ul class="list panel">
+</form></details>
+<table class="dense">
+  <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Target</th><th>Details</th></tr></thead>
+  <tbody>
   {% for e in page.object_list %}
-  <li><strong>{{ e.action }}</strong> <span class="muted">· {{ e.created_at|date:"j M Y, H:i:s" }} · {{ e.actor.display_name|default:"system or invitee" }} · {{ e.target_type }} #{{ e.target_id }}</span>
-    {% if e.payload %}<pre class="source">{{ e.payload }}</pre>{% endif %}</li>
-  {% empty %}<li class="muted">No entries.</li>
+  <tr><td class="n">{{ e.created_at|date:"j M Y, H:i:s" }}</td><td><strong>{{ e.action }}</strong></td>
+    <td>{{ e.actor.display_name|default:"system or invitee" }}</td><td class="n">{{ e.target_type }} #{{ e.target_id }}</td>
+    <td>{% if e.payload %}<code class="source">{{ e.payload }}</code>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="muted">No entries.</td></tr>
   {% endfor %}
-</ul>
+  </tbody>
+</table>
 {% include "boards/_pagination.html" %}
 {% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Moderate {{ member.display_name }}{% endblock %}
+{% block main_class %} class="staff"{% endblock %}
 {% block content %}
 <h1>Moderate {{ member.display_name }}</h1>
 {% if liftable %}

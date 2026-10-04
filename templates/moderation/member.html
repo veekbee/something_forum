@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load forum %}
 {% block title %}{{ member.display_name }}: staff view{% endblock %}
+{% block main_class %} class="staff"{% endblock %}
 {% block content %}
 <h1>{{ member.display_name }} <span class="muted">· staff view</span></h1>
 {% if error %}<p class="errors">{{ error }}</p>{% endif %}

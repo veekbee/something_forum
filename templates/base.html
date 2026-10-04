@@ -47,7 +47,7 @@
   {% if nav_transfer %}<div class="band" role="status"><div class="inner"><p>You need a new sponsor, and your account is read-only until you have one. <a href="{% url 'transfer_status' %}">What this means</a></p></div></div>
   {% elif nav_lapsed %}<div class="band" role="status"><div class="inner"><p>Your membership has lapsed, so your account is read-only. <a href="{% url 'billing' %}">Renew</a></p></div></div>{% endif %}
   {% for message in messages %}<div class="band {% if message.level_tag == 'success' %}ok{% elif message.level_tag == 'info' %}info{% endif %}" role="status"><div class="inner"><p>{{ message }}</p></div></div>{% endfor %}
-  <main id="content">{% block content %}{% endblock %}</main>
+  <main id="content"{% block main_class %}{% endblock %}>{% block content %}{% endblock %}</main>
   <footer class="site">
     {% if user.is_authenticated %}<a href="{% url 'install_help' %}">Install on your phone</a>{% endif %}
     <a href="{% url 'legal' 'member-agreement' %}">Member agreement</a>

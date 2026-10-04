@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Mod feedback feed{% endblock %}
+{% block main_class %} class="staff"{% endblock %}
 {% block content %}
-<h1>Mod feedback feed</h1>
+<div class="titlebar"><h1>Mod feedback feed</h1><div class="actions"><a href="{% url 'queue' %}">Moderation queue</a></div></div>
 <p class="muted">Notes, escalations and their outcomes, declined and withdrawn actions, and sponsor review decisions.</p>
 <ul class="list panel">
   {% for item in items %}<li><span class="status">{{ item.kind }}</span> {{ item.text }} <span class="muted">· {{ item.when|timesince }} ago</span></li>

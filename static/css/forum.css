@@ -172,7 +172,7 @@ img.emoji, .body .emoji { height: 1.25em; width: auto; max-width: 3.75em; vertic
 .avatar-c6 { background: #3b4a6b; } .avatar-c7 { background: #5c4a3d; }
 
 /* --- forms and buttons: square corners, hairline borders, one primary button --- */
-textarea, input[type=text], input[type=email], input[type=password], input[type=number], input[type=search], input[type=file], select {
+textarea, input[type=text], input[type=email], input[type=password], input[type=number], input[type=search], input[type=file], input[type=date], select {
   width: 100%; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--rule); border-radius: 0; padding: .55rem .65rem; }
 input[type=number] { max-width: 8rem; }
 input[type=checkbox], input[type=radio] { accent-color: var(--accent); }

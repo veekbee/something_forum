@@ -1,17 +1,31 @@
 {% extends "base.html" %}
 {% load forum %}
 {% block title %}Moderation queue{% endblock %}
+{% block main_class %} class="staff"{% endblock %}
 {% block content %}
-<h1>Moderation queue</h1>
+<div class="titlebar"><h1>Moderation queue</h1><div class="actions"><a href="{% url 'feed' %}">Mod feedback feed</a>{% if nav_audit %}<a href="{% url 'audit_log' %}">Audit log</a>{% endif %}</div></div>
 {% if error %}<p class="notice warn">{{ error }}</p>{% endif %}
-<nav class="actions"><a href="?">All</a>{% for key, label in types.items %}<a href="?type={{ key }}">{{ label }}</a>{% endfor %}</nav>
-{% if mine %}<section class="panel"><h2>Your proposals awaiting approval</h2><ul class="list">
+<nav class="filters" aria-label="Item types"><a href="?"{% if not only %} class="on"{% endif %}>All {{ total }}</a>{% for f in filters %}<a href="?type={{ f.key }}"{% if f.key == only %} class="on"{% endif %}>{{ f.label }} {{ f.count }}</a>{% endfor %}</nav>
+{% if items %}
+<table class="dense">
+  <thead><tr><th>Waiting</th><th>Item</th><th>Member</th><th>Where</th><th>By</th><th></th></tr></thead>
+  <tbody>
+  {% for item in items %}<tr><td class="n">{{ item.waiting_since|timesince }}</td>
+    <td>{{ types|get_item:item.type|default:item.type }}{% if item.obj.status == "escalated" or item.escalated %} <span class="tag esc">escalated</span>{% endif %}</td>
+    <td>{% if item.member %}<a href="{% url 'staff_member' item.member.slug %}">{{ item.member.display_name }}</a>{% else %}—{% endif %}</td>
+    <td>{{ item.where|default:"—" }}</td><td>{{ item.by|default:"—" }}</td>
+    <td><a class="act" href="#item-{{ forloop.counter }}">Open</a></td></tr>{% endfor %}
+  </tbody>
+</table>
+<p class="muted small">Oldest first. Acting on an item another staff member has just handled changes nothing; you'll see who handled it.</p>
+{% endif %}
+{% if mine %}<section class="panel staff"><h2>Your proposals awaiting approval</h2><ul class="list">
   {% for a in mine %}<li>{{ a.get_kind_display|capfirst }} for {{ a.target_user.display_name }}
     <form class="inline-form" method="post" action="{% url 'withdraw_action' a.pk %}">{% csrf_token %}<button class="secondary">Withdraw</button></form></li>{% endfor %}
 </ul></section>{% endif %}
 {% if not items %}<p class="muted">Nothing is waiting.</p>{% endif %}
 {% for item in items %}{% with o=item.obj %}
-<article class="panel queue-item">
+<article class="queue-item staff" id="item-{{ forloop.counter }}">
   <header class="meta"><span class="status">{{ types|get_item:item.type|default:item.type }}</span>
     <span class="muted">waiting {{ item.waiting_since|timesince }}</span>
     {% if o.status == "escalated" %}<span class="status pending">Escalated by {{ o.escalated_by.display_name }}: {{ o.escalation_note }}</span>{% endif %}
