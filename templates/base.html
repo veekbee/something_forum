@@ -9,6 +9,7 @@
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="apple-touch-icon" href="{% url 'icon' 'apple-touch-icon' %}">
   <meta name="theme-color" content="#2c2824">
+  <meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false, "includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "selfRequestsOnly": true}'>
 </head>
 <body>
   <a class="skip" href="#content">Skip to content</a>
@@ -53,7 +54,10 @@
     <a href="{% url 'legal' 'privacy' %}">Privacy notice</a>
   </footer>
   {% if user.is_authenticated and user.status != "invited" %}{% include "_tabs.html" %}{% endif %}
+  <p id="live" class="vh" aria-live="polite"></p>
   <script src="{% static 'js/sw-register.js' %}" defer></script>
+  {% if user.is_authenticated %}<script src="{% static 'js/htmx/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/forum-htmx.js' %}" defer></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

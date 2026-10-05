@@ -1,0 +1,2 @@
+{# Follow and unfollow: a plain form, and with HTMX the form swaps itself (docs/DESIGN.md, Partial-page updates). #}
+<form id="follow-form" method="post" action="{% url 'thread_toggle' thread.pk 'follow' %}" hx-post="{% url 'thread_toggle' thread.pk 'follow' %}" hx-target="this" hx-swap="outerHTML">{% csrf_token %}<button class="secondary" data-focus>{% if following %}Unfollow{% else %}Follow{% endif %}</button><span id="follow-errors"></span></form>

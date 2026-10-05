@@ -1,0 +1,24 @@
+<div id="forum-lists" data-focus>
+{% if regular %}
+<table class="list forums">
+  <thead><tr><th>Sub-forum</th><th class="n">Threads</th><th class="n">Posts</th><th>Last post</th></tr></thead>
+  <tbody>
+  {% for row in regular %}
+  <tr><td{% if row.depth %} class="child"{% endif %}><a class="title forum-name{% if row.unread %} unread{% endif %}" href="{% url 'subforum' row.subforum.slug %}">{{ row.subforum.name }}</a><span class="sub">{{ row.subforum.description }}</span></td>
+    <td class="n num" data-label="threads">{{ row.threads }}</td><td class="n num" data-label="posts">{{ row.posts }}</td>
+    <td class="last"{% if row.latest %} data-label="last"{% endif %}>{% if row.latest %}<a href="{% url 'post_link' row.latest.pk %}">{{ row.latest.thread.title|truncatechars:60 }}</a><span class="sub">{{ row.latest.created_at|timesince }} ago · {{ row.latest.author.display_name }}</span>{% else %}<span class="muted">No posts yet</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if endings %}
+<div class="section-head">Where threads end</div>
+<table class="list forums"><tbody>
+  {% for row in endings %}
+  <tr><td><a class="area forum-name" href="{% url 'subforum' row.subforum.slug %}">{{ row.subforum.name }}</a><span class="sub">{{ row.subforum.description }}</span></td>
+    <td class="n num" data-label="threads">{{ row.threads }}</td><td class="n num" data-label="posts">{{ row.posts }}</td>
+    <td class="last"{% if row.latest %} data-label="last"{% endif %}>{% if row.latest %}<a href="{% url 'post_link' row.latest.pk %}">{{ row.latest.thread.title|truncatechars:60 }}</a><span class="sub">{{ row.latest.created_at|date:"j M" }}</span>{% endif %}</td></tr>
+  {% endfor %}
+</tbody></table>
+{% endif %}
+</div>

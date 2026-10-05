@@ -148,6 +148,7 @@ self.addEventListener("fetch", (event) => {
 
 def shell_paths():
     paths = [static("css/forum.css"), static("js/mentions.js"), static("js/sw-register.js"), "/offline/",
+             static("js/htmx/htmx.min.js"), static("js/forum-htmx.js"),
              static(SERIF), static("fonts/source-serif-4/SourceSerif4Variable-Italic.otf.woff2"),
              static("fonts/source-sans-3/SourceSans3VF-Upright.otf.woff2"),
              static("fonts/source-sans-3/SourceSans3VF-Italic.otf.woff2")]

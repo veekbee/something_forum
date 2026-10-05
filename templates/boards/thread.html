@@ -6,7 +6,7 @@
 <p class="crumbs"><a href="{% url 'home' %}">Forum</a> › <a href="{% url 'subforum' thread.subforum.slug %}">{{ thread.subforum.name }}</a> › {{ thread.title }}</p>
 <div class="titlebar"><h1>{{ thread.title }}</h1>
   <div class="actions thread-actions">
-    {% if may.follow %}<form method="post" action="{% url 'thread_toggle' thread.pk 'follow' %}">{% csrf_token %}<button class="secondary">{% if following %}Unfollow{% else %}Follow{% endif %}</button></form>{% endif %}
+    {% if may.follow %}{% include "boards/_follow.html" %}{% endif %}
     {% if page.paginator.num_pages > 1 %}<span class="muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% endif %}
   </div>
 </div>

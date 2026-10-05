@@ -19,7 +19,7 @@ from accounts.models import User
 from boards import reading, services, visibility
 from boards.models import Attachment, Post, PostRevision, SubForum, Thread
 from boards.rendering import quote_source
-from core import registry
+from core import htmx, registry
 from core.permissions import MoveRequest, can
 from moderation.models import ModerationAction
 from sponsorship import eligibility
@@ -53,7 +53,10 @@ def _errors(exc):
 
 @require_GET
 def forum_index(request):
-    user = request.user
+    return render(request, "boards/index.html", _index_lists(request.user))
+
+
+def _index_lists(user):
     visible = _live(visibility.visible_posts(user))
 
     def summary(subforum):
@@ -71,7 +74,7 @@ def forum_index(request):
     readable = visibility.readable_subforums(user)
     regular = [summary(sf) for sf in readable if not sf.is_ending_area]
     endings = [summary(sf) for sf in readable if sf.is_ending_area]
-    return render(request, "boards/index.html", {"regular": regular, "endings": endings})
+    return {"regular": regular, "endings": endings}
 
 
 class PostForm(forms.Form):
@@ -100,20 +103,32 @@ def mark_all_read(request, slug=None):
         subforums = [subforum]
     for subforum in subforums:
         reading.mark_all_read(user, visibility.visible_threads(user, subforum))
+    if htmx.is_htmx(request):
+        # The list re-renders with its titles plain (docs/DESIGN.md, Partial-page updates).
+        if slug is None:
+            return htmx.fragment(request, "boards/_forum_lists.html", _index_lists(user), announce="Marked all read")
+        return htmx.fragment(request, "boards/_thread_list.html", _thread_list(request, subforum,
+                                                                                request.POST.get("page")),
+                             announce="Marked all read")
     return redirect("subforum", slug=slug) if slug else redirect("home")
+
+
+def _thread_list(request, subforum, page_number):
+    threads = visibility.visible_threads(request.user, subforum).select_related("author", "origin_subforum")
+    paginator = Paginator(reading.with_marks(request.user, threads),
+                          registry.site_value("pagination.threads_per_subforum_page"))
+    page = paginator.get_page(page_number)
+    for thread in page.object_list:
+        thread.unread = reading.is_unread(thread)
+    return {"subforum": subforum, "page": page}
 
 
 @require_GET
 def subforum_page(request, slug):
     subforum = get_object_or_404(SubForum, slug=slug)
     _require(request.user, "subforum.read", subforum)
-    threads = visibility.visible_threads(request.user, subforum).select_related("author", "origin_subforum")
-    page = _page(request, reading.with_marks(request.user, threads), "pagination.threads_per_subforum_page")
-    for thread in page.object_list:
-        thread.unread = reading.is_unread(thread)
     return render(request, "boards/subforum.html", {
-        "subforum": subforum,
-        "page": page,
+        **_thread_list(request, subforum, request.GET.get("page")),
         "may_start": can(request.user, "subforum.start_thread", subforum),
         "scoped_band": scoped_band(request.user, subforum),
     })
@@ -419,7 +434,16 @@ def toggle(request, pk, what):
     elif what == "restore":
         services.restore_thread(request.user, thread)
     elif what == "follow":
-        services.set_following(request.user, thread, not thread.participants.filter(user=request.user).exists())
+        follow = not thread.participants.filter(user=request.user).exists()
+        try:
+            services.set_following(request.user, thread, follow)
+        except PermissionDenied as exc:
+            if htmx.is_htmx(request):
+                return htmx.refusal(str(exc), "#follow-errors")
+            raise
+        if htmx.is_htmx(request):
+            return htmx.fragment(request, "boards/_follow.html", {"thread": thread, "following": follow},
+                                 announce="Following" if follow else "No longer following")
     else:
         raise Http404
     return redirect("thread", pk=thread.pk)

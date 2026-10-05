@@ -121,7 +121,11 @@ class SessionBindingMiddleware:
         message = sessions.ENDED_MESSAGES.get(reason)
         if message:
             messages.warning(request, message)
-        if request.method == "GET" and "HX-Request" not in request.headers:
+        if "HX-Request" in request.headers:
+            from core.htmx import sign_in_redirect
+
+            return sign_in_redirect(request)
+        if request.method == "GET":
             return redirect_to_login(request.get_full_path())
         return HttpResponse("Signed out. Please sign in again.", status=401, content_type="text/plain")
 
@@ -144,7 +148,11 @@ class AccessControlMiddleware:
             return self.get_response(request)
 
         if not request.user.is_authenticated:
-            if request.method == "GET" and "HX-Request" not in request.headers:
+            if "HX-Request" in request.headers:
+                from core.htmx import sign_in_redirect
+
+                return sign_in_redirect(request)
+            if request.method == "GET":
                 return redirect_to_login(request.get_full_path())
             return HttpResponse("Authentication required.", status=401, content_type="text/plain")
 

@@ -1,0 +1,16 @@
+<div id="thread-list" data-focus>
+{% if page.object_list %}
+<table class="list threads">
+  <thead><tr><th>Thread</th><th class="n">Posts</th><th>Last activity</th></tr></thead>
+  <tbody>
+  {% for thread in page.object_list %}
+  <tr><td>{% if thread.is_pinned %}<span class="tag">Pinned</span> {% endif %}{% if thread.state != "open" %}<span class="tag">{{ thread.get_state_display }}</span> {% endif %}<a class="title thread-title{% if thread.unread %} unread{% endif %}" href="{% url 'thread' thread.pk %}">{{ thread.title }}</a>
+      <span class="sub">by {{ thread.author.display_name }}{% if thread.origin_subforum %} · from {{ thread.origin_subforum.name }}{% endif %}</span></td>
+    <td class="n num" data-label="posts">{{ thread.post_count }}</td>
+    <td class="last" data-label="last">{{ thread.last_post_at|timesince }} ago</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">No threads yet.</p>{% endif %}
+</div>
