@@ -46,12 +46,12 @@
     if (live) { live.textContent = ""; live.textContent = event.detail.value; }
   });
 
-  // Focus moves to the replaced element, or to the element in it marked data-focus; a button that
-  // was not replaced keeps it.
-  document.body.addEventListener("htmx:afterSettle", function (event) {
-    var elt = event.detail.elt;
-    if (!elt || !elt.isConnected || elt.contains(document.activeElement) && document.activeElement !== document.body) { return; }
-    var target = elt.querySelector("[data-focus]") || (elt.matches("[data-focus]") ? elt : null);
+  // Focus moves to the new element, or to the element in it marked data-focus. htmx:load fires on each
+  // element a swap adds; the page's own first load is skipped so focus is never taken on arrival.
+  document.body.addEventListener("htmx:load", function (event) {
+    var elt = event.target;
+    if (!elt || elt === document.body || !elt.isConnected) { return; }
+    var target = elt.matches("[data-focus]") ? elt : elt.querySelector("[data-focus]");
     if (target) {
       if (!target.hasAttribute("tabindex") && !/^(A|BUTTON|INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) {
         target.setAttribute("tabindex", "-1");
