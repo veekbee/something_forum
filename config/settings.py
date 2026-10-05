@@ -72,6 +72,11 @@ TEMPLATES = [
 ]
 
 DATABASES = {"default": env.db("DATABASE_URL")}
+# The retention job alone deletes audit entries, signed in as the forum_retention role (rule 82).
+# Set only on the jobs service. Without it, the job switches to that role on the main connection,
+# which works only where the application's role is a member of it (development and tests).
+if env("RETENTION_DATABASE_URL", default=""):
+    DATABASES["retention"] = env.db("RETENTION_DATABASE_URL")
 # A cache shared by every server process: request-rate counting (design: anti-scraping) and
 # allauth's TOTP replay protection both need one. `manage.py createcachetable` creates the table.
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.db.DatabaseCache", "LOCATION": "forum_cache"}}

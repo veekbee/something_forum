@@ -45,6 +45,7 @@ python3.12 -m venv .venv
 cp .env.example .env              # and fill it in; point DATABASE_URL at your database
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py createcachetable   # the shared cache: request counting, TOTP replay protection
+.venv/bin/python manage.py setup_database_roles --app-role forum   # the audit log's roles; see below
 .venv/bin/python manage.py seed
 .venv/bin/python manage.py runserver
 ```
@@ -75,6 +76,16 @@ notifies the Owners. Without Compose, keep `manage.py run_jobs` running, or run
 .venv/bin/python manage.py prune_read_positions   # delete read positions on threads untouched for a year
 .venv/bin/python manage.py send_notification_emails  # the daily pointer email for chosen kinds
 ```
+
+The daily `retention` job deletes audit entries, moderation records and finished conversations
+once every member they name left more than `retention.audit_years_after_departure` ago. It is the
+only thing that can delete audit entries: it signs in as the `forum_retention` role, and the
+application's own role can neither change the audit table nor drop its trigger.
+`manage.py setup_database_roles --app-role <role>` creates the roles; on a server an administrator
+runs it (see `.env.example`) and gives `RETENTION_DATABASE_URL` to the jobs service only. In
+development the application's role becomes a member of both roles instead, which
+`manage.py check --deploy --database default` reports. Locally that needs a role allowed to
+create roles (`ALTER ROLE forum CREATEROLE`); the test suite needs it too.
 
 Once, on the day billing goes live, an Owner runs `manage.py launch_billing`: comps granted before
 then become founding comps ending a year later.

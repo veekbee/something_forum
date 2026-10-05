@@ -9,6 +9,8 @@ services:
     build: .
     env_file: .env
     # collectstatic fills the static volume, which the proxy serves at /static/.
+    environment:
+      RETENTION_DATABASE_URL: ""  # the retention role's credentials stay with the jobs service
     command: sh -c "python manage.py collectstatic --noinput && gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 3"
     ports:
       - "127.0.0.1:8000:8000"

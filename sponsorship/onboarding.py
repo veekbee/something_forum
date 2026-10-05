@@ -37,7 +37,7 @@ def _notify_sponsor(invitation, kind):
     Notification.objects.create(
         recipient_id=invitation.sponsor_id,
         kind=kind,
-        payload={"invitation": invitation.pk, "invitee_email": invitation.invitee_email},
+        payload={"invitation": invitation.pk},
     )
 
 
@@ -80,7 +80,7 @@ def send_invitation(sponsor, invitee_email, vouching_notes, accept_url):
         sponsor=sponsor, invitee_email=email, token_hash=hash_token(token), vouching_notes=vouching_notes
     )
     holds_slot = capacity.has_slot_for(invitation)
-    log.record(sponsor, "invitation.send", invitation, {"invitee_email": email, "holds_slot": holds_slot})
+    log.record(sponsor, "invitation.send", invitation, {"holds_slot": holds_slot})
     context = {"sponsor": sponsor, "url": accept_url(token), "expiry_days": registry.site_value("invitation.expiry_days")}
     transaction.on_commit(
         lambda: send_mail(

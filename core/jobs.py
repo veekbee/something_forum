@@ -36,6 +36,12 @@ def _command(name):
     return run
 
 
+def _retention():
+    from audit import retention
+
+    return retention.run()
+
+
 @dataclass(frozen=True)
 class Job:
     name: str
@@ -50,6 +56,7 @@ DAILY = [
     Job("sessions_daily", _command("sessions_daily")),
     Job("prune_read_positions", _command("prune_read_positions")),
     Job("send_notification_emails", _command("send_notification_emails")),
+    Job("retention", _retention),
 ]
 
 FREQUENT = []

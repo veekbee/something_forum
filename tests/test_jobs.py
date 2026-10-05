@@ -133,10 +133,10 @@ def test_a_job_another_copy_holds_is_skipped(fake):
     assert jobs.tick(at(10, 3, 5))["first"] is True
 
 
-def test_the_real_jobs_in_the_designed_order(seeded):
+def test_the_real_jobs_in_the_designed_order(seeded, database_roles):
     assert [job.name for job in jobs.DAILY] == [
         "expire_invitations", "delete_ended_accounts", "expire_actions", "billing_daily",
-        "sessions_daily", "prune_read_positions", "send_notification_emails"]
+        "sessions_daily", "prune_read_positions", "send_notification_emails", "retention"]
     results = jobs.tick()
     assert all(results[job.name] for job in jobs.DAILY)
 

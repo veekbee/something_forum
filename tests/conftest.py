@@ -11,6 +11,26 @@ from tests.factories import grant
 _counter = itertools.count(1)
 
 
+@pytest.fixture(scope="session")
+def database_roles(django_db_setup, django_db_blocker):
+    """The audit roles (rule 82) in the test database. The test role becomes a member of both, as
+    in development; APP_PROBE stands in for a production application role, with only its grants."""
+    from django.db import connection
+
+    from audit import roles
+
+    with django_db_blocker.unblock(), connection.cursor() as cursor:
+        cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [APP_PROBE])
+        if cursor.fetchone() is None:
+            cursor.execute(f"CREATE ROLE {APP_PROBE} NOLOGIN")
+        cursor.execute(f"GRANT {APP_PROBE} TO CURRENT_USER")
+        roles.setup(cursor, APP_PROBE)
+    return APP_PROBE
+
+
+APP_PROBE = "forum_app_probe"
+
+
 @pytest.fixture
 def seeded(db, monkeypatch):
     monkeypatch.setenv("OWNER_EMAIL", "owner@example.test")
