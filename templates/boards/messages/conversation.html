@@ -9,24 +9,15 @@
 
 {% for entry in entries %}{% if entry.system %}
 <div class="msg"><p class="sys">{{ entry.system }} · {{ entry.when|date:"j M Y, H:i" }}</p></div>
-{% else %}{% with post=entry.post %}
-<div class="msg{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}">
-  <div class="who">{% avatar post.author 32 %}<a class="name" href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a><span>{{ post.created_at|date:"j M Y, H:i" }}{% if post.edited_at %} · edited{% endif %}</span>
-    {% if post.deleted_at %}<span class="tag">Deleted</span>{% endif %}</div>
-  <div class="body">{% watermarked post.body_html %}</div>
-  {% if entry.may_edit or entry.may_delete or entry.may_report %}<div class="actions small">
-    {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
-    {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}
-    {% if entry.may_report %}<a href="{% url 'report_post' post.pk %}">Report</a>{% endif %}
-  </div>{% endif %}
-</div>
-{% endwith %}{% endif %}{% endfor %}
+{% else %}{% include "boards/messages/_message.html" %}{% endif %}{% endfor %}
+<div id="messages-end"></div>
 {% include "boards/_pagination.html" %}
 
 {% if form %}
-<form class="reply" id="reply" method="post" action="{% url 'dm_send' thread.pk %}" enctype="multipart/form-data">{% csrf_token %}
+<form class="reply" id="reply" method="post" action="{% url 'dm_send' thread.pk %}" enctype="multipart/form-data" hx-post="{% url 'dm_send' thread.pk %}" hx-target="#messages-end" hx-swap="beforebegin" data-reset>{% csrf_token %}<input type="hidden" name="last_page" value="{% if page.has_next %}0{% else %}1{% endif %}">
+  <div id="reply-errors"></div>
   {% include "boards/_editor.html" %}
-  <div class="formrow"><span class="compose-note"><a href="#notice">{{ short_notice }}</a></span><button>Send</button></div>
+  <div class="formrow"><span class="compose-note"><a href="#notice">{{ short_notice }}</a></span><button data-wait="Sending…">Send</button></div>
 </form>
 {% elif cannot_send %}<p class="notice">You can read this conversation but not send to it: {{ cannot_send }}.</p>{% endif %}
 

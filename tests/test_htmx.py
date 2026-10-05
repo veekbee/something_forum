@@ -254,3 +254,80 @@ def test_resolving_a_report_and_the_queue_forms_carry_htmx(make_user):
     assert 'hx-target="closest article" hx-swap="outerHTML"' in page and '<div class="item-errors"></div>' in page
     response = client.post(f"/staff/reports/{report.pk}/resolve/", {"outcome": "no_action"}, **HX)
     assert "Resolved by you." in response.content.decode()
+
+
+# --- replying (part 2) ------------------------------------------------------------------------
+
+
+def test_reply_fragment_is_the_new_post_watermarked(make_user, general):
+    from core import watermark
+
+    member = make_user("full")
+    thread = make_thread(general, make_user("full"))
+    client = signed_in(member)
+    response = client.post(f"/t/{thread.pk}/reply/", {"body": "a reply with several words in it", "last_page": "1"}, **HX)
+    body = response.content.decode()
+    assert '<article class="post"' in body and "data-focus" in body and "<html" not in body
+    assert watermark.find(body) and "a reply with several words in it" in watermark.strip(body)
+    assert announced(response) == "Reply posted"
+
+
+def test_reply_plain_form_still_redirects(make_user, general):
+    thread = make_thread(general, make_user("full"))
+    response = signed_in(make_user("full")).post(f"/t/{thread.pk}/reply/", {"body": "plain"})
+    assert response.status_code == 302 and response["Location"].startswith("/p/")
+
+
+def test_held_reply_shows_to_its_author_only(make_user, general):
+    newcomer = make_user("provisional")
+    thread = make_thread(general, make_user("full"))
+    response = signed_in(newcomer).post(f"/t/{thread.pk}/reply/", {"body": "first words here", "last_page": "1"}, **HX)
+    assert '<span class="tag pending">Held for review</span>' in response.content.decode()
+    assert announced(response) == "Held for review"
+    assert "first words here" not in signed_in(make_user("full")).get(f"/t/{thread.pk}/").content.decode()
+
+
+def test_rate_limit_refusal_is_inline_with_the_next_time(make_user, serious):
+    member = make_user("full")
+    thread = make_thread(serious, make_user("full"))
+    client = signed_in(member)
+    client.post(f"/t/{thread.pk}/reply/", {"body": "my one post today", "last_page": "1"}, **HX)
+    response = client.post(f"/t/{thread.pk}/reply/", {"body": "a second", "last_page": "1"}, **HX)
+    assert response["HX-Retarget"] == "#reply-errors"
+    assert "You can post here again at" in response.content.decode()
+
+
+def test_empty_reply_is_refused_inline(make_user, general):
+    thread = make_thread(general, make_user("full"))
+    response = signed_in(make_user("full")).post(f"/t/{thread.pk}/reply/", {"body": "", "last_page": "1"}, **HX)
+    assert response["HX-Retarget"] == "#reply-errors" and "Write something before posting." in response.content.decode()
+
+
+def test_reply_from_an_earlier_page_goes_to_the_new_post(make_user, general):
+    thread = make_thread(general, make_user("full"))
+    response = signed_in(make_user("full")).post(f"/t/{thread.pk}/reply/", {"body": "late", "last_page": "0"}, **HX)
+    assert response["HX-Redirect"].startswith("/p/")
+
+
+def test_thread_reply_form_carries_htmx(make_user, general):
+    thread = make_thread(general, make_user("full"))
+    page = signed_in(make_user("full")).get(f"/t/{thread.pk}/").content.decode()
+    assert 'hx-target="#posts-end" hx-swap="beforebegin" data-reset' in page and '<div id="reply-errors"></div>' in page
+
+
+def test_dm_message_fragment_and_refusal(make_user):
+    from boards import messages
+    from core import watermark
+
+    a, b = make_user("full"), make_user("full")
+    conversation, _ = messages.start(a, [b], "Plans", "hello")
+    client = signed_in(b)
+    response = client.post(f"/messages/{conversation.pk}/send/", {"body": "see you at the usual place", "last_page": "1"}, **HX)
+    body = response.content.decode()
+    assert '<div class="msg' in body and watermark.find(body) and announced(response) == "Reply posted"
+    plain = signed_in(a).post(f"/messages/{conversation.pk}/send/", {"body": "plain"})
+    assert plain.status_code == 302 and plain["Location"].startswith("/p/")
+    messages.leave(a, conversation)
+    refused = client.post(f"/messages/{conversation.pk}/send/", {"body": "anyone?", "last_page": "1"}, **HX)
+    assert refused["HX-Retarget"] == "#reply-errors" and 'role="alert"' in refused.content.decode()
+    assert client.post(f"/messages/{conversation.pk}/send/", {"body": "anyone?"}).status_code == 400

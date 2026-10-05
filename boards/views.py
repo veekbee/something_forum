@@ -186,6 +186,26 @@ def _post_notes(posts):
     return notes
 
 
+def _role_label(user):
+    role = roles.trust_role(user)
+    return role.name.capitalize() if role else ""
+
+
+def _entry(user, post, note, may_reply):
+    return {
+        "post": post,
+        "placeholder": post.deleted_at is not None and not can(user, "post.read", post),
+        "note": note,
+        "may_edit": can(user, "post.edit", post),
+        "may_delete": can(user, "post.delete", post),
+        "may_quote": bool(may_reply) and not post.is_held and post.deleted_at is None,
+        "may_moderate": post.is_held and can(user, "post.moderate", post),
+        "may_revisions": can(user, "post.read_revisions", post),
+        "may_report": can(user, "report.create", post),
+        "role": _role_label(post.author),
+    }
+
+
 def thread_page(request, pk):
     thread = _thread_or_404(request.user, pk)
     services.open_thread(request.user, thread)
@@ -196,17 +216,7 @@ def thread_page(request, pk):
     posts = list(page.object_list)
     notes = _post_notes(posts)
     may_reply = can(user, "thread.reply", thread)
-    entries = [{
-        "post": post,
-        "placeholder": post.deleted_at is not None and not can(user, "post.read", post),
-        "note": notes.get(post.pk),
-        "may_edit": can(user, "post.edit", post),
-        "may_delete": can(user, "post.delete", post),
-        "may_quote": bool(may_reply) and not post.is_held and post.deleted_at is None,
-        "may_moderate": post.is_held and can(user, "post.moderate", post),
-        "may_revisions": can(user, "post.read_revisions", post),
-        "may_report": can(user, "report.create", post),
-    } for post in posts]
+    entries = [_entry(user, post, notes.get(post.pk), may_reply) for post in posts]
 
     initial = ""
     quote_id = request.GET.get("quote")
@@ -223,8 +233,7 @@ def thread_page(request, pk):
     for entry in entries:
         author = entry["post"].author
         if author.pk not in author_roles:
-            role = roles.trust_role(author)
-            author_roles[author.pk] = role.name.capitalize() if role else ""
+            author_roles[author.pk] = _role_label(author)
         entry["role"] = author_roles[author.pk]
     # The reply form states the sub-forum's limit and when the member may next post.
     from boards import limits
@@ -268,11 +277,42 @@ def reply(request, pk):
             raise ValidationError("Write something before posting.")
         post = services.reply(request.user, thread, form.cleaned_data["body"], _files(request))
     except (ValidationError, PermissionDenied) as exc:
+        if htmx.is_htmx(request):
+            return htmx.refusal(_refusal_text(request.user, thread, exc), "#reply-errors")
         return render(request, "boards/post_form.html", {
             "form": form, "errors": _errors(exc), "heading": f"Reply to {thread.title}", "thread": thread,
             "images": thread.subforum.setting("subforum.images") if thread.subforum else "off",
         }, status=400)
+    if htmx.is_htmx(request):
+        return reply_fragment(request, post, "boards/_post.html", lambda u, p: _entry(u, p, None, True))
     return redirect("post_link", pk=post.pk)
+
+
+def _refusal_text(user, thread, exc):
+    """The reason in the words the page would use; a rate limit adds when the member may post again."""
+    text = " ".join(_errors(exc))
+    if "rate limit" in text and thread.subforum is not None:
+        from boards import limits
+
+        when = limits.next_post_at(user, thread.subforum)
+        if when is not None:
+            from django.utils import timezone as tz
+
+            text = f"{text[0].upper()}{text[1:]}. You can post here again at {tz.localtime(when):%-d %b, %H:%M}."
+    return text
+
+
+def reply_fragment(request, post, template, make_entry):
+    """The new post, appended where the reply form was; on an earlier page of a long thread, go to it
+    instead, since it belongs at the end (docs/DESIGN.md, Partial-page updates)."""
+    if request.POST.get("last_page") != "1":
+        response = htmx.html("")
+        response["HX-Redirect"] = reverse("post_link", args=[post.pk])
+        return response
+    entry = make_entry(request.user, post)
+    entry["fresh"] = True
+    return htmx.fragment(request, template, {"entry": entry, "thread": post.thread},
+                         announce="Held for review" if post.is_held else "Reply posted")
 
 
 @require_GET

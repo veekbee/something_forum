@@ -10,6 +10,7 @@ from accounts.models import User
 from boards import messages, services
 from boards.models import Thread
 from boards.views import PostForm, _errors, _files, _page
+from core import htmx
 from core.permissions import Membership, can
 
 
@@ -114,9 +115,17 @@ def send(request, pk):
             raise ValidationError("Write something before sending.")
         post = services.reply(request.user, thread, form.cleaned_data["body"], _files(request))
     except (ValidationError, PermissionDenied) as exc:
+        if htmx.is_htmx(request):
+            return htmx.refusal(" ".join(_errors(exc)), "#reply-errors")
         return render(request, "boards/post_form.html", {
             "form": form, "errors": _errors(exc), "heading": f"Message in {thread.title}", "images": "inline",
         }, status=400)
+    if htmx.is_htmx(request):
+        from boards.views import reply_fragment
+
+        return reply_fragment(request, post, "boards/messages/_message.html", lambda u, p: {
+            "post": p, "when": p.created_at, "may_edit": can(u, "post.edit", p), "may_delete": can(u, "post.delete", p),
+            "may_report": can(u, "report.create", p)})
     return redirect("post_link", pk=post.pk)
 
 

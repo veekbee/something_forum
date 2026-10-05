@@ -1,0 +1,12 @@
+{% load forum %}{% with post=entry.post %}
+<div class="msg{% if post.deleted_at %} deleted{% endif %}" id="post-{{ post.pk }}"{% if entry.fresh %} data-focus{% endif %}>
+  <div class="who">{% avatar post.author 32 %}<a class="name" href="{% url 'member_profile' post.author.slug %}">{{ post.author.display_name }}</a><span>{{ post.created_at|date:"j M Y, H:i" }}{% if post.edited_at %} · edited{% endif %}</span>
+    {% if post.deleted_at %}<span class="tag">Deleted</span>{% endif %}</div>
+  <div class="body">{% watermarked post.body_html %}</div>
+  {% if entry.may_edit or entry.may_delete or entry.may_report %}<div class="actions small">
+    {% if entry.may_edit %}<a href="{% url 'edit_post' post.pk %}">Edit</a>{% endif %}
+    {% if entry.may_delete %}<a href="{% url 'delete_post' post.pk %}">Delete</a>{% endif %}
+    {% if entry.may_report %}<a href="{% url 'report_post' post.pk %}">Report</a>{% endif %}
+  </div>{% endif %}
+</div>
+{% endwith %}
