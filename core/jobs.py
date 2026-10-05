@@ -59,7 +59,14 @@ DAILY = [
     Job("retention", _retention),
 ]
 
-FREQUENT = []
+def _data_requests():
+    from accounts import data_rights
+
+    built, deleted = data_rights.build_exports(), data_rights.delete_old_exports()
+    return f"built {built} export(s), deleted {deleted} old file(s)" if built or deleted else ""
+
+
+FREQUENT = [Job("data_requests", _data_requests)]
 
 
 def daily_slot(now):

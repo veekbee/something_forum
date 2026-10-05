@@ -201,6 +201,7 @@ def trace_watermark(request):
     from accounts.models import UserSession
     from audit import log
     from core import watermark
+    from core.models import DataRequest
     from core.permissions import can
 
     decision = can(request.user, "watermark.trace")
@@ -211,9 +212,12 @@ def trace_watermark(request):
         results = []
         for seed, day in watermark.find(request.POST.get("excerpt", "")):
             matches = [s for s in UserSession.objects.filter(watermark_seed=f"{seed:08x}").select_related("user")]
-            results.append({"seed": f"{seed:08x}", "date": watermark.day_date(day), "sessions": matches})
+            exports = list(DataRequest.objects.filter(watermark_seed=f"{seed:08x}").select_related("user"))
+            results.append({"seed": f"{seed:08x}", "date": watermark.day_date(day), "sessions": matches,
+                            "exports": exports})
         with transaction.atomic():
             log.record(request.user, "watermark.trace", request.user, {
                 "marks": len(results), "sessions": [s.pk for r in results for s in r["sessions"]],
+                "exports": [e.pk for r in results for e in r["exports"]],
             })
     return render(request, "core/trace.html", {"results": results})

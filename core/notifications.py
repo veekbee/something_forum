@@ -30,6 +30,8 @@ ACCOUNT_KINDS = {
     "session.concurrent_location", "account.factor_reset",
     # A scheduled job failed on two runs in a row; sent to Owners (rule 81).
     "jobs.failed",
+    # Data rights (rules 79 and 80).
+    "data.export_ready",
 }
 OPTIONAL_KINDS = {
     "dm": "New direct messages",
@@ -86,6 +88,7 @@ def describe(notification):
         "emoji.retired": (f"Your emoji :{data.get('name', '')}: was retired", reverse("emoji_list")),
         "emoji.refunded": ("Your custom emoji purchase was refunded", reverse("extras")),
         "account.factor_reset": ("Your authenticator was reset; set up a new one when you next sign in", None),
+        "data.export_ready": ("Your data export is ready to download", reverse("your_data")),
         "jobs.failed": (f"The scheduled job {data.get('job', '')} has failed twice in a row; see the server log", None),
         "session.concurrent_location": ("Your account was in use from two countries at the same time, so we asked "
                                         "the newer device to sign in again. If that wasn't you, change your password.",

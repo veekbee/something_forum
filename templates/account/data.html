@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Your data{% endblock %}
+{% block content %}
+<h1>Your data</h1>
+<section class="panel">
+  <h2>Export</h2>
+  <p>A copy of what the forum holds about you: your profile and settings, identity details if still held, your posts and threads, every direct-message conversation you took part in, your images, sessions, notifications, payments, sponsorship, the actions on your public record, reports you filed and members you blocked. It is a zip of JSON files, with your posts and messages also as Markdown.</p>
+  <p class="helptext">Messages other members wrote carry invisible marks that identify this export. Staff's internal notes, who reported you, the audit log and your sponsor's invitation notes are not included.</p>
+  {% if ready %}
+  <p><a class="button" href="{% url 'export_download' ready.pk %}">Download your export</a></p>
+  <p class="muted small">Prepared {{ ready.completed_at|date:"j F Y, H:i" }}. Kept until {{ kept_until|date:"j F Y" }}, then deleted.</p>
+  {% elif latest and latest.status == "open" or latest.status == "building" %}
+  <p>Your export is being prepared. We'll send a notification when it's ready.</p>
+  {% endif %}
+  {% if next_allowed %}
+  <p class="muted">You can ask for another export on {{ next_allowed|date:"j F Y" }}.</p>
+  {% elif may_export %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="export" value="1"><button data-wait="Asking…">Ask for an export</button></form>
+  {% endif %}
+</section>
+{% endblock %}

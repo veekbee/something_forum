@@ -146,6 +146,8 @@ PUBLIC_PATH_PREFIXES = [
     "/icons/",
     "/offline/",
     "/invitations/accept/",
+    # A removed member's single-use export link (rule 79); the token is the authorisation.
+    "/data-export/",
     "/billing/stripe/webhook/",
 ]
 # The only pages an account with status invited may reach, besides TOTP enrolment (design rule 15).

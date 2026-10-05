@@ -52,25 +52,57 @@ class NotificationPreference(models.Model):
 
 
 class DataRequest(models.Model):
+    """A member's export or erasure request (docs/DESIGN.md, Privacy; rules 79 and 80). The row
+    survives the erasure it records."""
+
     class Kind(models.TextChoices):
         EXPORT = "export"
         ERASURE = "erasure"
 
     class Status(models.TextChoices):
-        PENDING = "pending"
-        IN_PROGRESS = "in_progress"
-        COMPLETED = "completed"
-        REJECTED = "rejected"
+        OPEN = "open"
+        DEFERRED = "deferred"
+        WITHDRAWN = "withdrawn"
+        # An export being built, or an erasure an Owner has set running; the job runner takes it.
+        BUILDING = "building"
+        # An export ready to download.
+        READY = "ready"
+        # An export whose file has been deleted, or an erasure that has run.
+        DONE = "done"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="data_requests")
     kind = models.CharField(max_length=16, choices=Kind.choices)
     requested_at = models.DateTimeField(default=timezone.now)
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    # The Owner who opened it for a removed member, who cannot sign in.
+    opened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    # When the member confirmed an erasure request with their authenticator.
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    deferred_until = models.DateTimeField(null=True, blank=True)
+    deferral_reason = models.TextField(blank=True)
+    # Posts the member asked to have fully removed (ids of their own posts).
+    posts_to_remove = models.JSONField(default=list, blank=True)
     file_key = models.CharField(max_length=512, blank=True)
+    # The emailed single-use link for a removed member; only its hash is kept.
+    link_token_hash = models.CharField(max_length=64, blank=True)
+    link_expires_at = models.DateTimeField(null=True, blank=True)
+    downloaded_at = models.DateTimeField(null=True, blank=True)
+    # Other members' messages in an export are watermarked with this seed, copied from the
+    # requesting session (or new, for an Owner-opened request), so the tracing page finds it
+    # after the session record is gone.
+    watermark_seed = models.CharField(max_length=64, blank=True, db_index=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     handled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
+
+    class Meta:
+        indexes = [models.Index(fields=["kind", "status"])]
+
+    def __str__(self):
+        return f"{self.kind} for {self.user_id} ({self.status})"
 
 
 class JobRun(models.Model):

@@ -1,0 +1,11 @@
+{% extends "allauth/layouts/base.html" %}
+{% block head_title %}Your data export{% endblock %}
+{% block content %}
+<h1>Your data export</h1>
+{% if gone %}
+<p>This link no longer works. It works once, for a limited time. If you still need your data, write to the forum's Owners again.</p>
+{% else %}
+<p>The export of your data is ready. The download works once.</p>
+<form method="post">{% csrf_token %}<button>Download</button></form>
+{% endif %}
+{% endblock %}

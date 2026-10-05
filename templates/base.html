@@ -29,14 +29,16 @@
       <a href="{% url 'sessions' %}">Sessions</a>
       {% if nav_forum %}<a href="{% url 'display_settings' %}">Display</a>{% endif %}
       <a href="{% url 'billing' %}">Membership and billing</a>
+      <a href="{% url 'your_data' %}">Your data</a>
       {% if nav_invite %}<a href="{% url 'invitations' %}">Invitations</a>{% endif %}
       {% if nav_forum %}<a href="{% url 'emoji_list' %}">Custom emoji</a>{% endif %}
-      {% if nav_queue or nav_review or nav_audit or nav_settings or nav_trace %}<div class="group">Staff</div>{% endif %}
+      {% if nav_queue or nav_review or nav_audit or nav_settings or nav_trace or nav_data_requests %}<div class="group">Staff</div>{% endif %}
       {% if nav_queue %}<a href="{% url 'queue' %}">Moderation queue</a><a href="{% url 'feed' %}">Mod feedback feed</a>{% endif %}
       {% if nav_review %}<a href="{% url 'review_queue' %}">Invitations to review</a>{% endif %}
       {% if nav_audit %}<a href="{% url 'audit_log' %}">Audit log</a>{% endif %}
       {% if nav_settings %}<a href="{% url 'site_settings' %}">Settings</a>{% endif %}
       {% if nav_trace %}<a href="{% url 'trace_watermark' %}">Trace a leak</a>{% endif %}
+      {% if nav_data_requests %}<a href="{% url 'data_requests' %}">Data requests</a>{% endif %}
       <div class="group">Site</div>
       <a href="{% url 'install_help' %}">Install on your phone</a>
       <a href="{% url 'legal' 'member-agreement' %}">Member agreement</a>

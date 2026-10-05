@@ -1720,3 +1720,37 @@ def _site_setting_write(actor, _key):
 @rule("data.destroy")
 def _data_destroy(actor, _target):
     return allow() if roles.is_owner(actor) else deny("only Owners run data-destroying operations")
+
+
+# --- data rights (rules 79 and 80) -----------------------------------------------------------
+
+
+def _active_owner(actor):
+    return actor.status == User.Status.ACTIVE and roles.is_owner(actor)
+
+
+@rule("data.export")
+def _data_export(actor, member):
+    """Any member who can sign in, whatever their standing, asks for their own export."""
+    if member.pk != actor.pk:
+        return deny("members ask for their own data")
+    if actor.status in CLOSED_STATUSES:
+        return deny(f"account is {actor.status}")
+    return allow()
+
+
+@rule("data.open_for")
+def _data_open_for(actor, member):
+    """A removed member cannot sign in, so an Owner opens their request after confirming who they
+    are through the address on file."""
+    if not _active_owner(actor):
+        return deny("only Owners open a request for a former member")
+    if member.status != User.Status.REMOVED or member.removed_at is None:
+        return deny("only for a member whose membership ended")
+    return allow()
+
+
+@rule("data.requests")
+def _data_requests(actor, _target):
+    """The data-request queue is for Owners only."""
+    return allow() if _active_owner(actor) else deny("data requests are for Owners")

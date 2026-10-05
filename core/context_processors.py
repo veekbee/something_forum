@@ -108,4 +108,5 @@ def nav(request):
         "nav_audit": bool(can(user, "audit.view")),
         "nav_settings": bool(can(user, "site_setting.write")),
         "nav_trace": bool(can(user, "watermark.trace")),
+        "nav_data_requests": bool(can(user, "data.requests")),
     }

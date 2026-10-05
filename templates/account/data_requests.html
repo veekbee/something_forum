@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Data requests{% endblock %}
+{% block content %}
+<h1>Data requests</h1>
+<section class="panel">
+  <h2>Export for a former member</h2>
+  <p class="helptext">A member whose membership ended cannot sign in. Once you have confirmed who is asking, through the email address on file, open their export here. The link is emailed to that address, works once and expires.</p>
+  <form method="post">{% csrf_token %}
+    <p><label for="export-for">Profile address or email</label><input id="export-for" name="export_for" required></p>
+    <button>Open an export</button>
+  </form>
+</section>
+{% if exports %}
+<section class="panel">
+  <h2>Exports opened for former members</h2>
+  <ul class="list">{% for e in exports %}<li><strong>{{ e.user.display_name }}</strong> <span class="status {{ e.status }}">{{ e.get_status_display }}</span><br><span class="muted small">Opened by {{ e.opened_by.display_name }} {{ e.requested_at|date:"j M Y" }}{% if e.downloaded_at %} · downloaded {{ e.downloaded_at|date:"j M Y" }}{% endif %}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% endblock %}
