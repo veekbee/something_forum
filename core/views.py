@@ -1,6 +1,6 @@
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -13,18 +13,75 @@ def robots_txt(request):
     return HttpResponse("User-agent: *\nDisallow: /\n", content_type="text/plain")
 
 
+def _row(n):
+    text, link = notifications.describe(n)
+    return {"n": n, "text": text, "link": link}
+
+
+def _unread_count(user):
+    return user.notifications.filter(read_at__isnull=True).exclude(kind="dm").count()
+
+
 @require_GET
 def notifications_page(request):
-    """The member's notifications, newest first. Opening the page marks them read."""
+    """The member's notifications, newest first. They stay unread until the member marks them read or
+    follows one (docs/DESIGN.md, Partial-page updates)."""
     items = Notification.objects.filter(recipient=request.user).order_by("-created_at")
     page = Paginator(items, registry.site_value("pagination.profile_posts_per_page")).get_page(request.GET.get("page"))
-    rows = [{"n": n, "text": notifications.describe(n)[0], "link": notifications.describe(n)[1]} for n in page.object_list]
-    Notification.objects.filter(pk__in=[n.pk for n in page.object_list], read_at__isnull=True).update(read_at=timezone.now())
     chosen = set(NotificationPreference.objects.filter(user=request.user, email=True).values_list("kind", flat=True))
     return render(request, "core/notifications.html", {
-        "page": page, "rows": rows,
+        "page": page, "rows": [_row(n) for n in page.object_list],
         "optional": [(kind, label, kind in chosen) for kind, label in notifications.OPTIONAL_KINDS.items()],
     })
+
+
+def _counts(request):
+    """The masthead and tab-bar counts, swapped out of band with an HTMX response."""
+    from django.template.loader import render_to_string
+
+    return render_to_string("core/_notification_counts.html", {"count": _unread_count(request.user)}, request=request)
+
+
+@require_POST
+def notification_read(request, pk):
+    from core import htmx
+
+    n = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if n.read_at is None:
+        Notification.objects.filter(pk=n.pk).update(read_at=timezone.now())
+        n.refresh_from_db()
+    if htmx.is_htmx(request):
+        from django.template.loader import render_to_string
+
+        row = render_to_string("core/_notification_row.html", {"row": _row(n)}, request=request)
+        return htmx.html(row + _counts(request), announce="Marked read")
+    return redirect("notifications")
+
+
+@require_POST
+def notifications_all_read(request):
+    from core import htmx
+
+    Notification.objects.filter(recipient=request.user, read_at__isnull=True).update(read_at=timezone.now())
+    if htmx.is_htmx(request):
+        items = Notification.objects.filter(recipient=request.user).order_by("-created_at")
+        page = Paginator(items, registry.site_value("pagination.profile_posts_per_page")).get_page(request.POST.get("page"))
+        from django.template.loader import render_to_string
+
+        listing = render_to_string("core/_notification_list.html", {"rows": [_row(n) for n in page.object_list],
+                                                                    "page": page}, request=request)
+        return htmx.html(listing + _counts(request), announce="Marked all read")
+    return redirect("notifications")
+
+
+@require_GET
+def notification_open(request, pk):
+    """Following a notification marks it read, then goes where it points."""
+    n = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if n.read_at is None:
+        Notification.objects.filter(pk=n.pk).update(read_at=timezone.now())
+    link = notifications.describe(n)[1]
+    return redirect(link or "notifications")
 
 
 @require_POST

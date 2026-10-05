@@ -16,6 +16,9 @@ urlpatterns = [
     path("leave/", leave_page, name="leave"),
     path("notifications/", views.notifications_page, name="notifications"),
     path("notifications/settings/", views.notification_settings, name="notification_settings"),
+    path("notifications/read/", views.notifications_all_read, name="notifications_all_read"),
+    path("notifications/<int:pk>/read/", views.notification_read, name="notification_read"),
+    path("notifications/<int:pk>/open/", views.notification_open, name="notification_open"),
     path("staff/settings/", views.site_settings, name="site_settings"),
     path("staff/trace/", views.trace_watermark, name="trace_watermark"),
     # Same path as allauth's logout, listed first so this view handles it.

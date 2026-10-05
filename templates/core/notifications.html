@@ -1,14 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Notifications{% endblock %}
 {% block content %}
-<h1>Notifications</h1>
-{% if rows %}
-<ul class="list panel">
-  {% for row in rows %}<li>{% if not row.n.read_at %}<span class="status pending">New</span> {% endif %}{% if row.link %}<a href="{{ row.link }}">{{ row.text }}</a>{% else %}{{ row.text }}{% endif %}
-    <span class="muted">· {{ row.n.created_at|timesince }} ago</span></li>{% endfor %}
-</ul>
-{% include "boards/_pagination.html" %}
-{% else %}<p class="muted">Nothing yet.</p>{% endif %}
+<div class="titlebar"><h1>Notifications</h1><div class="actions">
+  <form method="post" action="{% url 'notifications_all_read' %}" hx-post="{% url 'notifications_all_read' %}" hx-target="#notification-list" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="page" value="{{ page.number }}"><button class="secondary" data-wait="Marking…">Mark all read</button></form>
+</div></div>
+{% include "core/_notification_list.html" %}
 
 <form class="panel" method="post" action="{% url 'notification_settings' %}">{% csrf_token %}
   <h2>Email</h2>

@@ -1,0 +1,3 @@
+{# The unread counts in the masthead and the tab bar, replaced out of band by an HTMX response. #}
+<span class="count" id="nav-notifications-count" hx-swap-oob="true">{% if count %}{{ count }}{% endif %}</span>
+<b id="tab-notifications-count" hx-swap-oob="true"{% if not count %} hidden{% endif %}>{% if count %}{{ count }}{% endif %}</b>

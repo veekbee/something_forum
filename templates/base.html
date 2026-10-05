@@ -19,7 +19,7 @@
     <nav aria-label="Main">
       {% if nav_forum %}<a href="{% url 'home' %}"{% if nav_section == "forum" %} aria-current="page"{% endif %}>Forum</a>{% endif %}
       <a href="{% url 'inbox' %}"{% if nav_section == "messages" %} aria-current="page"{% endif %}>Messages{% if nav_unread_messages %} <span class="count">{{ nav_unread_messages }}</span>{% endif %}</a>
-      <a href="{% url 'notifications' %}"{% if nav_section == "notifications" %} aria-current="page"{% endif %}>Notifications{% if nav_unread_notifications %} <span class="count">{{ nav_unread_notifications }}</span>{% endif %}</a>
+      <a href="{% url 'notifications' %}"{% if nav_section == "notifications" %} aria-current="page"{% endif %}>Notifications <span class="count" id="nav-notifications-count">{% if nav_unread_notifications %}{{ nav_unread_notifications }}{% endif %}</span></a>
       {% if nav_forum %}<a href="{% url 'member_profile' user.slug %}"{% if nav_section == "profile" %} aria-current="page"{% endif %}>Profile</a>{% endif %}
       {% if nav_queue %}<a href="{% url 'queue' %}">Queue{% if nav_queue_count %} <span class="count">{{ nav_queue_count }}</span>{% endif %}</a>{% endif %}
     </nav>

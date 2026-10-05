@@ -1,0 +1,3 @@
+<li id="notification-{{ row.n.pk }}"{% if not row.n.read_at %} class="unread"{% endif %} data-focus>{% if not row.n.read_at %}<span class="tag pending">New</span> {% endif %}{% if row.link %}<a href="{% url 'notification_open' row.n.pk %}">{{ row.text }}</a>{% else %}{{ row.text }}{% endif %}
+  <span class="sub">{{ row.n.created_at|timesince }} ago</span>
+  {% if not row.n.read_at %}<form class="inline-form" method="post" action="{% url 'notification_read' row.n.pk %}" hx-post="{% url 'notification_read' row.n.pk %}" hx-target="#notification-{{ row.n.pk }}" hx-swap="outerHTML">{% csrf_token %}<button class="secondary" data-wait="Marking…">Mark read</button></form>{% endif %}</li>

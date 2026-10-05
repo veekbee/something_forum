@@ -86,14 +86,47 @@ def _summary(item):
     return None, "", ""
 
 
-def _act(request, fn):
-    """Run a queue action; a second Moderator acting on a handled item sees it already handled."""
+def handled_by(item):
+    """Who already handled a queue item, or None while it still waits."""
+    item.refresh_from_db()
+    if isinstance(item, Report):
+        return item.handled_by if item.status == Report.Status.RESOLVED else None
+    if isinstance(item, ModerationAction):
+        if item.status == ModerationAction.Status.PENDING:
+            return None
+        return item.approved_by or item.declined_by or item.initiated_by
+    if isinstance(item, Post):
+        if item.is_held:
+            return None
+        return item.released_by or item.rejected_by
+    return None
+
+
+def _act(request, fn, done="", item=None):
+    """Run a queue action. With HTMX the item collapses to one line ("Approved by you"), or to "Already
+    handled by …" when someone acted first; any other refusal shows inline in the item (rules 77, 78).
+    A second Moderator acting on a handled item changes nothing."""
+    from core import htmx
+
     try:
         fn()
     except (ValidationError, PermissionDenied) as exc:
         message = " ".join(_errors(exc))
+        if htmx.is_htmx(request):
+            who = handled_by(item) if item is not None else None
+            if who is not None:
+                return _collapsed(request, f"Already handled by {who.display_name}", "Already handled")
+            return htmx.refusal(message, "previous .item-errors")
         return redirect(f"{reverse('queue')}?{urlencode({'error': message})}")
+    if htmx.is_htmx(request) and done:
+        return _collapsed(request, f"{done} by you", done)
     return _back(request)
+
+
+def _collapsed(request, line, announce):
+    from core import htmx
+
+    return htmx.fragment(request, "moderation/_handled.html", {"line": line}, announce=announce)
 
 
 @require_POST
@@ -108,7 +141,8 @@ def report_action(request, pk, action):
     }
     if action not in handlers:
         raise PermissionDenied("unknown action")
-    return _act(request, handlers[action])
+    done = {"resolve": "Resolved", "escalate": "Escalated"}.get(action, "")
+    return _act(request, handlers[action], done, item)
 
 
 @require_POST
@@ -117,26 +151,27 @@ def escalate_item(request, type_, pk):
     if type_ not in models:
         raise PermissionDenied("unknown item")
     item = get_object_or_404(models[type_], pk=pk)
-    return _act(request, lambda: reports.escalate_item(request.user, item, request.POST.get("note", "")))
+    return _act(request, lambda: reports.escalate_item(request.user, item, request.POST.get("note", "")), "Escalated")
 
 
 @require_POST
 def approve_action(request, pk):
     action = get_object_or_404(ModerationAction, pk=pk)
     summary = request.POST.get("public_summary")
-    return _act(request, lambda: services.approve_action(request.user, action, summary))
+    return _act(request, lambda: services.approve_action(request.user, action, summary), "Approved", action)
 
 
 @require_POST
 def decline_action(request, pk):
     action = get_object_or_404(ModerationAction, pk=pk)
-    return _act(request, lambda: services.decline_action(request.user, action, request.POST.get("reason", "")))
+    return _act(request, lambda: services.decline_action(request.user, action, request.POST.get("reason", "")),
+                "Declined", action)
 
 
 @require_POST
 def withdraw_action(request, pk):
     action = get_object_or_404(ModerationAction, pk=pk)
-    return _act(request, lambda: services.withdraw_action(request.user, action))
+    return _act(request, lambda: services.withdraw_action(request.user, action), "Withdrawn", action)
 
 
 @require_POST

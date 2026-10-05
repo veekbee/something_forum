@@ -361,10 +361,22 @@ def moderate_post(request, pk, decision):
     if decision not in ("release", "reject"):
         raise Http404
     post = get_object_or_404(Post.objects.select_related("thread__subforum"), pk=pk)
-    if decision == "release":
-        services.release_post(request.user, post)
-        return redirect("post_link", pk=post.pk)
-    services.reject_post(request.user, post, request.POST.get("reason", ""))
+    if htmx.is_htmx(request):
+        # From the queue: the item collapses to one line (docs/DESIGN.md, Partial-page updates).
+        from moderation.views import _act
+
+        if decision == "release":
+            return _act(request, lambda: services.release_post(request.user, post), "Released", post)
+        return _act(request, lambda: services.reject_post(request.user, post, request.POST.get("reason", "")),
+                    "Rejected", post)
+    try:
+        if decision == "release":
+            services.release_post(request.user, post)
+            return redirect("post_link", pk=post.pk)
+        services.reject_post(request.user, post, request.POST.get("reason", ""))
+    except ValidationError:
+        # Someone already released or rejected it: nothing changes.
+        pass
     return redirect("thread", pk=post.thread_id)
 
 

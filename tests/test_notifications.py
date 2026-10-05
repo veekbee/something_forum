@@ -89,15 +89,20 @@ def test_digest_command(make_user):
 # --- the page ------------------------------------------------------------------------------
 
 
-def test_page_lists_marks_read_and_the_header_counts(client, make_user, general):
+def test_page_lists_and_following_one_marks_it_read(client, make_user, general):
+    """Notifications stay unread until marked read or followed (decided 4 Oct 2026)."""
     author, target = make_user("full"), make_user("full")
     services.reply(author, make_thread(general, author), f"@{target.slug}")
     enrol_totp(target)
     client.force_login(target)
-    assert b'Notifications <span class="count">1</span>' in client.get("/").content
+    count = b'<span class="count" id="nav-notifications-count">1</span>'
+    assert count in client.get("/").content
     page = client.get("/notifications/").content.decode()
-    assert "You were mentioned in a post" in page
-    assert b'Notifications <span class="count">1</span>' not in client.get("/").content
+    assert "You were mentioned in a post" in page and count in client.get("/").content
+    notification = target.notifications.get()
+    response = client.get(f"/notifications/{notification.pk}/open/")
+    assert response.status_code == 302 and response["Location"].startswith("/p/")
+    assert count not in client.get("/").content
 
 
 def test_choosing_email_kinds(client, make_user):

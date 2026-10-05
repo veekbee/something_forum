@@ -149,3 +149,108 @@ def test_service_worker_never_caches_fragments(client, seeded):
     assert 'if (request.method !== "GET") return;' in worker
     assert "SHELL.includes(url.pathname)" in worker and "caches.match(OFFLINE)" in worker
     assert "cache.put" not in worker
+
+
+# --- notifications ----------------------------------------------------------------------------
+
+
+def _mention(make_user, general, target):
+    author = make_user("full")
+    services.reply(author, make_thread(general, author), f"hello @{target.slug}")
+    return target.notifications.get()
+
+
+def test_notifications_stay_unread_until_marked(make_user, general):
+    member = make_user("full")
+    n = _mention(make_user, general, member)
+    client = signed_in(member)
+    page = client.get("/notifications/").content.decode()
+    n.refresh_from_db()
+    assert n.read_at is None and 'class="unread"' in page and f"/notifications/{n.pk}/read/" in page
+
+
+def test_mark_one_read_swaps_the_row_and_the_counts(make_user, general):
+    member = make_user("full")
+    n = _mention(make_user, general, member)
+    response = signed_in(member).post(f"/notifications/{n.pk}/read/", **HX)
+    body = response.content.decode()
+    assert f'<li id="notification-{n.pk}" data-focus>' in body and "Mark read" not in body
+    assert '<span class="count" id="nav-notifications-count" hx-swap-oob="true"></span>' in body
+    assert '<b id="tab-notifications-count" hx-swap-oob="true" hidden></b>' in body
+    assert announced(response) == "Marked read"
+
+
+def test_mark_all_notifications_read(make_user, general):
+    member = make_user("full")
+    _mention(make_user, general, member)
+    client = signed_in(member)
+    response = client.post("/notifications/read/", {"page": "1"}, **HX)
+    assert '<div id="notification-list" data-focus>' in response.content.decode()
+    assert not member.notifications.filter(read_at__isnull=True).exists()
+    _mention(make_user, general, make_user("full"))
+    plain = client.post("/notifications/read/")
+    assert plain.status_code == 302 and plain["Location"] == "/notifications/"
+
+
+def test_marking_someone_elses_notification_is_not_found(make_user, general):
+    other = make_user("full")
+    n = _mention(make_user, general, other)
+    assert signed_in(make_user("full")).post(f"/notifications/{n.pk}/read/", **HX).status_code == 404
+
+
+# --- queue actions ----------------------------------------------------------------------------
+
+
+def _pending_action(make_user):
+    from moderation import services as moderation
+
+    target = make_user("full")
+    return moderation.initiate_action(make_user("moderator"), target, "warning", internal_reason="rude",
+                                      public_summary="Rude")
+
+
+def test_approving_collapses_the_item_and_a_second_approver_sees_it_handled(make_user):
+    action = _pending_action(make_user)
+    first, second = make_user("moderator"), make_user("moderator")
+    response = signed_in(first).post(f"/staff/actions/{action.pk}/approve/", {"public_summary": "Rude"}, **HX)
+    body = response.content.decode()
+    assert '<article class="queue-item staff handled" data-focus>' in body and "Approved by you." in body
+    assert announced(response) == "Approved"
+    late = signed_in(second).post(f"/staff/actions/{action.pk}/approve/", {"public_summary": "Rude"}, **HX)
+    assert f"Already handled by {first.display_name}." in late.content.decode()
+
+
+def test_queue_refusal_is_inline_in_the_item(make_user):
+    action = _pending_action(make_user)
+    response = signed_in(make_user("moderator")).post(f"/staff/actions/{action.pk}/decline/", {"reason": " "}, **HX)
+    assert response["HX-Retarget"] == "previous .item-errors" and 'role="alert"' in response.content.decode()
+
+
+def test_queue_plain_forms_still_redirect(make_user):
+    action = _pending_action(make_user)
+    response = signed_in(make_user("moderator")).post(f"/staff/actions/{action.pk}/approve/", {"public_summary": "x"})
+    assert response.status_code == 302
+
+
+def test_releasing_a_held_post_from_the_queue(make_user, general):
+    held = services.reply(make_user("provisional"), make_thread(general, make_user("full")), "held words")
+    response = signed_in(make_user("moderator")).post(f"/p/{held.pk}/release/", **HX)
+    assert "Released by you." in response.content.decode()
+    late = signed_in(make_user("moderator")).post(f"/p/{held.pk}/release/", **HX)
+    assert "Already handled by" in late.content.decode()
+    again = signed_in(make_user("moderator")).post(f"/p/{held.pk}/release/")
+    assert again.status_code == 302  # the plain form changes nothing and goes back to the thread
+    fresh = services.reply(make_user("provisional"), make_thread(general, make_user("full")), "more held words")
+    plain = signed_in(make_user("moderator")).post(f"/p/{fresh.pk}/release/")
+    assert plain.status_code == 302 and plain["Location"] == f"/p/{fresh.pk}/"
+
+
+def test_resolving_a_report_and_the_queue_forms_carry_htmx(make_user):
+    from moderation import reports
+
+    report, _ = reports.report(make_user("full"), make_user("full"), "spam")
+    client = signed_in(make_user("moderator"))
+    page = client.get("/staff/queue/").content.decode()
+    assert 'hx-target="closest article" hx-swap="outerHTML"' in page and '<div class="item-errors"></div>' in page
+    response = client.post(f"/staff/reports/{report.pk}/resolve/", {"outcome": "no_action"}, **HX)
+    assert "Resolved by you." in response.content.decode()

@@ -25,22 +25,22 @@
 </ul></section>{% endif %}
 {% if not items %}<p class="muted">Nothing is waiting.</p>{% endif %}
 {% for item in items %}{% with o=item.obj %}
-<article class="queue-item staff" id="item-{{ forloop.counter }}">
+<article class="queue-item staff" id="item-{{ forloop.counter }}"><div class="item-errors"></div>
   <header class="meta"><span class="status">{{ types|get_item:item.type|default:item.type }}</span>
     <span class="muted">waiting {{ item.waiting_since|timesince }}</span>
     {% if o.status == "escalated" %}<span class="status pending">Escalated by {{ o.escalated_by.display_name }}: {{ o.escalation_note }}</span>{% endif %}
     {% if item.escalated %}<span class="status pending">Escalated: waiting for an Admin or Owner</span>{% endif %}</header>
   {% if item.may_escalate and item.type != "report" and item.type != "flag" %}
-  <form class="actions" method="post" action="{% url 'escalate_item' item.type o.pk %}">{% csrf_token %}<input type="text" name="note" placeholder="Why escalate?" aria-label="Why escalate" required> <button class="secondary">Escalate</button></form>
+  <form class="actions" method="post" action="{% url 'escalate_item' item.type o.pk %}" hx-post="{% url 'escalate_item' item.type o.pk %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<input type="text" name="note" placeholder="Why escalate?" aria-label="Why escalate" required> <button class="secondary">Escalate</button></form>
   {% endif %}
 
   {% if item.type == "held" %}
     <p><a href="{% url 'post_link' o.pk %}">{{ o.thread.title }}</a> · {{ o.author.display_name }} in {{ o.thread.subforum.name }}</p>
     <pre class="source">{{ o.body_source|truncatechars:600 }}</pre>
     <div class="actions">
-      <form method="post" action="{% url 'moderate_post' o.pk 'release' %}">{% csrf_token %}<button>Approve</button></form>
+      <form method="post" action="{% url 'moderate_post' o.pk 'release' %}" hx-post="{% url 'moderate_post' o.pk 'release' %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<button>Approve</button></form>
       <a href="{% url 'edit_post' o.pk %}">Edit</a>
-      <form method="post" action="{% url 'moderate_post' o.pk 'reject' %}">{% csrf_token %}<input type="text" name="reason" placeholder="Reason" aria-label="Reason"> <button class="secondary">Reject</button></form>
+      <form method="post" action="{% url 'moderate_post' o.pk 'reject' %}" hx-post="{% url 'moderate_post' o.pk 'reject' %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<input type="text" name="reason" placeholder="Reason" aria-label="Reason"> <button class="secondary">Reject</button></form>
     </div>
 
   {% elif item.type == "report" or item.type == "flag" %}
@@ -51,15 +51,15 @@
     {% for n in o.details.notes %}<p class="muted">Note from {{ n.name }}: {{ n.note }}</p>{% endfor %}
     <div class="actions">
       {% if item.may_resolve %}
-        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}">{% csrf_token %}<input type="hidden" name="outcome" value="no_action"><button class="secondary">No action needed</button></form>
-        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}">{% csrf_token %}<input type="hidden" name="outcome" value="action_taken"><button class="secondary">Action taken</button></form>
+        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}" hx-post="{% url 'report_action' o.pk 'resolve' %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="outcome" value="no_action"><button class="secondary">No action needed</button></form>
+        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}" hx-post="{% url 'report_action' o.pk 'resolve' %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="outcome" value="action_taken"><button class="secondary">Action taken</button></form>
         {% if o.post and not o.post.deleted_at and not o.post.thread.kind == "dm" %}
-        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}">{% csrf_token %}
+        <form method="post" action="{% url 'report_action' o.pk 'resolve' %}" hx-post="{% url 'report_action' o.pk 'resolve' %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}
           <select name="hide_reason" required aria-label="Reason for hiding"><option value="">Hide post for…</option>{% for key, label in reasons.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
           <input type="text" name="hide_note" placeholder="Sentence (needed for Other)" aria-label="Sentence"> <button>Hide</button></form>
         {% endif %}
       {% endif %}
-      {% if item.may_escalate %}<form method="post" action="{% url 'report_action' o.pk 'escalate' %}">{% csrf_token %}<input type="text" name="note" placeholder="Why escalate?" aria-label="Why escalate" required> <button class="secondary">Escalate</button></form>{% endif %}
+      {% if item.may_escalate %}<form method="post" action="{% url 'report_action' o.pk 'escalate' %}" hx-post="{% url 'report_action' o.pk 'escalate' %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<input type="text" name="note" placeholder="Why escalate?" aria-label="Why escalate" required> <button class="secondary">Escalate</button></form>{% endif %}
       <form method="post" action="{% url 'report_action' o.pk 'note' %}">{% csrf_token %}<input type="text" name="note" placeholder="Add a note" aria-label="Add a note" required> <button class="secondary">Note</button></form>
     </div>
 
@@ -67,8 +67,8 @@
     <p>{{ o.get_kind_display|capfirst }} for <a href="{% url 'member_profile' o.target_user.slug %}">{{ o.target_user.display_name }}</a>, proposed by {{ o.initiated_by.display_name }}{% if o.ends_at %} until {{ o.ends_at|date:"j M Y" }}{% endif %}</p>
     <p class="muted">{{ o.internal_reason }}{% for sf in o.scope_subforums.all %}{% if forloop.first %} · only in {% else %}, {% endif %}{{ sf.name }}{% endfor %}</p>
     <div class="actions">
-      <form method="post" action="{% url 'approve_action' o.pk %}">{% csrf_token %}{% if o.is_public %}<input type="text" name="public_summary" value="{{ o.public_summary_draft }}" aria-label="Public summary"> {% endif %}<button>Approve</button></form>
-      <form method="post" action="{% url 'decline_action' o.pk %}">{% csrf_token %}<input type="text" name="reason" placeholder="Why decline?" aria-label="Why decline" required> <button class="secondary">Decline</button></form>
+      <form method="post" action="{% url 'approve_action' o.pk %}" hx-post="{% url 'approve_action' o.pk %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}{% if o.is_public %}<input type="text" name="public_summary" value="{{ o.public_summary_draft }}" aria-label="Public summary"> {% endif %}<button>Approve</button></form>
+      <form method="post" action="{% url 'decline_action' o.pk %}" hx-post="{% url 'decline_action' o.pk %}" hx-target="closest article" hx-swap="outerHTML">{% csrf_token %}<input type="text" name="reason" placeholder="Why decline?" aria-label="Why decline" required> <button class="secondary">Decline</button></form>
     </div>
 
   {% elif item.type == "promotion" %}

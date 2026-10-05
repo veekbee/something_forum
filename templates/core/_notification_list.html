@@ -1,0 +1,8 @@
+<div id="notification-list" data-focus>
+{% if rows %}
+<ul class="list">
+  {% for row in rows %}{% include "core/_notification_row.html" %}{% endfor %}
+</ul>
+{% include "boards/_pagination.html" %}
+{% else %}<p class="muted">Nothing yet.</p>{% endif %}
+</div>

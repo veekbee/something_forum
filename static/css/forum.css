@@ -262,3 +262,6 @@ main.auth { max-width: 28rem; }
 main.auth h1 { margin-bottom: 1rem; }
 main.auth form button { margin-top: .25rem; }
 main.auth hr { border: 0; border-top: 1px solid var(--line); margin: 1.25rem 0; }
+
+ul.list > li.unread { font-weight: 600; }
+ul.list > li.unread .sub { font-weight: 400; }
