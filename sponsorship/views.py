@@ -29,6 +29,7 @@ class InvitationForm(forms.Form):
     vouching_notes = forms.CharField(
         label="How do you know them, and for how long?", widget=forms.Textarea(attrs={"rows": 4})
     )
+    adult = forms.BooleanField(label="They are 18 or older", help_text="Members must be 18 or older.")
 
 
 def invitations(request):
@@ -46,6 +47,7 @@ def invitations(request):
                     form.cleaned_data["invitee_email"],
                     form.cleaned_data["vouching_notes"],
                     accept_url=lambda token: request.build_absolute_uri(reverse("invitation_accept", args=[token])),
+                    confirmed_adult=form.cleaned_data["adult"],
                 )
             except ValidationError as exc:
                 errors = _errors(exc)
@@ -84,6 +86,7 @@ class AcceptForm(forms.Form):
     display_name = forms.CharField(max_length=80, label="Display name (shown to members)")
     password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Password again")
+    adult = forms.BooleanField(label="I am 18 or older", help_text="Members must be 18 or older.")
 
     def clean(self):
         data = super().clean()
@@ -101,7 +104,8 @@ def accept(request, token):
     errors = []
     if request.method == "POST" and form.is_valid():
         try:
-            accepted = onboarding.accept(token, form.cleaned_data["display_name"], form.cleaned_data["password1"])
+            accepted = onboarding.accept(token, form.cleaned_data["display_name"], form.cleaned_data["password1"],
+                                         confirmed_adult=form.cleaned_data["adult"])
         except (ValidationError, PermissionDenied) as exc:
             errors = _errors(exc)
         else:

@@ -62,11 +62,13 @@ def expires_at(invitation):
 
 
 @transaction.atomic
-def send_invitation(sponsor, invitee_email, vouching_notes, accept_url):
+def send_invitation(sponsor, invitee_email, vouching_notes, accept_url, *, confirmed_adult=False):
     """Create the invitation and email the link. `accept_url(token)` builds the absolute link.
     Returns (invitation, holds_slot): an invitation without a slot is still sent, and its invitee
     is waitlisted on accepting."""
     require(sponsor, "invitation.send")
+    if not confirmed_adult:
+        raise ValidationError("Confirm that the person you are inviting is 18 or older.")
     email = invitee_email.strip().lower()
     if User.objects.filter(email__iexact=email).exists():
         raise ValidationError("That address already belongs to an account.")
@@ -77,7 +79,8 @@ def send_invitation(sponsor, invitee_email, vouching_notes, accept_url):
         raise ValidationError("An invitation to that address was declined by an Admin.")
     token = secrets.token_urlsafe(32)
     invitation = Invitation.objects.create(
-        sponsor=sponsor, invitee_email=email, token_hash=hash_token(token), vouching_notes=vouching_notes
+        sponsor=sponsor, invitee_email=email, token_hash=hash_token(token), vouching_notes=vouching_notes,
+        sponsor_confirmed_adult=True,
     )
     holds_slot = capacity.has_slot_for(invitation)
     log.record(sponsor, "invitation.send", invitation, {"holds_slot": holds_slot})
@@ -123,7 +126,7 @@ def _unique_slug(display_name):
 
 
 @transaction.atomic
-def accept(token, display_name, password):
+def accept(token, display_name, password, *, confirmed_adult=False):
     """Follow the link and set a password: creates the account (status invited) with its email
     verified, since the link proves the address, and the IdentityRecord. The invitation becomes
     accepted if it holds a slot, otherwise waitlisted."""
@@ -137,6 +140,8 @@ def accept(token, display_name, password):
     if not display_name:
         raise ValidationError("Choose a display name.")
     check_display_name(display_name)
+    if not confirmed_adult:
+        raise ValidationError("Confirm that you are 18 or older.")
     user = User(
         email=invitation.invitee_email, display_name=display_name, slug=_unique_slug(display_name),
         status=User.Status.INVITED,
@@ -147,9 +152,9 @@ def accept(token, display_name, password):
     now = timezone.now()
     EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
     IdentityRecord.objects.create(user=user, email_verified_at=now, vouching_notes=invitation.vouching_notes)
-    invitation.invitee, invitation.accepted_at = user, now
+    invitation.invitee, invitation.accepted_at, invitation.invitee_confirmed_adult = user, now, True
     invitation.status = Status.ACCEPTED if capacity.has_slot_for(invitation) else Status.WAITLISTED
-    invitation.save(update_fields=["invitee", "accepted_at", "status"])
+    invitation.save(update_fields=["invitee", "accepted_at", "invitee_confirmed_adult", "status"])
     log.record(None, "invitation.accept", invitation, {"invitee": user.pk, "status": invitation.status})
     _notify_sponsor(invitation, "invitation.accepted")
     return invitation

@@ -66,7 +66,7 @@ def invite(sponsor_user, email=None, notes="Known them for years"):
         return f"https://forum.example.test/invitations/accept/{token}/"
 
     invitation, _ = onboarding.send_invitation(
-        sponsor_user, email or f"invitee{next(_emails)}@example.test", notes, accept_url=url
+        sponsor_user, email or f"invitee{next(_emails)}@example.test", notes, accept_url=url, confirmed_adult=True
     )
     return invitation, captured["token"]
 
@@ -76,7 +76,7 @@ def accepted(sponsor_user, totp=True, submit=True, **kwargs):
     from sponsorship import onboarding
 
     invitation, token = invite(sponsor_user, **kwargs)
-    invitation = onboarding.accept(token, "New Person", PASSWORD)
+    invitation = onboarding.accept(token, "New Person", PASSWORD, confirmed_adult=True)
     if totp:
         enrol_totp(invitation.invitee)
     if totp and submit:

@@ -159,7 +159,7 @@ LEGAL_PAGES = {
     "member-agreement": ("Member agreement", [
         "This page will hold the agreement every member accepts on joining: membership by sponsorship, "
         "the annual fee and its automatic renewal, conduct, moderation and the Rap Sheet, and what "
-        "happens to an account that lapses or is banned.",
+        "happens to an account that lapses or is banned. Members must be 18 or older.",
     ]),
     "privacy": ("Privacy notice", [
         "This page will describe what the forum keeps about members and why: account and identity "

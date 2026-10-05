@@ -83,7 +83,7 @@ def test_admin_declined_address_cannot_be_invited_again_yet(make_user):
 def test_accept_creates_an_invited_account_with_verified_email(make_user):
     sponsor_user = make_user("full")
     invitation, token = invite(sponsor_user, email="new@example.test")
-    invitation = onboarding.accept(token, "New Person", PASSWORD)
+    invitation = onboarding.accept(token, "New Person", PASSWORD, confirmed_adult=True)
     user = invitation.invitee
     assert user.status == User.Status.INVITED and user.check_password(PASSWORD)
     assert EmailAddress.objects.get(user=user).verified
@@ -99,9 +99,9 @@ def test_accept_creates_an_invited_account_with_verified_email(make_user):
 
 def test_link_works_once(make_user):
     _, token = invite(make_user("full"))
-    onboarding.accept(token, "New Person", PASSWORD)
+    onboarding.accept(token, "New Person", PASSWORD, confirmed_adult=True)
     with pytest.raises(PermissionDenied):
-        onboarding.accept(token, "Someone Else", PASSWORD)
+        onboarding.accept(token, "Someone Else", PASSWORD, confirmed_adult=True)
 
 
 def test_expired_link_is_refused(make_user):
@@ -109,13 +109,13 @@ def test_expired_link_is_refused(make_user):
     _age(invitation, days=15)
     assert onboarding.invitation_for_token(token) is None
     with pytest.raises(PermissionDenied):
-        onboarding.accept(token, "New Person", PASSWORD)
+        onboarding.accept(token, "New Person", PASSWORD, confirmed_adult=True)
 
 
 def test_weak_password_creates_nothing(make_user):
     invitation, token = invite(make_user("full"))
     with pytest.raises(ValidationError):
-        onboarding.accept(token, "New Person", "password")
+        onboarding.accept(token, "New Person", "password", confirmed_adult=True)
     invitation.refresh_from_db()
     assert invitation.status == S.PENDING and not User.objects.filter(status=User.Status.INVITED).exists()
 
@@ -139,8 +139,8 @@ def test_send_order_holds_a_later_invitee_who_accepts_first_waits(make_user):
     sponsor_user = make_user("full")  # cap 1
     first, first_token = invite(sponsor_user)
     second, second_token = invite(sponsor_user)
-    assert onboarding.accept(second_token, "Second", PASSWORD).status == S.WAITLISTED
-    assert onboarding.accept(first_token, "First", PASSWORD).status == S.ACCEPTED
+    assert onboarding.accept(second_token, "Second", PASSWORD, confirmed_adult=True).status == S.WAITLISTED
+    assert onboarding.accept(first_token, "First", PASSWORD, confirmed_adult=True).status == S.ACCEPTED
 
 
 def test_freed_slot_goes_to_the_earliest_sent_invitation(make_user):
@@ -432,14 +432,16 @@ def test_end_to_end_through_the_pages(client, make_user, mailoutbox, django_capt
     page = client.get("/invitations/")
     assert b"will hold one of your 1 sponsorship place" in page.content
     with django_capture_on_commit_callbacks(execute=True):
-        response = client.post("/invitations/", {"invitee_email": "newcomer@example.test", "vouching_notes": "School friend"})
+        response = client.post("/invitations/", {"invitee_email": "newcomer@example.test", "vouching_notes": "School friend",
+                                                    "adult": "on"})
     assert response["Location"] == "/invitations/?sent=slot"
     link = re.search(r"https?://\S+/invitations/accept/\S+/", mailoutbox[0].body).group(0)
     path = link.split("testserver", 1)[-1]
     client.logout()
 
     assert client.get(path).status_code == 200
-    response = client.post(path, {"display_name": "Newcomer", "password1": PASSWORD, "password2": PASSWORD})
+    response = client.post(path, {"display_name": "Newcomer", "password1": PASSWORD, "password2": PASSWORD,
+                                  "adult": "on"})
     assert response.status_code == 302
     newcomer = User.objects.get(email="newcomer@example.test")
     assert client.get("/onboarding/")["Location"] == "/accounts/2fa/totp/activate/"

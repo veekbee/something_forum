@@ -35,6 +35,10 @@ class Invitation(models.Model):
     # Only a hash is stored; the token itself goes to the invitee by email.
     token_hash = models.CharField(max_length=64, unique=True)
     vouching_notes = models.TextField()
+    # Members must be 18 or older: the sponsor confirms it when sending, the invitee when
+    # accepting (rule 83).
+    sponsor_confirmed_adult = models.BooleanField(default=False)
+    invitee_confirmed_adult = models.BooleanField(default=False)
     # SET_NULL because an invited account whose invitation ends unapproved is deleted later
     # (design rule 19); the Invitation row stays as history.
     invitee = models.OneToOneField(

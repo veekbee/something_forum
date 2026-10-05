@@ -405,8 +405,8 @@ def test_nobody_chooses_a_former_member_name(make_user, name):
 
     invitation, token = invite(make_user("tenured"))
     with pytest.raises(ValidationError, match="kept for erased accounts"):
-        onboarding.accept(token, name, PASSWORD)
-    assert onboarding.accept(token, "Formerly a member", PASSWORD).invitee.display_name == "Formerly a member"
+        onboarding.accept(token, name, PASSWORD, confirmed_adult=True)
+    assert onboarding.accept(token, "Formerly a member", PASSWORD, confirmed_adult=True).invitee.display_name == "Formerly a member"
 
 
 def test_the_seed_refuses_it_for_the_owner(db, monkeypatch):
