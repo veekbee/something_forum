@@ -45,8 +45,8 @@ def msg(thread, author, text, ago=timedelta(0), **fields):
                                created_at=timezone.now() - ago, **fields)
 
 
-def built(member, session=None):
-    item = data_rights.request_export(member, session)
+def built(member):
+    item = data_rights.request_export(member)
     data_rights.build_exports()
     item.refresh_from_db()
     return item
@@ -72,7 +72,8 @@ def test_a_member_asks_from_settings_and_the_runner_builds_it(make_user, mailout
     client.post("/data/", {"export": "1"})
     item = DataRequest.objects.get(user=member)
     session = UserSession.objects.get(user=member)
-    assert item.kind == "export" and item.status == "open" and item.watermark_seed == session.watermark_seed
+    assert item.kind == "export" and item.status == "open" and len(item.watermark_seed) == 8
+    assert item.watermark_seed != session.watermark_seed  # the export's own (decided 5 Oct 2026)
     assert b"being prepared" in client.get("/data/").content
     with django_capture_on_commit_callbacks(execute=True):
         assert jobs.run_job(jobs.FREQUENT[0]) is True
@@ -188,7 +189,7 @@ def test_whole_conversations_for_the_time_they_were_in_them(make_user):
     msg(thread, member, "my own words", timedelta(hours=3))
     msg(thread, third, "later deleted", timedelta(hours=3), deleted_at=now)
     msg(thread, other, "after they left", timedelta(hours=1))
-    item = built(member, None)
+    item = built(member)
     files = unzip(item)
     [conversation] = area(files, "messages.json")
     texts = [m.get("markdown") for m in conversation["messages"]]
@@ -344,13 +345,13 @@ def test_owner_opened_exports_do_not_count_toward_the_members_limit(former, owne
 # --- tracing --------------------------------------------------------------------------------
 
 
-def test_the_tracing_page_finds_an_export_after_its_session_is_gone(make_user, owner):
+def test_the_tracing_page_finds_the_export_and_its_member(make_user, owner):
     member, other = make_user("full"), make_user("full")
     thread = make_dm(member, other)
     msg(thread, other, " ".join(f"w{i}" for i in range(30)))
     client = signed_in(member)
     client.get("/")
-    item = built(member, UserSession.objects.get(user=member))
+    item = built(member)
     leaked = area(unzip(item), "messages.json")[0]["messages"][0]["markdown"]
     UserSession.objects.filter(user=member).delete()
     page = signed_in(owner).post("/staff/trace/", {"excerpt": leaked}).content.decode()
@@ -384,3 +385,9 @@ def test_revisions_written_by_staff_are_left_out(make_user, general):
     services.edit_post(moderator, post, "staff tidy-up")
     posts = area(unzip(built(member)), "posts.json")
     assert [v["markdown"] for v in posts[0]["earlier_versions"]] == ["mine"]
+
+
+def test_every_export_has_a_seed_of_its_own(make_user):
+    first, second = make_user("full"), make_user("full")
+    seeds = {data_rights.request_export(first).watermark_seed, data_rights.request_export(second).watermark_seed}
+    assert len(seeds) == 2

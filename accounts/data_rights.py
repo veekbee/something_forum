@@ -57,14 +57,14 @@ def next_export_allowed(user, now=None):
 
 
 @transaction.atomic
-def request_export(user, session=None):
-    """The member's own request. `session` is their UserSession, whose watermark seed marks other
-    members' messages in the export."""
+def request_export(user):
+    """The member's own request. The export gets a watermark seed of its own, so a leaked copy traces
+    to this request and the member, apart from any page their sessions were shown."""
     _require(user, "data.export", user)
     allowed = next_export_allowed(user)
     if allowed:
         raise ValidationError(f"You can ask for another export on {timezone.localtime(allowed):%-d %B %Y}.")
-    seed = session.watermark_seed if session is not None else secrets.token_hex(4)
+    seed = secrets.token_hex(4)
     item = DataRequest.objects.create(user=user, kind=Kind.EXPORT, watermark_seed=seed)
     log.record(user, "data_export.request", item)
     return item

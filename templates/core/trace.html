@@ -11,8 +11,7 @@
 {% if results is not None %}
 <section class="panel"><h2>Found</h2>
   {% for r in results %}
-  <p>Shown on {{ r.date|date:"j M Y" }} to {% for s in r.sessions %}<a href="{% url 'staff_member' s.user.slug %}">{{ s.user.display_name }}</a> (session {{ s.pk }}, {{ s.browser_family }} on {{ s.os_family }}, signed in {{ s.created_at|date:"j M Y" }}){% if not forloop.last %}, or {% endif %}{% empty %}{% if not r.exports %}a session whose record has since been deleted (mark {{ r.seed }}){% else %}a session whose record has since been deleted{% endif %}{% endfor %}.</p>
-  {% for e in r.exports %}<p>The same mark is on the data export {% if e.user.status == "tombstone" %}{{ e.user.display_name }}{% else %}<a href="{% url 'staff_member' e.user.slug %}">{{ e.user.display_name }}</a>{% endif %} asked for on {{ e.requested_at|date:"j M Y" }} (request {{ e.pk }}); an export built on {{ r.date|date:"j M Y" }} carries it.</p>{% endfor %}
+  <p>Shown on {{ r.date|date:"j M Y" }} to {% for s in r.sessions %}<a href="{% url 'staff_member' s.user.slug %}">{{ s.user.display_name }}</a> (session {{ s.pk }}, {{ s.browser_family }} on {{ s.os_family }}, signed in {{ s.created_at|date:"j M Y" }}){% if not forloop.last %}, or {% endif %}{% empty %}{% if r.exports %}{% for e in r.exports %}the data export of {% if e.user.status == "tombstone" %}{{ e.user.display_name }}{% else %}<a href="{% url 'staff_member' e.user.slug %}">{{ e.user.display_name }}</a>{% endif %}, asked for on {{ e.requested_at|date:"j M Y" }} (request {{ e.pk }}){% endfor %}{% else %}a session whose record has since been deleted (mark {{ r.seed }}){% endif %}{% endfor %}.</p>
   {% empty %}<p>No marks found. The excerpt may be too short, retyped, or copied by a tool that drops invisible characters.</p>{% endfor %}
 </section>
 {% endif %}

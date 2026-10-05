@@ -8,6 +8,17 @@ from accounts.fields import EncryptedTextField
 from core.immutability import HistoryRowMixin
 
 
+TOMBSTONE_PREFIX = "former member"
+
+
+def check_display_name(name):
+    """No member may choose a name that reads as an erased account's (rule 80, decided 5 Oct 2026)."""
+    from django.core.exceptions import ValidationError
+
+    if " ".join((name or "").split()).lower().startswith(TOMBSTONE_PREFIX):
+        raise ValidationError("Display names starting “Former member” are kept for erased accounts.")
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **fields):
         user = self.model(email=self.normalize_email(email), **fields)

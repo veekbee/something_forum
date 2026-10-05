@@ -167,34 +167,41 @@ def due_audit_entries(using, departures, cutoff):
     return due
 
 
-def _user_fields(model):
-    from accounts.models import User
-
-    return [f.attname for f in model._meta.concrete_fields if f.is_relation and f.related_model is User]
+def _due(subjects, departures, cutoff):
+    return {pk for pk, ids in subjects.items() if departures.all_left_before(ids, cutoff)}
 
 
-def _due_rows(using, model, departures, cutoff, extra=()):
-    fields = _user_fields(model)
-    due = set()
-    rows = model.objects.using(using).values_list("pk", *fields, *extra)
-    members = {}
-    for row in rows:
-        members.setdefault(row[0], set()).update(v for v in row[1:] if v)
-    for pk, ids in members.items():
-        if departures.all_left_before(ids, cutoff):
-            due.add(pk)
-    return due
+def _subjects(using):
+    """Who each moderation record is about, leaving out the staff who handled it (decided 5 Oct
+    2026): an action's target; a report's reporter and reported member (the post's author if no
+    member is named), except that an escalation's reporter is the escalating Moderator; a sponsor
+    review's sponsor and banned member; the members a DM access grant covers."""
+    from moderation.models import DMAccessGrant, ModerationAction, Report, SponsorReview
+
+    actions = {pk: {t} for pk, t in ModerationAction.objects.using(using).values_list("pk", "target_user_id")}
+    reports = {}
+    for pk, kind, reporter, user, author in Report.objects.using(using).values_list(
+            "pk", "kind", "reporter_id", "user_id", "post__author_id"):
+        ids = {user or author}
+        if kind != Report.Kind.ESCALATION:
+            ids.add(reporter)
+        reports[pk] = {i for i in ids if i}
+    reviews = {pk: {a for a in (sponsor, banned) if a} for pk, sponsor, banned in
+               SponsorReview.objects.using(using).values_list("pk", "sponsor_id", "banned_member_id")}
+    grants = {pk: set() for pk in DMAccessGrant.objects.using(using).values_list("pk", flat=True)}
+    for pk, user in DMAccessGrant.subject_users.through.objects.using(using).values_list(
+            "dmaccessgrant_id", "user_id"):
+        grants[pk].add(user)
+    return actions, reports, reviews, grants
 
 
 def due_moderation_records(using, departures, cutoff):
     """Reports (flags and escalations included), sponsor reviews, DM access grants, annulled
     permanent-ban records and moderation actions, keeping any action something kept refers to."""
-    from moderation.models import DMAccessGrant, ModerationAction, PermanentBanRecord, Report, SponsorReview
+    from moderation.models import ModerationAction, PermanentBanRecord, Report, SponsorReview
 
-    reports = _due_rows(using, Report, departures, cutoff)
-    reviews = _due_rows(using, SponsorReview, departures, cutoff)
-    grants = _due_rows(using, DMAccessGrant, departures, cutoff, extra=("subject_users",))
-    actions = _due_rows(using, ModerationAction, departures, cutoff)
+    subjects = _subjects(using)
+    actions, reports, reviews, grants = (_due(s, departures, cutoff) for s in subjects)
     bans = {}
     for pk, action_id, annulled_at in PermanentBanRecord.objects.using(using).values_list(
             "pk", "action_id", "annulled_at"):

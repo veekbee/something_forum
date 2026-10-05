@@ -325,6 +325,24 @@ def report_member(request, slug):
 # --- staff views (rule 37) -------------------------------------------------------------------
 
 
+def _tombstone_view(request, member):
+    """An erased account: the label and the moderation records kept until retention, read-only,
+    and nothing personal (decided 5 Oct 2026)."""
+    from django.db.models import Q
+
+    from moderation.models import DMAccessGrant
+
+    return render(request, "moderation/member_tombstone.html", {
+        "member": member,
+        "actions": ModerationAction.objects.filter(target_user=member).select_related(
+            "initiated_by", "approved_by", "declined_by").prefetch_related("scope_subforums").order_by("-created_at"),
+        "reports_about": Report.objects.filter(user=member).order_by("-created_at"),
+        "reports_by": Report.objects.filter(reporter=member).exclude(kind=Report.Kind.ESCALATION).order_by("-created_at"),
+        "reviews": SponsorReview.objects.filter(Q(sponsor=member) | Q(banned_member=member)).order_by("-created_at"),
+        "grants": DMAccessGrant.objects.filter(subject_users=member).select_related("moderator").order_by("-created_at"),
+    })
+
+
 def member_view(request, slug):
     """Two tiers: Moderators see posts in sub-forums they moderate, moderation history, sponsor and
     invitees; Admins and Owners also see DMs, blocks, payment, sessions and, on request, identity
@@ -343,6 +361,8 @@ def member_view(request, slug):
     view = can(request.user, "member.staff_view", member)
     if not view:
         raise PermissionDenied(view.reason)
+    if view.via == "tombstone":
+        return _tombstone_view(request, member)
     full = view.via == "full"
     posts = Post.objects.filter(author=member, thread__kind=Thread.Kind.DISCUSSION)
     if not full:

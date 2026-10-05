@@ -4,11 +4,12 @@ creates what is missing and never overwrites settings or passwords someone has s
 import os
 
 from allauth.account.models import EmailAddress
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
 
-from accounts.models import Role, RoleAssignment, User
+from accounts.models import Role, RoleAssignment, User, check_display_name
 from boards.models import SubForum
 
 ROLES = [
@@ -133,6 +134,10 @@ class Command(BaseCommand):
         email = os.environ.get("OWNER_EMAIL", "").strip()
         password = os.environ.get("OWNER_PASSWORD", "")
         display_name = os.environ.get("OWNER_DISPLAY_NAME", "Owner").strip() or "Owner"
+        try:
+            check_display_name(display_name)
+        except ValidationError as exc:
+            raise CommandError(f"OWNER_DISPLAY_NAME: {exc.messages[0]}") from exc
         if not email or not password:
             raise CommandError("No Owner yet: set OWNER_EMAIL and OWNER_PASSWORD to create one.")
 

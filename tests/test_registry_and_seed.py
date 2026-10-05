@@ -46,6 +46,7 @@ def test_registry_defaults_match_design():
         "export.min_days_between": 7,
         "erasure.deadline_days": 30,
         "erasure.deferral_days": 30,
+        "erasure.reminder_days": 7,
         "jobs.daily_hour_utc": 3,
         "scraping.requests_per_10_min": 600,
         "session.concurrency_window_minutes": 30,

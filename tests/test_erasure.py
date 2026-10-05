@@ -393,3 +393,57 @@ def test_retention_counts_an_erased_member_as_left(life, owner, database_roles):
     retention.run()
     assert not AuditEntry.objects.filter(pk=entry.pk).exists()
     assert DataRequest.objects.filter(user=member, kind="erasure").exists()  # the row survives
+
+
+# --- the reserved prefix (decided 5 Oct 2026) -----------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["Former member 123456", "former MEMBER", "  Former   member of the band"])
+def test_nobody_chooses_a_former_member_name(make_user, name):
+    from sponsorship import onboarding
+    from tests.factories import PASSWORD, invite
+
+    invitation, token = invite(make_user("tenured"))
+    with pytest.raises(ValidationError, match="kept for erased accounts"):
+        onboarding.accept(token, name, PASSWORD)
+    assert onboarding.accept(token, "Formerly a member", PASSWORD).invitee.display_name == "Formerly a member"
+
+
+def test_the_seed_refuses_it_for_the_owner(db, monkeypatch):
+    from io import StringIO
+
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    monkeypatch.setenv("OWNER_EMAIL", "owner@example.test")
+    monkeypatch.setenv("OWNER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("OWNER_DISPLAY_NAME", "Former member 1")
+    with pytest.raises(CommandError, match="OWNER_DISPLAY_NAME"):
+        call_command("seed", stdout=StringIO())
+
+
+# --- the read-only staff view (decided 5 Oct 2026) -------------------------------------------
+
+
+def test_admins_and_owners_see_the_kept_records_and_nothing_personal(life, owner, make_user):
+    from moderation import services as moderation
+
+    member, admin = life["member"], make_user("admin")
+    moderation.initiate_action(admin, member, "warning", internal_reason="Kept for the record",
+                               public_summary="Rude")
+    erased(member, owner)
+    page = signed_in(admin).get(f"/staff/members/{member.slug}/").content.decode()
+    page = page[page.index("<main"):page.index("</main>")]  # the menu has its own links
+    assert member.display_name in page and "Kept for the record" in page and "read-only" in page
+    for absent in (life["old"]["email"], "A thought worth keeping", "Remove member", "Reinstate", "Moderate",
+                   "Sessions", "Payment"):
+        assert absent not in page
+    assert signed_in(make_user("moderator")).get(f"/staff/members/{member.slug}/").status_code == 403
+
+
+def test_the_reminder_follows_its_setting(make_user, owner):
+    from core.services import set_site_setting
+
+    asked(make_user("full"))
+    set_site_setting(owner, "erasure.reminder_days", 20)
+    assert erasure.remind_owners(now=timezone.now() + timedelta(days=11)) == 1

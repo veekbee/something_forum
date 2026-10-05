@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ member.display_name }}: staff view{% endblock %}
+{% block main_class %} class="staff"{% endblock %}
+{% block content %}
+<h1>{{ member.display_name }} <span class="muted">· staff view</span></h1>
+<p class="notice">An erased account. Membership ended {{ member.removed_at|date:"j M Y" }}. These records are kept, read-only, until the retention period ends; nothing personal remains.</p>
+
+<section class="panel"><h2>Moderation history</h2>
+  <ul class="list">{% for a in actions %}<li>{{ a.get_kind_display|capfirst }}{% for sf in a.scope_subforums.all %}{% if forloop.first %} in {% elif forloop.last %} and {% else %}, {% endif %}{{ sf.name }}{% endfor %} <span class="status">{{ a.get_status_display }}</span>
+    <div class="meta muted">{{ a.created_at|date:"j M Y" }} · {{ a.initiated_by.display_name }}{% if a.approved_by %} / {{ a.approved_by.display_name }}{% endif %}{% if a.declined_by %} · declined by {{ a.declined_by.display_name }}: {{ a.decline_reason }}{% endif %}</div>
+    <div class="muted">{{ a.internal_reason }}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+
+<section class="panel"><h2>Reports about this account</h2>
+  <ul class="list">{% for r in reports_about %}<li>{{ r.get_kind_display|capfirst }}{% if r.reason %}: {{ r.get_reason_display }}{% endif %} <span class="status">{{ r.get_status_display }}</span>
+    <div class="meta muted">{{ r.created_at|date:"j M Y" }}{% if r.outcome %} · {{ r.get_outcome_display }}{% endif %}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+
+<section class="panel"><h2>Reports this account filed</h2>
+  <ul class="list">{% for r in reports_by %}<li>{{ r.get_kind_display|capfirst }}{% if r.reason %}: {{ r.get_reason_display }}{% endif %} <span class="status">{{ r.get_status_display }}</span>
+    <div class="meta muted">{{ r.created_at|date:"j M Y" }}{% if r.outcome %} · {{ r.get_outcome_display }}{% endif %}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+
+<section class="panel"><h2>Sponsor reviews</h2>
+  <ul class="list">{% for v in reviews %}<li>{% if v.sponsor_id == member.pk %}As sponsor{% else %}As the banned member{% endif %} <span class="status">{{ v.get_status_display }}</span>
+    <div class="meta muted">{{ v.created_at|date:"j M Y" }}{% if v.outcome %} · {{ v.get_outcome_display }}{% endif %}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+
+<section class="panel"><h2>Direct-message access grants</h2>
+  <ul class="list">{% for g in grants %}<li>To {{ g.moderator.display_name }}
+    <div class="meta muted">{{ g.created_at|date:"j M Y" }} · until {{ g.expires_at|date:"j M Y" }}</div></li>{% empty %}<li class="muted">None.</li>{% endfor %}</ul>
+</section>
+{% endblock %}

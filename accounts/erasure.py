@@ -34,7 +34,6 @@ from core.permissions import can
 Kind, Status = DataRequest.Kind, DataRequest.Status
 WAITING = (Status.OPEN, Status.DEFERRED)
 PLACEHOLDER = "Removed at the author's request"
-REMINDER_DAYS = 7
 
 
 def _require(actor, action, target=None):
@@ -308,11 +307,11 @@ def run_erasures():
 
 
 def remind_owners(now=None):
-    """Once per request, when its deadline is a week away (or past) and it is still waiting."""
+    """Once per request, when its deadline is erasure.reminder_days away (or past) and it still waits."""
     now = now or timezone.now()
     sent = 0
     for item in DataRequest.objects.filter(kind=Kind.ERASURE, status__in=WAITING):
-        if deadline(item) - now > timedelta(days=REMINDER_DAYS):
+        if deadline(item) - now > timedelta(days=registry.site_value("erasure.reminder_days")):
             continue
         if Notification.objects.filter(kind="data.erasure_due_soon", payload__request=item.pk).exists():
             continue

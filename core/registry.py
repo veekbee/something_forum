@@ -152,6 +152,8 @@ _SETTINGS = [
             "Days an Owner has to run an erasure request."),
     Setting("erasure.deferral_days", 30, frozenset({SITE}), _positive_int, "confirmed",
             "Days one deferral of an erasure request adds."),
+    Setting("erasure.reminder_days", 7, frozenset({SITE}), _positive_int, "proposed",
+            "Owners are reminded once when an erasure request is this many days from its deadline."),
     Setting("jobs.daily_hour_utc", 3, frozenset({SITE}), _hour, "proposed",
             "Hour (UTC) the daily jobs run."),
     Setting("scraping.requests_per_10_min", 600, frozenset({SITE}), _positive_int, "proposed",

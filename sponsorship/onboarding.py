@@ -20,7 +20,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from accounts import roles
-from accounts.models import IdentityRecord, Role, RoleAssignment, User
+from accounts.models import IdentityRecord, Role, RoleAssignment, User, check_display_name
 from audit import log
 from billing.models import Subscription
 from core import registry
@@ -136,6 +136,7 @@ def accept(token, display_name, password):
     display_name = display_name.strip()
     if not display_name:
         raise ValidationError("Choose a display name.")
+    check_display_name(display_name)
     user = User(
         email=invitation.invitee_email, display_name=display_name, slug=_unique_slug(display_name),
         status=User.Status.INVITED,

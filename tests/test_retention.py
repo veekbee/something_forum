@@ -263,20 +263,59 @@ def _warn(staff, member):
     return action
 
 
-def test_moderation_records_go_by_the_same_rule(make_user, general):
+def test_moderation_records_go_once_their_subject_left_whoever_handled_them(make_user, general):
     admin, member, reporter = make_user("admin"), make_user("full"), make_user("full")
     post = make_post(make_thread(general, reporter), member)
     report, _ = reporting.report(reporter, post, REASON)
     action = _warn(admin, member)
     left(member, LONG)
+    counts = retention.run()
+    assert not ModerationAction.objects.filter(pk=action.pk).exists()  # the Admin still here does not count
+    assert Report.objects.filter(pk=report.pk).exists()  # the reporter has not left
+    assert counts["moderation_records"] == 1
     left(reporter, LONG)
     retention.run()
-    assert Report.objects.filter(pk=report.pk).exists() is False
-    assert ModerationAction.objects.filter(pk=action.pk).exists()  # the Admin is still here
-    left(admin, LONG)
-    counts = retention.run()
-    assert not ModerationAction.objects.filter(pk=action.pk).exists()
-    assert counts["moderation_records"] >= 1
+    assert not Report.objects.filter(pk=report.pk).exists()
+
+
+def test_an_escalations_subject_is_the_member_not_the_moderator(make_user, general):
+    moderator, member = make_user("moderator"), make_user("full")
+    post = make_post(make_thread(general, member), member, is_held=True)
+    escalation = Report.objects.create(kind=Report.Kind.ESCALATION, reporter=moderator, user=member, post=post,
+                                       status="escalated", escalated_by=moderator, escalation_note="x")
+    left(member, LONG)
+    retention.run()
+    assert not Report.objects.filter(pk=escalation.pk).exists()
+
+
+def test_a_report_without_a_named_member_is_about_the_posts_author(make_user, general):
+    reporter, author = make_user("full"), make_user("full")
+    post = make_post(make_thread(general, author), author)
+    report = Report.objects.create(kind=Report.Kind.POST, reporter=reporter, post=post, reason=REASON)
+    left(reporter, LONG)
+    retention.run()
+    assert Report.objects.filter(pk=report.pk).exists()
+    left(author, LONG)
+    retention.run()
+    assert not Report.objects.filter(pk=report.pk).exists()
+
+
+def test_sponsor_reviews_and_grants_are_about_their_members(make_user, owner):
+    from moderation.models import DMAccessGrant, SponsorReview
+
+    sponsor_user, banned, moderator = make_user("full"), make_user("guest"), make_user("moderator")
+    review = SponsorReview.objects.create(sponsor=sponsor_user, banned_member=banned, opened_by=owner,
+                                          open_reason="by hand")
+    grant = DMAccessGrant.objects.create(moderator=moderator, granted_by=owner, case_note="x",
+                                         expires_at=timezone.now())
+    grant.subject_users.add(banned)
+    left(banned, LONG)
+    retention.run()
+    assert SponsorReview.objects.filter(pk=review.pk).exists()  # the sponsor is still here
+    assert not DMAccessGrant.objects.filter(pk=grant.pk).exists()  # the Moderator does not count
+    left(sponsor_user, LONG)
+    retention.run()
+    assert not SponsorReview.objects.filter(pk=review.pk).exists()
 
 
 def test_a_standing_permanent_ban_keeps_its_record_and_action(make_user, owner):
@@ -337,15 +376,16 @@ def test_conversations_go_once_everyone_left_long_enough_ago(make_user):
     assert counts["conversations"] == 1
 
 
-def test_a_conversation_a_kept_record_refers_to_is_kept(make_user):
-    a, b, admin = make_user("full"), make_user("full"), make_user("admin")
+def test_a_conversation_a_kept_record_refers_to_is_kept(make_user, owner):
+    a, b = make_user("full"), make_user("full")
     thread = make_dm(a, b)
     post = make_post(thread, a)
-    moderation.initiate_action(admin, a, "warning", internal_reason="In a DM", related_post=post)
+    action = permanent.impose(owner, a, "threats in a message", "Threats")
+    ModerationAction.objects.filter(pk=action.pk).update(related_post=post)
     left(a, LONG)
     left(b, LONG)
     retention.run()
-    assert Thread.objects.filter(pk=thread.pk).exists()
+    assert Thread.objects.filter(pk=thread.pk).exists()  # the standing Permanent Ban keeps it
 
 
 def test_discussion_threads_are_never_deleted(make_user, general):

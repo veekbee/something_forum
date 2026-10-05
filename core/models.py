@@ -89,9 +89,8 @@ class DataRequest(models.Model):
     link_token_hash = models.CharField(max_length=64, blank=True)
     link_expires_at = models.DateTimeField(null=True, blank=True)
     downloaded_at = models.DateTimeField(null=True, blank=True)
-    # Other members' messages in an export are watermarked with this seed, copied from the
-    # requesting session (or new, for an Owner-opened request), so the tracing page finds it
-    # after the session record is gone.
+    # Other members' messages in an export are watermarked with this seed, the export's own, so the
+    # tracing page finds the request and the member (decided 5 Oct 2026).
     watermark_seed = models.CharField(max_length=64, blank=True, db_index=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     handled_by = models.ForeignKey(

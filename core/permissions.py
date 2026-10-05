@@ -819,6 +819,11 @@ def _member_staff_view(actor, member):
     """The per-member view (rule 37). Moderators get the limited tier; see member.staff_view_full."""
     if not _staff_active(actor):
         return deny("the per-member view is for staff")
+    if member.status == User.Status.TOMBSTONE:
+        # During retention, a read-only view of the kept records, for Admins and Owners (rule 80).
+        if roles.is_admin_or_owner(actor):
+            return allow(via="tombstone")
+        return deny("no such member")
     if member.status in CLOSED_STATUSES - {User.Status.REMOVED}:
         return deny("no such member")
     return allow(via="full" if roles.is_admin_or_owner(actor) else "limited")

@@ -53,7 +53,7 @@ def your_data(request):
         return redirect("your_data")
     if request.method == "POST" and request.POST.get("export"):
         try:
-            data_rights.request_export(user, getattr(request, "user_session", None))
+            data_rights.request_export(user)
         except (ValidationError, PermissionDenied) as exc:
             _errors(request, exc)
         else:
