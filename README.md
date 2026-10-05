@@ -18,7 +18,12 @@ Classics, profiles and search) and build step 4 (direct messages with blocking, 
 with reports and automatic flags, scoped actions and Probation, the per-member view, the audit log,
 the Mod feedback feed, and notifications with pointer-only email) and build step 5 (Stripe billing:
 annual membership, the lapse clock, comps, ban payments, the Permanent Ban, gifts, paid extras, the
-Rap Sheet). Pages are plain; the visual design comes later. Admins and Owners can inspect data, read-only, at `/staff/admin/`.
+Rap Sheet), build step 6 (session binding, watermarking with a tracing page, the content security
+policy, installability, custom emoji, second-factor reset, the legal pages), build step 7 (the visual
+design), build step 8 (partial-page updates with HTMX) and build step 9 (data export and erasure at
+`/data/` and, for Owners, `/staff/data/`; the jobs service; audit retention with its own database
+role). What remains before launch is the Launch checklist in the design. Admins and Owners can
+inspect data, read-only, at `/staff/admin/`.
 
 ## Running it
 

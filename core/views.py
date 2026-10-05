@@ -165,6 +165,13 @@ LEGAL_PAGES = {
         "This page will describe what the forum keeps about members and why: account and identity "
         "details, posts and direct messages, sessions and the shortened addresses they record, "
         "payments through Stripe, and the permanent-ban list, which survives erasure.",
+        "It will explain a member's export, which includes every message in the conversations they "
+        "took part in, other members' messages among them, marked to identify the export; and erasure, "
+        "after which an account is shown as \u201cFormer member\u201d and a number, posts stay under that "
+        "name, and the member may ask for particular posts to be removed in full.",
+        "It will set out retention: staff records and the audit log are deleted a set period after every "
+        "member they concern has left, and a direct-message conversation once everyone in it has left "
+        "and that period has passed.",
     ]),
 }
 
