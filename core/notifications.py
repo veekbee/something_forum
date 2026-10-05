@@ -31,7 +31,7 @@ ACCOUNT_KINDS = {
     # A scheduled job failed on two runs in a row; sent to Owners (rule 81).
     "jobs.failed",
     # Data rights (rules 79 and 80).
-    "data.export_ready",
+    "data.export_ready", "data.erasure_deferred", "data.erasure_requested", "data.erasure_due_soon",
 }
 OPTIONAL_KINDS = {
     "dm": "New direct messages",
@@ -89,6 +89,9 @@ def describe(notification):
         "emoji.refunded": ("Your custom emoji purchase was refunded", reverse("extras")),
         "account.factor_reset": ("Your authenticator was reset; set up a new one when you next sign in", None),
         "data.export_ready": ("Your data export is ready to download", reverse("your_data")),
+        "data.erasure_deferred": (f"Your erasure request was deferred: {data.get('reason', '')}", reverse("your_data")),
+        "data.erasure_requested": ("A member has asked for erasure", reverse("data_requests")),
+        "data.erasure_due_soon": ("An erasure request is due within a week", reverse("data_requests")),
         "jobs.failed": (f"The scheduled job {data.get('job', '')} has failed twice in a row; see the server log", None),
         "session.concurrent_location": ("Your account was in use from two countries at the same time, so we asked "
                                         "the newer device to sign in again. If that wasn't you, change your password.",

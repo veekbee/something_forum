@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
-from accounts import data_rights
+from accounts import data_rights, erasure
 from accounts.models import User
 from core import registry
 from core.models import DataRequest
@@ -26,13 +26,36 @@ def _serve(item, expire_seconds):
     return response
 
 
+def _errors(request, exc):
+    messages.error(request, " ".join(getattr(exc, "messages", [str(exc)])))
+
+
 def your_data(request):
     user = request.user
+    if request.method == "POST" and request.POST.get("erase"):
+        try:
+            erasure.request_erasure(user, request.POST.get("code", ""), request.POST.get("posts", ""))
+        except (ValidationError, PermissionDenied) as exc:
+            _errors(request, exc)
+        else:
+            messages.success(request, "Your erasure request is with the Owners.")
+        return redirect("your_data")
+    if request.method == "POST" and request.POST.get("withdraw"):
+        item = erasure.waiting(user)
+        try:
+            if item is None:
+                raise ValidationError("There is no request to withdraw.")
+            erasure.withdraw(user, item)
+        except (ValidationError, PermissionDenied) as exc:
+            _errors(request, exc)
+        else:
+            messages.success(request, "You withdrew your erasure request.")
+        return redirect("your_data")
     if request.method == "POST" and request.POST.get("export"):
         try:
             data_rights.request_export(user, getattr(request, "user_session", None))
         except (ValidationError, PermissionDenied) as exc:
-            messages.error(request, " ".join(getattr(exc, "messages", [str(exc)])))
+            _errors(request, exc)
         else:
             messages.success(request, "Your export is being prepared. We'll let you know when it's ready.")
         return redirect("your_data")
@@ -45,6 +68,10 @@ def your_data(request):
         "kept_until": ready and ready.completed_at + timezone.timedelta(days=registry.site_value("export.keep_days")),
         "next_allowed": data_rights.next_export_allowed(user),
         "may_export": can(user, "data.export", user),
+        "erasure": erasure.waiting(user),
+        "erasure_deadline": erasure.waiting(user) and erasure.deadline(erasure.waiting(user)),
+        "may_erase": can(user, "data.erasure", user),
+        "erasure_days": registry.site_value("erasure.deadline_days"),
     })
 
 
@@ -70,24 +97,56 @@ def export_link(request, token):
     return render(request, "account/export_link.html", {"gone": item is None}, status=200 if item else 410)
 
 
+def _member(text):
+    who = (text or "").strip().lstrip("@").lower()
+    member = User.objects.filter(slug=who).first() or User.objects.filter(email__iexact=who).first()
+    if member is None:
+        raise ValidationError("No member with that profile address or email.")
+    return member
+
+
 def data_requests(request):
-    """The Owners' page: open an export for a former member (rule 79)."""
+    """The Owners' page: the erasure queue, and requests opened for former members (rules 79, 80)."""
     decision = can(request.user, "data.requests")
     if not decision:
         raise PermissionDenied(decision.reason)
-    if request.method == "POST" and request.POST.get("export_for"):
-        who = request.POST["export_for"].strip().lstrip("@").lower()
-        member = User.objects.filter(slug=who).first() or User.objects.filter(email__iexact=who).first()
+    owner = request.user
+    if request.method == "POST":
         try:
-            if member is None:
-                raise ValidationError("No member with that profile address or email.")
-            data_rights.open_export_for(request.user, member)
+            if request.POST.get("export_for"):
+                member = _member(request.POST["export_for"])
+                data_rights.open_export_for(owner, member)
+                messages.success(request, f"An export for {member.display_name} is being prepared; "
+                                          f"the link goes to the address on file.")
+            elif request.POST.get("erase_for"):
+                member = _member(request.POST["erase_for"])
+                erasure.open_erasure_for(owner, member, request.POST.get("posts", ""))
+                messages.success(request, f"An erasure request for {member.display_name} is in the queue.")
+            elif request.POST.get("request"):
+                item = get_object_or_404(DataRequest, pk=request.POST["request"], kind=DataRequest.Kind.ERASURE)
+                action = request.POST.get("action")
+                if action == "run":
+                    if request.POST.get("confirm") != "erase":
+                        raise ValidationError("Tick the box to confirm; erasure cannot be undone.")
+                    erasure.start(owner, item)
+                    messages.success(request, "The erasure will run within five minutes.")
+                elif action == "defer":
+                    erasure.defer(owner, item, request.POST.get("reason", ""))
+                    messages.success(request, "Deferred. The member sees your reason.")
+                elif action == "withdraw":
+                    erasure.withdraw(owner, item)
+                    messages.success(request, "Withdrawn.")
         except (ValidationError, PermissionDenied) as exc:
-            messages.error(request, " ".join(getattr(exc, "messages", [str(exc)])))
-        else:
-            messages.success(request, f"An export for {member.display_name} is being prepared; "
-                                      f"the link goes to the address on file.")
+            _errors(request, exc)
         return redirect("data_requests")
+    waiting = list(DataRequest.objects.filter(
+        kind=DataRequest.Kind.ERASURE, status__in=erasure.WAITING + (DataRequest.Status.BUILDING,),
+    ).select_related("user", "opened_by").order_by("requested_at"))
+    for item in waiting:
+        item.deadline = erasure.deadline(item)
+        item.may_run = can(owner, "data.erasure.run", item)
+        item.may_defer = can(owner, "data.erasure.defer", item)
+        item.may_withdraw = can(owner, "data.erasure.withdraw", item)
     exports = DataRequest.objects.filter(kind=DataRequest.Kind.EXPORT, opened_by__isnull=False).select_related(
         "user", "opened_by").order_by("-requested_at")[:50]
-    return render(request, "account/data_requests.html", {"exports": exports})
+    return render(request, "account/data_requests.html", {"erasures": waiting, "exports": exports})

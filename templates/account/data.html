@@ -18,4 +18,35 @@
   <form method="post">{% csrf_token %}<input type="hidden" name="export" value="1"><button data-wait="Asking…">Ask for an export</button></form>
   {% endif %}
 </section>
+<section class="panel">
+  <h2>Erasure</h2>
+  {% if erasure %}
+  {% if erasure.status == "building" %}
+  <p>Your erasure is running now. It cannot be stopped.</p>
+  {% else %}
+  <p>You asked for erasure on {{ erasure.requested_at|date:"j F Y" }}. An Owner will run it by {{ erasure_deadline|date:"j F Y" }}.</p>
+  {% if erasure.status == "deferred" %}<div class="band info"><div class="inner"><p>An Owner deferred it once, until {{ erasure.deferred_until|date:"j F Y" }}: {{ erasure.deferral_reason }}</p></div></div>{% endif %}
+  {% if erasure.posts_to_remove %}<p class="muted small">You asked for {{ erasure.posts_to_remove|length }} post{{ erasure.posts_to_remove|length|pluralize }} to be removed in full.</p>{% endif %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="withdraw" value="1"><button class="secondary">Withdraw the request</button></form>
+  {% endif %}
+  {% else %}
+  <p>Erasure ends your membership, if it hasn't ended, and removes you from the forum for good. It cannot be undone, and your account cannot be restored.</p>
+  <ul>
+    <li>Your name, profile address, email, avatar and caption are removed. Your account becomes “Former member” and a number.</li>
+    <li>Your posts and messages stay, under that name, because other members' replies depend on them. You can list posts you want removed in full.</li>
+    <li>Your identity details, sign-in details, sessions, notifications, settings and the blocks you made are deleted, and so is your payment account with Stripe. Payment records stay, for accounting.</li>
+    <li>Staff records about you stay, under that name, until the retention period ends.</li>
+  </ul>
+  <p class="helptext">Consider asking for an export first. An Owner runs the erasure within {{ erasure_days }} days; until then you can withdraw.</p>
+  {% if may_erase %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="erase" value="1">
+    <p><label for="erase-posts">Posts to remove in full (optional)</label><textarea id="erase-posts" name="posts" rows="3" aria-describedby="erase-posts-help"></textarea><span class="helptext" id="erase-posts-help">One link per line. Each post's words and images are removed; the replies stay.</span></p>
+    <p><label for="erase-code">Code from your authenticator app</label><input id="erase-code" name="code" inputmode="numeric" autocomplete="one-time-code" required></p>
+    <button>Ask for erasure</button>
+  </form>
+  {% else %}
+  <p class="muted">{{ may_erase.reason|capfirst }}.</p>
+  {% endif %}
+  {% endif %}
+</section>
 {% endblock %}

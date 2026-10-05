@@ -48,6 +48,8 @@ class User(AbstractBaseUser):
     # The avatar and caption extra (rule 49); without it a member has a generated avatar.
     avatar = models.ForeignKey("boards.Attachment", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     caption = models.CharField(max_length=40, blank=True)
+    # Set at erasure: the account is shown as "Former member <number>" from then on (rule 80).
+    tombstone_number = models.PositiveIntegerField(null=True, blank=True, unique=True)
 
     class EmojiDisplay(models.TextChoices):
         IMAGES = "images"

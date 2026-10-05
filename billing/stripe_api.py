@@ -27,6 +27,16 @@ def cancel_subscription(subscription_id):
     return _client().Subscription.cancel(subscription_id)
 
 
+def delete_customer(customer_id):
+    """Erasure (rule 80). A customer Stripe no longer has counts as deleted."""
+    try:
+        return _client().Customer.delete(customer_id)
+    except stripe.InvalidRequestError as exc:
+        if getattr(exc, "code", None) != "resource_missing":
+            raise
+        return None
+
+
 def verify_webhook(payload, signature):
     """Raises stripe.SignatureVerificationError if the payload was not signed with our secret."""
     stripe.WebhookSignature.verify_header(payload, signature, settings.STRIPE_WEBHOOK_SECRET, tolerance=300)

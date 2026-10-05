@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ member.display_name }}{% endblock %}
+{% block content %}
+<div class="profile-head">
+  <div><h1>{{ member.display_name }}</h1>
+    <div class="muted small">Membership ended</div>
+  </div>
+</div>
+{% endblock %}

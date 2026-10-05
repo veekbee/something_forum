@@ -60,10 +60,14 @@ DAILY = [
 ]
 
 def _data_requests():
-    from accounts import data_rights
+    from accounts import data_rights, erasure
 
     built, deleted = data_rights.build_exports(), data_rights.delete_old_exports()
-    return f"built {built} export(s), deleted {deleted} old file(s)" if built or deleted else ""
+    erased, reminded = erasure.run_erasures(), erasure.remind_owners()
+    if not (built or deleted or erased or reminded):
+        return ""
+    return (f"built {built} export(s), deleted {deleted} old file(s), ran {erased} erasure(s), "
+            f"sent {reminded} reminder(s)")
 
 
 FREQUENT = [Job("data_requests", _data_requests)]

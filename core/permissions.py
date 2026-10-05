@@ -1092,6 +1092,8 @@ def _member_view_profile(actor, member):
     base = _can_read_anything(actor)
     if not base:
         return base
+    if member.status == User.Status.TOMBSTONE:
+        return allow(via="tombstone")  # only the label and "membership ended" (rule 80)
     if member.status in HIDDEN_STATUSES and not (member.status == User.Status.REMOVED and member.removed_at):
         return deny("no such member")
     return allow()
@@ -1153,6 +1155,8 @@ def _member_view_record(actor, member):
     viewable = _member_view_profile(actor, member)
     if not viewable:
         return viewable
+    if viewable.via == "tombstone":
+        return deny("no such member")
     if roles.trust_rank(actor) < roles.rank_of(roles.PROVISIONAL):
         return deny("the disciplinary record is for Provisional members and above")
     return allow()
@@ -1754,3 +1758,54 @@ def _data_open_for(actor, member):
 def _data_requests(actor, _target):
     """The data-request queue is for Owners only."""
     return allow() if _active_owner(actor) else deny("data requests are for Owners")
+
+
+def _staff_role(member):
+    from boards.dm import is_staff_role
+
+    return is_staff_role(member)
+
+
+@rule("data.erasure")
+def _data_erasure(actor, member):
+    """A member asks for their own erasure. Staff give up their role first, so the last Owner can
+    never be erased (rule 80)."""
+    if member.pk != actor.pk:
+        return deny("members ask for their own erasure")
+    if actor.status in CLOSED_STATUSES:
+        return deny(f"account is {actor.status}")
+    if _staff_role(actor):
+        return deny("give up your staff role first")
+    return allow()
+
+
+@rule("data.erasure.withdraw")
+def _data_erasure_withdraw(actor, item):
+    if item.kind != "erasure" or item.status not in ("open", "deferred"):
+        return deny("only a waiting erasure request can be withdrawn")
+    if item.user_id == actor.pk and actor.status not in CLOSED_STATUSES:
+        return allow()
+    if item.opened_by_id and _active_owner(actor):
+        return allow(via="for a former member")
+    return deny("only the member withdraws their request")
+
+
+@rule("data.erasure.defer")
+def _data_erasure_defer(actor, item):
+    if not _active_owner(actor):
+        return deny("only Owners defer an erasure")
+    if item.kind != "erasure" or item.status != "open" or item.deferred_until is not None:
+        return deny("an erasure is deferred once, while it waits")
+    return allow()
+
+
+@rule("data.erasure.run")
+def _data_erasure_run(actor, item):
+    """Only an Owner runs a data-destroying operation (rule 4)."""
+    if not (_data_destroy(actor, item) and _active_owner(actor)):
+        return deny("only Owners run an erasure")
+    if item.kind != "erasure" or item.status not in ("open", "deferred", "building"):
+        return deny("this request is not waiting to run")
+    if _staff_role(item.user):
+        return deny("the member must give up their staff role first")
+    return allow()

@@ -3,6 +3,37 @@
 {% block content %}
 <h1>Data requests</h1>
 <section class="panel">
+  <h2>Erasure requests</h2>
+  {% if erasures %}
+  <ul class="list">{% for e in erasures %}
+    <li>
+      <strong>{{ e.user.display_name }}</strong> <span class="status {{ e.status }}">{% if e.status == "building" %}Running{% else %}{{ e.get_status_display }}{% endif %}</span><br>
+      <span class="muted small">Asked {{ e.requested_at|date:"j M Y" }}{% if e.opened_by %}, opened by {{ e.opened_by.display_name }}{% endif %} · due by {{ e.deadline|date:"j M Y" }}{% if e.deferral_reason %} · deferred: {{ e.deferral_reason }}{% endif %}</span>
+      {% if e.posts_to_remove %}<p class="small">Posts to remove in full: {% for pk in e.posts_to_remove %}<a href="{% url 'post_link' pk %}">{{ pk }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% if e.status != "building" %}
+      {% if not e.may_run %}<p class="small muted">{{ e.may_run.reason|capfirst }}.</p>{% endif %}
+      <div class="actions">
+        {% if e.may_run %}<form method="post">{% csrf_token %}<input type="hidden" name="request" value="{{ e.pk }}"><input type="hidden" name="action" value="run">
+          <label class="inline"><input type="checkbox" name="confirm" value="erase" required> Erase {{ e.user.display_name }}; this cannot be undone</label> <button>Run erasure</button></form>{% endif %}
+        {% if e.may_defer %}<form method="post">{% csrf_token %}<input type="hidden" name="request" value="{{ e.pk }}"><input type="hidden" name="action" value="defer">
+          <label for="defer-{{ e.pk }}">Reason the member will see</label><input id="defer-{{ e.pk }}" name="reason" required> <button class="secondary">Defer once</button></form>{% endif %}
+        {% if e.may_withdraw %}<form method="post">{% csrf_token %}<input type="hidden" name="request" value="{{ e.pk }}"><input type="hidden" name="action" value="withdraw"><button class="secondary">Withdraw for them</button></form>{% endif %}
+      </div>
+      {% endif %}
+    </li>
+  {% endfor %}</ul>
+  {% else %}<p class="muted">No erasure requests are waiting.</p>{% endif %}
+</section>
+<section class="panel">
+  <h2>Erasure for a former member</h2>
+  <p class="helptext">A member whose membership ended asks by email. Once you have confirmed who is asking, through the address on file, open the request here.</p>
+  <form method="post">{% csrf_token %}
+    <p><label for="erase-for">Profile address or email</label><input id="erase-for" name="erase_for" required></p>
+    <p><label for="erase-for-posts">Posts to remove in full (optional)</label><textarea id="erase-for-posts" name="posts" rows="3"></textarea></p>
+    <button>Open an erasure request</button>
+  </form>
+</section>
+<section class="panel">
   <h2>Export for a former member</h2>
   <p class="helptext">A member whose membership ended cannot sign in. Once you have confirmed who is asking, through the email address on file, open their export here. The link is emailed to that address, works once and expires.</p>
   <form method="post">{% csrf_token %}

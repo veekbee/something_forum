@@ -559,8 +559,11 @@ def move_thread(request, pk):
 @require_GET
 def member_profile(request, slug):
     member = get_object_or_404(User, slug=slug)
-    if not can(request.user, "member.view_profile", member):
+    decision = can(request.user, "member.view_profile", member)
+    if not decision:
         raise Http404
+    if decision.via == "tombstone":
+        return render(request, "boards/profile_tombstone.html", {"member": member})
     role = roles.trust_role(member)
     context = {
         "member": member,
