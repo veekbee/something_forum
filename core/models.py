@@ -71,3 +71,21 @@ class DataRequest(models.Model):
     handled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
+
+
+class JobRun(models.Model):
+    """One run of a scheduled job by run_jobs (core.jobs). The last success decides catch-up; the
+    failure count decides the Owner notification (rule 81)."""
+
+    job = models.CharField(max_length=64)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField()
+    ok = models.BooleanField()
+    error = models.TextField(blank=True)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        indexes = [models.Index(fields=["job", "ok", "started_at"])]
+
+    def __str__(self):
+        return f"{self.job} {self.started_at:%Y-%m-%d %H:%M} {'ok' if self.ok else 'failed'}"

@@ -37,6 +37,11 @@ def _optional(validator):
     return validate
 
 
+def _hour(value):
+    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 23:
+        raise ValidationError("must be an hour from 0 to 23")
+
+
 def _bool(value):
     if not isinstance(value, bool):
         raise ValidationError("must be true or false")
@@ -137,6 +142,18 @@ _SETTINGS = [
             "Every account must enrol TOTP before reaching the forum."),
     Setting("retention.audit_years_after_departure", 2, frozenset({SITE}), _positive_int, "proposed",
             "Years audit and moderation records are kept after a member leaves."),
+    Setting("export.link_hours", 24, frozenset({SITE}), _positive_int, "proposed",
+            "Hours a data export's download link works."),
+    Setting("export.keep_days", 7, frozenset({SITE}), _positive_int, "proposed",
+            "Days a built data export is kept before its file is deleted."),
+    Setting("export.min_days_between", 7, frozenset({SITE}), _positive_int, "proposed",
+            "Days a member waits between data exports."),
+    Setting("erasure.deadline_days", 30, frozenset({SITE}), _positive_int, "confirmed",
+            "Days an Owner has to run an erasure request."),
+    Setting("erasure.deferral_days", 30, frozenset({SITE}), _positive_int, "confirmed",
+            "Days one deferral of an erasure request adds."),
+    Setting("jobs.daily_hour_utc", 3, frozenset({SITE}), _hour, "proposed",
+            "Hour (UTC) the daily jobs run."),
     Setting("scraping.requests_per_10_min", 600, frozenset({SITE}), _positive_int, "proposed",
             "Per-member page and fragment requests per 10 minutes before the account is made read-only."),
     Setting("session.concurrency_window_minutes", 30, frozenset({SITE}), _positive_int, "proposed",

@@ -28,5 +28,18 @@ services:
       db:
         condition: service_healthy
 
+  # The scheduled jobs (rule 81): frequent ones every five minutes, daily ones at jobs.daily_hour_utc.
+  jobs:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-forum}:${POSTGRES_PASSWORD:-forum}@db:5432/${POSTGRES_DB:-forum}
+    command: python manage.py run_jobs
+    volumes:
+      - .:/app
+    depends_on:
+      web:
+        condition: service_started
+
 volumes:
   pgdata:

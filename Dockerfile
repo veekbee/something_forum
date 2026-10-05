@@ -10,7 +10,7 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN useradd --create-home forum
+RUN useradd --create-home forum && mkdir -p /app/staticfiles && chown forum /app/staticfiles
 USER forum
 
 EXPOSE 8000

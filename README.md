@@ -32,6 +32,9 @@ docker compose up --build
 
 Compose runs migrations, creates the cache table and runs `manage.py seed`, then serves on http://localhost:8000.
 
+For a server, `docker-compose.prod.yml` runs gunicorn and the jobs service from the same image, with
+no source volume; the database, object store and proxy are the host's.
+
 ### Without Docker
 
 Needs Python 3.12+ and PostgreSQL 16+.
@@ -56,16 +59,21 @@ printed to the console.
 
 ## Scheduled jobs
 
-Run these once a day (cron, or the host's scheduler):
+`manage.py run_jobs` runs them: the jobs service in both Compose files. Every five minutes it runs
+the frequent jobs; once a day, at `jobs.daily_hour_utc` (03:00 UTC by default), it runs the daily
+ones in the order below, catching up a missed day on its next tick. Each job runs in its own
+transaction under a lock, so two copies never run one job at once; a job that fails twice in a row
+notifies the Owners. Without Compose, keep `manage.py run_jobs` running, or run
+`manage.py run_jobs --once` every five minutes. The daily jobs, which can also be run by hand:
 
 ```sh
 .venv/bin/python manage.py expire_invitations     # pending invitations past invitation.expiry_days
 .venv/bin/python manage.py delete_ended_accounts  # invited accounts whose invitation ended unapproved
 .venv/bin/python manage.py expire_actions         # mark time-limited moderation actions as ended
-.venv/bin/python manage.py send_notification_emails  # the daily pointer email for chosen kinds
 .venv/bin/python manage.py billing_daily          # renewal and lapse reminders, read-only on lapse, comp endings
 .venv/bin/python manage.py sessions_daily         # end expired and idle sessions, delete old session records
 .venv/bin/python manage.py prune_read_positions   # delete read positions on threads untouched for a year
+.venv/bin/python manage.py send_notification_emails  # the daily pointer email for chosen kinds
 ```
 
 Once, on the day billing goes live, an Owner runs `manage.py launch_billing`: comps granted before

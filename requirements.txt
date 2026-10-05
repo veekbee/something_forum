@@ -11,6 +11,8 @@ Pillow>=12
 stripe>=16,<17
 # Reads the local country database (MaxMind GeoLite2 or DB-IP Lite format) for session binding.
 maxminddb>=2.6,<3
+# The production web server (docker-compose.prod.yml).
+gunicorn>=23,<24
 
 # Development and tests
 pytest>=9,<10

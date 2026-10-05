@@ -81,3 +81,14 @@ def leadership():
         role_assignments__scope_subforum__isnull=True,
         role_assignments__role__name__in=(ADMIN, OWNER),
     ).distinct()
+
+
+def owners():
+    """Members whose trust role is Owner."""
+    from accounts.models import User
+
+    return User.objects.filter(
+        role_assignments__revoked_at__isnull=True,
+        role_assignments__scope_subforum__isnull=True,
+        role_assignments__role__name=OWNER,
+    ).distinct()

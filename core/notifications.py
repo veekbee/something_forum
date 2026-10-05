@@ -28,6 +28,8 @@ ACCOUNT_KINDS = {
     "sponsorship.transfer_opened", "sponsorship.offer", "sponsorship.transfer_ended",
     # Session binding (rule 58) and second-factor reset (rule 63).
     "session.concurrent_location", "account.factor_reset",
+    # A scheduled job failed on two runs in a row; sent to Owners (rule 81).
+    "jobs.failed",
 }
 OPTIONAL_KINDS = {
     "dm": "New direct messages",
@@ -84,6 +86,7 @@ def describe(notification):
         "emoji.retired": (f"Your emoji :{data.get('name', '')}: was retired", reverse("emoji_list")),
         "emoji.refunded": ("Your custom emoji purchase was refunded", reverse("extras")),
         "account.factor_reset": ("Your authenticator was reset; set up a new one when you next sign in", None),
+        "jobs.failed": (f"The scheduled job {data.get('job', '')} has failed twice in a row; see the server log", None),
         "session.concurrent_location": ("Your account was in use from two countries at the same time, so we asked "
                                         "the newer device to sign in again. If that wasn't you, change your password.",
                                         reverse("sessions")),

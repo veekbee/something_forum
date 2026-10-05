@@ -1,0 +1,27 @@
+# Production: the web server and the jobs service, from the same image, with no source volume.
+# The database, the object store and the proxy in front are the host's (see the Launch checklist
+# in docs/DESIGN.md). Every setting comes from .env on the server; see .env.example.
+#
+#   docker compose -f docker-compose.prod.yml run --rm web python manage.py migrate
+#   docker compose -f docker-compose.prod.yml up -d
+services:
+  web:
+    build: .
+    env_file: .env
+    # collectstatic fills the static volume, which the proxy serves at /static/.
+    command: sh -c "python manage.py collectstatic --noinput && gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 3"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - static:/app/staticfiles
+    restart: unless-stopped
+
+  # The scheduled jobs (rule 81). Only this service holds the retention role's credentials.
+  jobs:
+    build: .
+    env_file: .env
+    command: python manage.py run_jobs
+    restart: unless-stopped
+
+volumes:
+  static:
